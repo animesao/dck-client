@@ -1,0 +1,24 @@
+Как запушить dck-client на GitLab
+=====================================
+
+1. Открыть терминал в папке проекта:
+   cd E:\dck-client-main\dck-client-main
+
+2. Если Git не установлен — установить:
+   winget install --id Git.Git -e --source winget
+
+3. Настроить Git (если не настроен):
+   git config user.email "твой@email.com"
+   git config user.name "Твоё Имя"
+
+4. Добавить удалённый репозиторий (если не добавлен):
+   git remote add origin https://gitlab.com/animesao/dck-client.git
+
+5. Сделать коммит изменений:
+   git add -A
+   git commit -m "описание изменений"
+
+6. Запушить на GitLab:
+   git push -u origin master
+
+Готово! Код на GitLab.
