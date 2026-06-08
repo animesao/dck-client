@@ -1,15 +1,15 @@
 # dck-client — Web UI for dck Container Runtime
 
-A web-based management interface for [dck](https://gitlab.com/animesao/dck) — the lightweight, daemonless container runtime.
+A web-based management interface for [dck](https://github.com/animesao/dck) — the lightweight, daemonless container runtime.
 
 ## Quick Install on VDS
 
 ```bash
 # 1. Install dck first (if not installed)
-curl -sSL https://gitlab.com/animesao/dck-client/-/raw/main/install.sh | sudo bash
+curl -sSL https://github.com/animesao/dck-client/raw/main/install.sh | sudo bash
 
 # 2. Clone and install dck-client directly (systemd — full host access)
-git clone https://gitlab.com/animesao/dck-client.git
+git clone https://github.com/animesao/dck-client.git
 cd dck-client
 sudo ./install.sh
 ```
@@ -131,5 +131,5 @@ GOOS=linux GOARCH=amd64 go build -o dck-client-linux ./cmd/server
 ## Requirements
 
 - Linux VDS with `unshare`, `nsenter`, `ip`, `iptables`, `mount`
-- [dck](https://gitlab.com/animesao/dck) installed
+- [dck](https://github.com/animesao/dck) installed
 - Root access (dck requires root)

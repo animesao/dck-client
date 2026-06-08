@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-REPO="https://gitlab.com/animesao/dck-client"
+REPO="https://github.com/animesao/dck-client"
 BINDIR="/usr/local/bin"
 SYSTEMD="/etc/systemd/system"
 
@@ -20,7 +20,7 @@ MODE="${1:-auto}"  # auto, direct, container
 # ── Check dck ──
 if ! command -v dck >/dev/null 2>&1; then
     warn "dck is not installed. Install it first:"
-    warn "  curl -sSL https://gitlab.com/animesao/dck/-/raw/main/install.sh | sudo bash"
+    warn "  curl -sSL https://github.com/animesao/dck/raw/main/install.sh | sudo bash"
     echo ""
     read -rp "Continue without dck? [y/N] " yn
     [[ "$yn" =~ ^[yY] ]] || exit 1
