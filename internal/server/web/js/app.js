@@ -457,7 +457,9 @@ function switchDetailTab(tab) {
   document.querySelectorAll('.detail-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('detail-' + tab).classList.add('active');
-  if (tab === 'console' && termFit) setTimeout(() => termFit.fit(), 50);
+  if (tab === 'console') {
+    setTimeout(() => { if (termFit) termFit.fit(); connectConsole(); }, 50);
+  }
   // Auto‑refresh info tab + stats in real‑time
   if (tab === 'info') {
     infoInterval = setInterval(() => loadDetailInfo(currentDetailId), 4000);
@@ -510,6 +512,7 @@ function sendCommand() {
 }
 
 function connectConsole() {
+  if (wsConsole && wsConsole.readyState === WebSocket.OPEN) return;
   const id = currentDetailId;
   if (!id) return;
   const container = document.getElementById('terminal-container');
