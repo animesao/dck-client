@@ -199,9 +199,9 @@
       <div id="detail-info" class="tab-content active"><div class="empty-state"><p>Loading...</p></div></div>
       <div id="detail-logs" class="tab-content">
         <div class="log-toolbar"><button onclick="refreshLogs()" class="btn btn-sm">Refresh</button><button onclick="toggleAutoRefresh()" class="btn btn-sm" id="auto-refresh-btn">Auto: ON</button></div>
-        <pre id="log-viewer" class="log-viewer">Select a container to view logs</pre>
+        <div class="log-viewer-wrap" id="log-viewer"><div class="pt-l"><span class="pt-t">[--:--:--]</span><span class="pt-m">Select a container to view logs</span></div></div>
       </div>
-      <div id="detail-state" class="tab-content"><pre id="state-viewer" class="log-viewer">Select a container to view state</pre></div>
+      <div id="detail-state" class="tab-content"><div id="state-viewer" class="log-viewer"><div class="pt-l"><span class="pt-t">[--:--:--]</span><span class="pt-m">Select a container to view state</span></div></div></div>
       <div id="detail-console" class="tab-content">
         <div class="log-toolbar">
           <button onclick="connectConsole()" class="btn btn-sm btn-success" id="console-connect-btn">Connect</button>

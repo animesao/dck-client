@@ -127,6 +127,27 @@ func (h *ContainerHandler) State(w http.ResponseWriter, r *http.Request) {
 	w.Write(pretty)
 }
 
+func (h *ContainerHandler) Stats(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	container, err := h.dck.GetContainer(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "container not found")
+		return
+	}
+	if container.PID <= 0 {
+		writeJSON(w, http.StatusOK, map[string]string{"error": "container not running"})
+		return
+	}
+	stats, err := h.dck.GetContainerStats(container.PID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	stats.ID = container.ID
+	stats.Name = container.Name
+	writeJSON(w, http.StatusOK, stats)
+}
+
 func (h *ContainerHandler) Templates(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:

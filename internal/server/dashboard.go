@@ -26,12 +26,23 @@ func (h *DashboardHandler) Stats(w http.ResponseWriter, r *http.Request) {
 		default:
 			stopped++
 		}
-		containerStats = append(containerStats, models.ContainerCPU{
+		sc := models.ContainerCPU{
 			ID:   c.ID,
 			Name: c.Name,
 			CPU:  "-",
 			Mem:  "-",
-		})
+		}
+		if c.PID > 0 {
+			if stats, err := h.dck.GetContainerStats(c.PID); err == nil {
+				sc.CPU = stats.CPU
+				sc.Mem = stats.Mem
+				sc.MemUsage = stats.MemUsage
+				sc.MemLimit = stats.MemLimit
+				sc.CPUPercent = stats.CPUPercent
+				sc.MemPercent = stats.MemPercent
+			}
+		}
+		containerStats = append(containerStats, sc)
 	}
 
 	hostname, _ := os.Hostname()

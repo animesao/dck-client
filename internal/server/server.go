@@ -91,6 +91,7 @@ func (s *Server) Router() http.Handler {
 				r.Delete("/{id}", containers.Remove)
 				r.Get("/{id}/logs", containers.Logs)
 				r.Get("/{id}/state", containers.State)
+				r.Get("/{id}/stats", containers.Stats)
 			})
 
 			r.Route("/images", func(r chi.Router) {

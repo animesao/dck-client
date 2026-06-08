@@ -116,10 +116,14 @@ type SystemInfo struct {
 }
 
 type ContainerCPU struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	CPU   string `json:"cpu"`
-	Mem   string `json:"mem"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	CPU        string `json:"cpu"`
+	Mem        string `json:"mem"`
+	MemUsage   int64  `json:"mem_usage"`
+	MemLimit   int64  `json:"mem_limit"`
+	CPUPercent float64 `json:"cpu_percent"`
+	MemPercent float64 `json:"mem_percent"`
 }
 
 type CreateContainerRequest struct {

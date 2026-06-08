@@ -2,9 +2,10 @@
 let state = { containers: [], images: [], config: {}, blueprints: [], version: '', dckVersion: '' };
 let currentPage = 'dashboard';
 let currentDetailId = '';
-let logAutoRefresh = false;
+let logAutoRefresh = true;
 let logInterval = null;
 let infoInterval = null;
+let statsInterval = null;
 let bpImagesCache = null;
 
 /* Init */
@@ -134,9 +135,9 @@ function animateNum(id, target) {
 /* Dashboard */
 async function loadDashboard() {
   try {
-    const [sys, containers] = await Promise.all([apiGet('/api/dashboard/system'), apiGet('/api/containers?all=true')]);
+    const [dash, containers] = await Promise.all([apiGet('/api/dashboard/stats'), apiGet('/api/containers?all=true')]);
     state.containers = containers || [];
-    renderSysInfo(sys || {});
+    renderSysInfo(dash.system_info || {});
     updateStats(state.containers);
     updateDashContainerTable(state.containers);
   } catch(_) {}
@@ -148,11 +149,11 @@ function renderSysInfo(sys) {
     ['Hostname', sys.hostname || '—'],
     ['OS', sys.os || sys.platform || '—'],
     ['Arch', sys.arch || '—'],
-    ['dck Version', sys.dckVersion || sys.dck_version || '—'],
-    ['Memory Total', sys.memoryTotal || sys.memory_total || '—'],
-    ['Memory Free', sys.memoryFree || sys.memory_free || '—'],
-    ['Disk Total', sys.diskTotal || sys.disk_total || '—'],
-    ['Disk Free', sys.diskFree || sys.disk_free || '—'],
+    ['dck Version', sys.dck_version || sys.dckVersion || '—'],
+    ['Memory', sys.memory || '—'],
+    ['Disk', sys.disk || '—'],
+    ['CPU', sys.cpu || '—'],
+    ['Uptime', sys.uptime || '—'],
   ];
   el.innerHTML = fields.map(([k,v]) => '<div class="info-item"><strong>' + k + '</strong><span>' + v + '</span></div>').join('');
 }
@@ -180,6 +181,8 @@ function updateDashContainerTable(containers) {
           '<div class="dash-card-row"><span class="dash-label">Uptime</span><span class="dash-value">' + esc(c.uptime || c.created || '') + '</span></div>' +
           (c.restart ? '<div class="dash-card-row"><span class="dash-label">Restart</span><span class="dash-value">' + esc(c.restart) + '</span></div>' : '') +
           (cmd && cmd !== '—' ? '<div class="dash-card-row"><span class="dash-label">Command</span><span class="dash-value mono" style="font-size:11px">' + esc(cmd) + '</span></div>' : '') +
+          '<div class="dash-card-row"><span class="dash-label">CPU</span>' + resBar(c.cpu_percent, c.cpu) + '</div>' +
+          '<div class="dash-card-row"><span class="dash-label">RAM</span>' + resBar(c.mem_percent, c.mem) + '</div>' +
           (vols && vols !== '—' ? '<div class="dash-card-row"><span class="dash-label">Volumes</span><span class="dash-value" style="font-size:11px">' + vols + '</span></div>' : '') +
           (envs && envs !== '—' ? '<div class="dash-card-row"><span class="dash-label">Env</span><span class="dash-value" style="font-size:11px">' + envs + '</span></div>' : '') +
         '</div></div>';
@@ -407,8 +410,22 @@ async function loadDetailInfo(name) {
         ['TTY', c.tty], ['RemoveOnExit', c.remove_on_exit],
         ['Command', cmd], ['Volumes', vols], ['Environment', envs],
       ].map(([k,v]) => '<div class="info-item"><strong>' + k.replace(/([A-Z])/g,' $1').trim() + '</strong><span>' + esc(String(v ?? '—')) + '</span></div>').join('') +
-      '</div>';
+      '</div>' +
+      '<div id="detail-stats" class="detail-stats" style="margin-top:16px"><h3 style="font-size:14px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Resource Usage</h3><div class="empty-state"><p>Loading stats...</p></div></div>';
+    loadDetailStats(name);
   } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error</p></div>'; }
+}
+
+async function loadDetailStats(name) {
+  const el = document.getElementById('detail-stats');
+  if (!el) return;
+  try {
+    const r = await apiGet('/api/containers/' + encodeURIComponent(name) + '/stats');
+    if (r.error) { el.innerHTML = '<div style="font-size:12px;color:var(--text2)">Stats unavailable (container not running)</div>'; return; }
+    el.innerHTML =
+      '<div class="res-row"><span class="res-label">CPU</span><div class="res-bar-wrap"><div class="res-bar" style="width:' + Math.min(r.cpu_percent, 100) + '%"></div></div><span class="res-value">' + (r.cpu || '0') + '%</span></div>' +
+      '<div class="res-row"><span class="res-label">RAM</span><div class="res-bar-wrap"><div class="res-bar mem" style="width:' + Math.min(r.mem_percent, 100) + '%"></div></div><span class="res-value">' + (r.mem || '0') + '</span></div>';
+  } catch(_) { el.innerHTML = '<div style="font-size:12px;color:var(--text2)">Stats unavailable</div>'; }
 }
 
 async function loadDetailLogs(name) {
@@ -437,14 +454,19 @@ function switchDetailTab(tab) {
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('detail-' + tab).classList.add('active');
   if (tab === 'console' && termFit) setTimeout(() => termFit.fit(), 50);
-  // Auto‑refresh info tab in real‑time
+  // Auto‑refresh info tab + stats in real‑time
   if (tab === 'info') {
-    // start polling every 2 s (SSE already updates state, we just re‑render)
-    infoInterval = setInterval(() => loadDetailInfo(currentDetailId), 2000);
-    // immediate refresh to avoid stale data
+    infoInterval = setInterval(() => loadDetailInfo(currentDetailId), 4000);
+    statsInterval = setInterval(() => loadDetailStats(currentDetailId), 2000);
     loadDetailInfo(currentDetailId);
   } else {
     clearInterval(infoInterval);
+    clearInterval(statsInterval);
+  }
+  if (tab === 'logs') {
+    startLogAutoRefresh();
+  } else {
+    clearInterval(logInterval);
   }
 }
 
@@ -458,6 +480,13 @@ function toggleAutoRefresh() {
     logInterval = setInterval(() => loadDetailLogs(currentDetailId), 3000);
   } else {
     clearInterval(logInterval);
+  }
+}
+
+// Start auto-refresh for logs when viewing container detail
+function startLogAutoRefresh() {
+  if (logAutoRefresh) {
+    logInterval = setInterval(() => loadDetailLogs(currentDetailId), 3000);
   }
 }
 
@@ -697,6 +726,15 @@ function ptWrite(el, text) {
   el.scrollTop = el.scrollHeight;
 }
 function ptClear(el) { el.innerHTML = ''; el.className = 'output-box'; el.style.display = 'block'; }
+
+/* Resource bar helper */
+function resBar(percent, label) {
+  const p = parseFloat(percent);
+  if (isNaN(p) || p < 0) return '<span class="dash-value" style="color:var(--text2)">—</span>';
+  const w = Math.min(p, 100);
+  const cls = p > 80 ? 'high' : (p > 50 ? 'mid' : 'low');
+  return '<div class="dash-res-bar-wrap"><div class="dash-res-bar ' + cls + '" style="width:' + w + '%"></div></div><span class="dash-value" style="font-size:11px;font-family:monospace">' + esc(label || '') + '</span>';
+}
 
 /* Helpers */
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

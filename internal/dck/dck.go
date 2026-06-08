@@ -1,28 +1,42 @@
 package dck
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"dck-client/internal/models"
 )
 
+type cpuSample struct {
+	ticks  uint64
+	time   time.Time
+}
+
 type Executor struct {
 	BinaryPath string
 	DataDir    string
+	mu         sync.Mutex
+	cpuCache   map[int]cpuSample
 }
 
 func New(binaryPath, dataDir string) *Executor {
 	return &Executor{
 		BinaryPath: binaryPath,
 		DataDir:    dataDir,
+		cpuCache:   make(map[int]cpuSample),
 	}
 }
+
+
 
 func (e *Executor) runCommand(args ...string) (string, error) {
 	cmd := exec.Command(e.BinaryPath, args...)
@@ -294,8 +308,83 @@ func (e *Executor) GetContainerStateJSON(id string) (string, error) {
 				if strings.HasPrefix(entry.Name(), id) {
 					data, err = os.ReadFile(filepath.Join(e.DataDir, "containers", entry.Name()))
 					if err == nil {
-						return string(data), nil
+	return string(data), nil
+}
+
+func (e *Executor) GetContainerStats(pid int) (*models.ContainerCPU, error) {
+	statPath := fmt.Sprintf("/proc/%d/stat", pid)
+	statusPath := fmt.Sprintf("/proc/%d/status", pid)
+
+	var memUsage, memLimit int64
+
+	// Read memory from /proc/<pid>/status
+	if f, err := os.Open(statusPath); err == nil {
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.HasPrefix(line, "VmRSS:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					memUsage, _ = strconv.ParseInt(fields[1], 10, 64)
+				}
+			}
+			if strings.HasPrefix(line, "VmSize:") {
+				fields := strings.Fields(line)
+				if len(fields) >= 2 {
+					memLimit, _ = strconv.ParseInt(fields[1], 10, 64)
+				}
+			}
+		}
+	}
+
+	// Read CPU ticks from /proc/<pid>/stat
+	cpuPercent := 0.0
+	if f, err := os.Open(statPath); err == nil {
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		if scanner.Scan() {
+			line := scanner.Text()
+			fields := strings.Fields(line)
+			if len(fields) >= 15 {
+				utime, _ := strconv.ParseUint(fields[13], 10, 64)
+				stime, _ := strconv.ParseUint(fields[14], 10, 64)
+				total := utime + stime
+
+				e.mu.Lock()
+				prev, ok := e.cpuCache[pid]
+				e.cpuCache[pid] = cpuSample{ticks: total, time: time.Now()}
+				e.mu.Unlock()
+
+				if ok {
+					dt := time.Since(prev.time).Seconds()
+					if dt > 0 {
+						clkTck := float64(100) // USER_HZ on typical Linux
+						delta := float64(total - prev.ticks)
+						cpuPercent = delta / clkTck / dt * 100
+						if cpuPercent > 100 {
+							cpuPercent = 100
+						}
 					}
+				}
+			}
+		}
+	}
+
+	memPercent := 0.0
+	if memLimit > 0 {
+		memPercent = float64(memUsage) / float64(memLimit) * 100
+	}
+
+	return &models.ContainerCPU{
+		CPU:        fmt.Sprintf("%.1f", cpuPercent),
+		Mem:        fmt.Sprintf("%.1f MB", float64(memUsage)/1024),
+		MemUsage:   memUsage * 1024,
+		MemLimit:   memLimit * 1024,
+		CPUPercent: cpuPercent,
+		MemPercent: memPercent,
+	}, nil
+}
 				}
 			}
 		}
