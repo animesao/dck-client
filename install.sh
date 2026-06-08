@@ -35,14 +35,20 @@ if command -v git >/dev/null 2>&1; then
     cd "$SRC/dck-client" || err "Failed to clone repository"
 elif command -v curl >/dev/null 2>&1; then
     cd "$SRC"
-    curl -sSL "https://github.com/animesao/dck-client/archive/refs/heads/main.tar.gz" -o archive.tar.gz || err "curl download failed"
-    tar xzf archive.tar.gz -C "$SRC" || err "tar extraction failed"
-    cd "$(ls -d "$SRC"/*/"cmd" | head -1 | sed 's|/cmd$||')" || err "Failed to find extracted directory"
+    info "Downloading via curl..."
+    curl -sS -L -H "Accept: application/x-gzip" -H "User-Agent: curl/8.0" "https://codeload.github.com/animesao/dck-client/tar.gz/main" -o archive.tar.gz 2>&1 || err "curl download failed"
+    file archive.tar.gz
+    tar xzf archive.tar.gz -C "$SRC" 2>&1 || err "tar extraction failed"
+    ls -la "$SRC/"
+    cd "$(ls -d "$SRC"/*/"cmd" | head -1 | sed 's|/cmd$||')" 2>/dev/null || cd "$(find "$SRC" -maxdepth 2 -name "go.mod" -exec dirname {} \; | head -1)" || err "Failed to find extracted directory"
 elif command -v wget >/dev/null 2>&1; then
     cd "$SRC"
-    wget -q "https://github.com/animesao/dck-client/archive/refs/heads/main.tar.gz" -O archive.tar.gz || err "wget download failed"
-    tar xzf archive.tar.gz -C "$SRC" || err "tar extraction failed"
-    cd "$(ls -d "$SRC"/*/"cmd" | head -1 | sed 's|/cmd$||')" || err "Failed to find extracted directory"
+    info "Downloading via wget..."
+    wget --header="Accept: application/x-gzip" --header="User-Agent: curl/8.0" -q "https://codeload.github.com/animesao/dck-client/tar.gz/main" -O archive.tar.gz 2>&1 || err "wget download failed"
+    file archive.tar.gz
+    tar xzf archive.tar.gz -C "$SRC" 2>&1 || err "tar extraction failed"
+    ls -la "$SRC/"
+    cd "$(ls -d "$SRC"/*/"cmd" | head -1 | sed 's|/cmd$||')" 2>/dev/null || cd "$(find "$SRC" -maxdepth 2 -name "go.mod" -exec dirname {} \; | head -1)" || err "Failed to find extracted directory"
 else
     err "git, curl or wget required"
 fi
