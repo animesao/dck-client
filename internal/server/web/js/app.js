@@ -507,7 +507,7 @@ function connectConsole() {
   const disBtn = document.getElementById('console-disconnect-btn');
 
   if (terminal) { terminal.dispose(); terminal = null; }
-  terminal = new Terminal({ cursorBlink: true, fontSize: 13, fontFamily: "'SF Mono','Cascadia Code','JetBrains Mono',monospace", convertEOL: true, windowsMode: true, theme: { background: '#0a0e1a', foreground: '#e2e8f0', cursor: '#6366f1', selectionBackground: 'rgba(99,102,241,0.3)' } });
+  terminal = new Terminal({ cursorBlink: true, fontSize: 13, fontFamily: "'SF Mono','Cascadia Code','JetBrains Mono',monospace", convertEOL: true, theme: { background: '#0a0e1a', foreground: '#e2e8f0', cursor: '#6366f1', selectionBackground: 'rgba(99,102,241,0.3)' } });
   termFit = new FitAddon.FitAddon();
   terminal.loadAddon(termFit);
   terminal.open(container);
