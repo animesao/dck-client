@@ -525,10 +525,15 @@ function connectConsole() {
     wsConsole = new WebSocket(url);
     wsConsole.onopen = () => { terminal.write('\r\n\x1b[1;32m[' + ptTS() + '] Connecting...\x1b[0m\r\n'); };
       wsConsole.onmessage = (e) => {
+        const write = (txt) => {
+          txt = txt.replace(/\n/g, '\r\n');
+          if (txt.length > 0 && txt[0] !== '\r') txt = '\r' + txt;
+          terminal.write(txt);
+        };
         if (e.data instanceof Blob) {
-          e.data.text().then(txt => terminal.write(txt));
+          e.data.text().then(write);
         } else {
-          terminal.write(e.data);
+          write(e.data);
         }
       };
     wsConsole.onerror = () => { terminal.write('\r\n\x1b[1;31m[' + ptTS() + '] WebSocket error\x1b[0m\r\n'); };
