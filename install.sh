@@ -34,15 +34,21 @@ if command -v git >/dev/null 2>&1; then
     git clone --depth 1 --branch main "https://github.com/animesao/dck-client.git" "$SRC/dck-client"
     cd "$SRC/dck-client" || err "Failed to clone repository"
 elif command -v curl >/dev/null 2>&1; then
-    curl -sSL "https://github.com/animesao/dck-client/archive/refs/heads/main.tar.gz" -o "$SRC/archive.tar.gz"
-    tar xzf "$SRC/archive.tar.gz" -C "$SRC"
-    SRCDIR=$(find "$SRC" -maxdepth 1 -type d -name "dck-client*" | /usr/bin/head -1)
-    [ -n "$SRCDIR" ] && cd "$SRCDIR" || err "Failed to extract source archive"
+    echo "Downloading via curl..."
+    cd "$SRC"
+    curl -sSL "https://github.com/animesao/dck-client/tarball/main" -o archive.tar.gz 2>&1 || err "curl download failed"
+    file archive.tar.gz
+    tar xzf archive.tar.gz -C "$SRC" || err "tar extraction failed (is the archive valid?)"
+    ls -la "$SRC/"
+    cd "$(ls -d "$SRC"/*/ | head -1)" || err "Failed to find extracted directory"
 elif command -v wget >/dev/null 2>&1; then
-    wget -q "https://github.com/animesao/dck-client/archive/refs/heads/main.tar.gz" -O "$SRC/archive.tar.gz"
-    tar xzf "$SRC/archive.tar.gz" -C "$SRC"
-    SRCDIR=$(find "$SRC" -maxdepth 1 -type d -name "dck-client*" | /usr/bin/head -1)
-    [ -n "$SRCDIR" ] && cd "$SRCDIR" || err "Failed to extract source archive"
+    echo "Downloading via wget..."
+    cd "$SRC"
+    wget -q "https://github.com/animesao/dck-client/tarball/main" -O archive.tar.gz || err "wget download failed"
+    file archive.tar.gz
+    tar xzf archive.tar.gz -C "$SRC" || err "tar extraction failed (is the archive valid?)"
+    ls -la "$SRC/"
+    cd "$(ls -d "$SRC"/*/ | head -1)" || err "Failed to find extracted directory"
 else
     err "git, curl or wget required"
 fi
