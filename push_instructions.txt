@@ -1,24 +1,36 @@
-Как запушить dck-client на GitHub
-====================================
-
-1. Открыть терминал в папке проекта:
-   cd E:\dck-client-main\dck-client-main
-
-2. Если Git не установлен — установить:
-   winget install --id Git.Git -e --source winget
-
-3. Настроить Git (если не настроен):
-   git config user.email "твой@email.com"
-   git config user.name "Твоё Имя"
-
-4. Добавить удалённый репозиторий (если не добавлен):
-   git remote add origin https://github.com/animesao/dck-client.git
-
-5. Сделать коммит изменений:
-   git add -A
-   git commit -m "описание изменений"
-
-6. Запушить на GitHub:
-   git push -u origin main
-
-Готово! Код на GitHub.
+root@strawtopaz:~# curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash
+━━━ Downloading dck-client ━━━
+Cloning into '/tmp/tmp.Kx1bBpU2h0/dck-client'...
+remote: Enumerating objects: 40, done.
+remote: Counting objects: 100% (40/40), done.
+remote: Compressing objects: 100% (34/34), done.
+remote: Total 40 (delta 1), reused 24 (delta 0), pack-reused 0 (from 0)
+Receiving objects: 100% (40/40), 81.35 KiB | 6.78 MiB/s, done.
+Resolving deltas: 100% (1/1), done.
+━━━ Building dck-client ━━━
+[INFO] Installing Go 1.22...
+[INFO] Go go1.22.5 installed
+# dck-client/internal/dck
+internal/dck/dck.go:314:42: syntax error: unexpected int in argument list; possibly missing comma or )
+internal/dck/dck.go:393:2: syntax error: non-declaration statement outside function body
+root@strawtopaz:~# curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/uninstall.sh | sudo bash
+Stopping and removing systemd service...
+Removing binary...
+Removing data directory...
+dck-client has been uninstalled.
+root@strawtopaz:~# curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash
+━━━ Downloading dck-client ━━━
+Cloning into '/tmp/tmp.Zl8iFoP3Ku/dck-client'...
+remote: Enumerating objects: 40, done.
+remote: Counting objects: 100% (40/40), done.
+remote: Compressing objects: 100% (34/34), done.
+remote: Total 40 (delta 1), reused 24 (delta 0), pack-reused 0 (from 0)
+Receiving objects: 100% (40/40), 81.35 KiB | 6.78 MiB/s, done.
+Resolving deltas: 100% (1/1), done.
+━━━ Building dck-client ━━━
+[INFO] Installing Go 1.22...
+[INFO] Go go1.22.5 installed
+# dck-client/internal/dck
+internal/dck/dck.go:314:42: syntax error: unexpected int in argument list; possibly missing comma or )
+internal/dck/dck.go:393:2: syntax error: non-declaration statement outside function body
+root@strawtopaz:~#

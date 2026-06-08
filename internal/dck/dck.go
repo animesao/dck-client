@@ -308,6 +308,13 @@ func (e *Executor) GetContainerStateJSON(id string) (string, error) {
 				if strings.HasPrefix(entry.Name(), id) {
 					data, err = os.ReadFile(filepath.Join(e.DataDir, "containers", entry.Name()))
 					if err == nil {
+						return string(data), nil
+					}
+				}
+			}
+		}
+		return "", err
+	}
 	return string(data), nil
 }
 
@@ -384,11 +391,4 @@ func (e *Executor) GetContainerStats(pid int) (*models.ContainerCPU, error) {
 		CPUPercent: cpuPercent,
 		MemPercent: memPercent,
 	}, nil
-}
-				}
-			}
-		}
-		return "", err
-	}
-	return string(data), nil
 }
