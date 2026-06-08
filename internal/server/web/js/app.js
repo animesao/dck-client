@@ -530,7 +530,7 @@ function connectConsole() {
   connBtn.style.display = 'none';
   disBtn.style.display = 'inline-flex';
   document.getElementById('console-input-bar').style.display = 'flex';
-  terminal.focus();
+  document.getElementById('console-command').focus();
 
   try {
     wsConsole = new WebSocket(url);
@@ -548,7 +548,7 @@ function connectConsole() {
         }
       };
     wsConsole.onerror = () => { terminal.write('\r\n\x1b[1;31m[' + ptTS() + '] WebSocket error\x1b[0m\r\n'); };
-    wsConsole.onclose = () => { terminal.write('\r\n\x1b[1;33m[' + ptTS() + '] Disconnected\x1b[0m\r\n'); connBtn.style.display = 'inline-flex'; disBtn.style.display = 'none'; };
+    wsConsole.onclose = () => { terminal.write('\r\n\x1b[1;33m[' + ptTS() + '] Disconnected\x1b[0m\r\n'); connBtn.style.display = 'inline-flex'; disBtn.style.display = 'none'; document.getElementById('console-input-bar').style.display = 'none'; };
 
     terminal.onData(data => { if (wsConsole && wsConsole.readyState === WebSocket.OPEN) wsConsole.send(data); });
     terminal.onResize(() => { if (termFit) termFit.fit(); });
