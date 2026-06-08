@@ -1,0 +1,705 @@
+/* State */
+let state = { containers: [], images: [], config: {}, blueprints: [], version: '', dckVersion: '' };
+let currentPage = 'dashboard';
+let currentDetailId = '';
+let logAutoRefresh = false;
+let logInterval = null;
+let infoInterval = null;
+let bpImagesCache = null;
+
+/* Init */
+document.addEventListener('DOMContentLoaded', () => {
+  if (getToken()) { showMain(); navigate('dashboard'); } else { showLogin(); }
+  window.addEventListener('resize', () => { if (termFit) termFit.fit(); });
+});
+
+/* Auth */
+function showLogin() { document.getElementById('login-screen').style.display = 'flex'; document.getElementById('main-screen').style.display = 'none'; }
+function showRegister() { document.getElementById('login-card').style.display = 'none'; document.getElementById('register-form').style.display = 'block'; }
+function showLoginForm() { document.getElementById('login-card').style.display = 'block'; document.getElementById('register-form').style.display = 'none'; }
+
+async function login() {
+  const u = document.getElementById('login-username').value.trim();
+  const p = document.getElementById('login-password').value.trim();
+  const err = document.getElementById('login-error');
+  if (!u || !p) { err.textContent = 'Fill in all fields'; return; }
+  err.textContent = '';
+  document.getElementById('login-btn').disabled = true;
+  try {
+    const r = await apiPost('/api/auth/login', { username: u, password: p });
+    if (r.error) { err.textContent = r.error; return; }
+    if (r.token) { setToken(r.token); showMain(); navigate('dashboard'); }
+  } catch(e) { err.textContent = 'Connection error'; }
+  finally { document.getElementById('login-btn').disabled = false; }
+}
+
+async function register() {
+  const u = document.getElementById('reg-username').value.trim();
+  const p = document.getElementById('reg-password').value.trim();
+  const c = document.getElementById('reg-confirm').value.trim();
+  const err = document.getElementById('register-error');
+  if (!u || !p || !c) { err.textContent = 'Fill in all fields'; return; }
+  if (p !== c) { err.textContent = 'Passwords do not match'; return; }
+  err.textContent = '';
+  try {
+    const r = await apiPost('/api/auth/register', { username: u, password: p });
+    if (r.error) { err.textContent = r.error; return; }
+    toast('Account created. Sign in.', 'success');
+    showLoginForm();
+  } catch(e) { err.textContent = 'Connection error'; }
+}
+
+function logout() { localStorage.removeItem('dck_token'); localStorage.removeItem('dck_expires'); if (sseSource) { sseSource.close(); sseSource = null; } window.location.reload(); }
+
+function showMain() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('main-screen').style.display = 'flex';
+  document.getElementById('user-info').textContent = localStorage.getItem('dck_user') || 'User';
+  document.getElementById('user-role').textContent = 'admin';
+  connectSSE(onSSE);
+  checkVersion();
+  loadDashboard();
+}
+
+/* Toast */
+function toast(msg, type, dur) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast ' + (type || '');
+  setTimeout(() => t.classList.add('show'), 10);
+  clearTimeout(t._hide);
+  t._hide = setTimeout(() => t.classList.remove('show'), dur || 3000);
+}
+
+/* Navigation */
+function navigate(page, data) {
+  if (page !== 'container-detail') {
+    disconnectConsole();
+    clearInterval(infoInterval);
+  }
+  currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+
+  const titles = { dashboard: 'Dashboard', blueprints: 'Blueprints', containers: 'Containers', images: 'Images', config: 'Config', settings: 'Settings', 'container-detail': 'Container' };
+  document.getElementById('page-title').textContent = titles[page] || page;
+
+  const el = document.getElementById('page-' + page);
+  if (el) { el.classList.add('active'); }
+
+  if (page === 'dashboard') loadDashboard();
+  else if (page === 'blueprints') loadBlueprints();
+  else if (page === 'containers') loadContainers();
+  else if (page === 'images') loadImages();
+  else if (page === 'config') loadConfig();
+  else if (page === 'settings') loadSettings();
+  else if (page === 'container-detail' && data) { currentDetailId = data; loadContainerDetail(data); }
+}
+
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+/* SSE */
+function onSSE(data) {
+  const el = document.getElementById('connection-status');
+  el.innerHTML = '<span class="status-dot running"></span>Live';
+  if (data.containers) {
+    state.containers = data.containers;
+    if (currentPage === 'dashboard') updateDashContainerTable(data.containers);
+    if (currentPage === 'containers') updateContainerTable(data.containers);
+    if (currentPage === 'container-detail' && currentDetailId) loadDetailInfo(currentDetailId);
+    updateStats(data.containers);
+  }
+}
+
+function updateStats(containers) {
+  const total = containers ? containers.length : 0;
+  const running = containers ? containers.filter(c => c.status === 'running').length : 0;
+  animateNum('stat-containers', total);
+  animateNum('stat-running', running);
+  animateNum('stat-stopped', total - running);
+}
+
+function animateNum(id, target) {
+  const el = document.getElementById(id); if (!el) return;
+  const curr = parseInt(el.textContent) || 0;
+  if (curr === target) return;
+  let start = curr, dur = 400, startT = performance.now();
+  function step(now) {
+    const p = Math.min((now - startT) / dur, 1);
+    el.textContent = Math.round(start + (target - start) * p);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* Dashboard */
+async function loadDashboard() {
+  try {
+    const [sys, containers] = await Promise.all([apiGet('/api/dashboard/system'), apiGet('/api/containers?all=true')]);
+    state.containers = containers || [];
+    renderSysInfo(sys || {});
+    updateStats(state.containers);
+    updateDashContainerTable(state.containers);
+  } catch(_) {}
+}
+
+function renderSysInfo(sys) {
+  const el = document.getElementById('sys-info');
+  const fields = [
+    ['Hostname', sys.hostname || '—'],
+    ['OS', sys.os || sys.platform || '—'],
+    ['Arch', sys.arch || '—'],
+    ['dck Version', sys.dckVersion || sys.dck_version || '—'],
+    ['Memory Total', sys.memoryTotal || sys.memory_total || '—'],
+    ['Memory Free', sys.memoryFree || sys.memory_free || '—'],
+    ['Disk Total', sys.diskTotal || sys.disk_total || '—'],
+    ['Disk Free', sys.diskFree || sys.disk_free || '—'],
+  ];
+  el.innerHTML = fields.map(([k,v]) => '<div class="info-item"><strong>' + k + '</strong><span>' + v + '</span></div>').join('');
+}
+
+function updateDashContainerTable(containers) {
+  const el = document.getElementById('dash-containers');
+  if (!containers || containers.length === 0) { el.innerHTML = '<div class="empty-state"><p>No containers</p></div>'; return; }
+  const running = containers.filter(c => c.status === 'running').slice(0, 12);
+  if (running.length === 0) { el.innerHTML = '<div class="empty-state"><p>No active containers</p></div>'; return; }
+  el.innerHTML = '<div class="dash-container-grid">' +
+    running.map(c => {
+      const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || '—');
+      const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join('<br>') : (c.volumes || '—');
+      const envs = Array.isArray(c.env) ? c.env.slice(0, 4).join('<br>') + (c.env.length > 4 ? '<br><span style="color:var(--text2)">+' + (c.env.length - 4) + ' more</span>' : '') : (c.env || '—');
+      const img = (c.image_name || c.image || '') + (c.image_tag ? ':' + c.image_tag : '');
+      return '<div class="dash-container-card glass" onclick="navigate(\'container-detail\',\'' + esc(c.name) + '\')">' +
+        '<div class="dash-card-header"><span class="dash-card-name">' + esc(c.name) + '</span>' + statusBadge(c.status) + '</div>' +
+        '<div class="dash-card-id">ID ' + esc(c.id || '') + '</div>' +
+        '<div class="dash-card-body">' +
+          '<div class="dash-card-row"><span class="dash-label">Image</span><span class="dash-value">' + esc(img) + '</span></div>' +
+          '<div class="dash-card-row"><span class="dash-label">Ports</span><span class="dash-value">' + fmtPorts(c.ports) + '</span></div>' +
+          (c.ip ? '<div class="dash-card-row"><span class="dash-label">IP</span><span class="dash-value">' + esc(c.ip) + '</span></div>' : '') +
+          (c.pid ? '<div class="dash-card-row"><span class="dash-label">PID</span><span class="dash-value">' + c.pid + '</span></div>' : '') +
+          (c.hostname ? '<div class="dash-card-row"><span class="dash-label">Hostname</span><span class="dash-value">' + esc(c.hostname) + '</span></div>' : '') +
+          '<div class="dash-card-row"><span class="dash-label">Uptime</span><span class="dash-value">' + esc(c.uptime || c.created || '') + '</span></div>' +
+          (c.restart ? '<div class="dash-card-row"><span class="dash-label">Restart</span><span class="dash-value">' + esc(c.restart) + '</span></div>' : '') +
+          (cmd && cmd !== '—' ? '<div class="dash-card-row"><span class="dash-label">Command</span><span class="dash-value mono" style="font-size:11px">' + esc(cmd) + '</span></div>' : '') +
+          (vols && vols !== '—' ? '<div class="dash-card-row"><span class="dash-label">Volumes</span><span class="dash-value" style="font-size:11px">' + vols + '</span></div>' : '') +
+          (envs && envs !== '—' ? '<div class="dash-card-row"><span class="dash-label">Env</span><span class="dash-value" style="font-size:11px">' + envs + '</span></div>' : '') +
+        '</div></div>';
+    }).join('') +
+    '</div>';
+}
+
+/* Blueprints */
+let bpCategories = ['All', 'Web', 'Database', 'Application', 'Game', 'Multi-container'];
+let activeBpCat = 'All';
+let allBlueprints = [];
+
+async function loadBlueprints() {
+  try {
+    const catsEl = document.getElementById('bp-categories');
+    catsEl.innerHTML = bpCategories.map(c => '<button class="bp-cat-btn' + (c === activeBpCat ? ' active' : '') + '" onclick="setBpCategory(\'' + c + '\')">' + c + '</button>').join('');
+
+    const res = await apiGet('/api/blueprints');
+    allBlueprints = Array.isArray(res) ? res : (res.blueprints || []);
+    renderBlueprints();
+  } catch(_) {}
+}
+
+function setBpCategory(cat) {
+  activeBpCat = cat;
+  document.querySelectorAll('.bp-cat-btn').forEach(el => el.classList.toggle('active', el.textContent === cat));
+  renderBlueprints();
+}
+
+function getBpIcon(name) {
+  const icons = { 'nginx': 'N', 'flask': 'F', 'node': 'N', 'postgres': 'P', 'mysql': 'M', 'redis': 'R', 'discord': 'D', 'telegram': 'T', 'minecraft': 'M' };
+  for (const [k,v] of Object.entries(icons)) { if (name.toLowerCase().includes(k)) return v; }
+  return name.charAt(0).toUpperCase();
+}
+
+function renderBlueprints() {
+  const grid = document.getElementById('blueprint-grid');
+  let list = allBlueprints;
+  if (activeBpCat !== 'All') {
+    list = list.filter(b => (b.category || '') === activeBpCat || (b.tags || []).includes(activeBpCat));
+  }
+  if (list.length === 0) { grid.innerHTML = '<div class="empty-state"><p>No blueprints in this category</p></div>'; return; }
+  grid.innerHTML = list.map(b => {
+    const tags = b.tags || [];
+    const cat = b.category ? [b.category] : [];
+    const allTags = [...new Set([...cat, ...tags])];
+    return '<div class="bp-card glass" onclick="openBlueprintModal(\'' + esc(b.name) + '\')">' +
+      '<div class="bp-card-icon">' + getBpIcon(b.name) + '</div>' +
+      '<h3>' + esc(b.name) + '</h3>' +
+      '<p>' + esc(b.description || '') + '</p>' +
+      '<div class="bp-card-tags">' + allTags.map(t => '<span class="bp-tag">' + esc(t) + '</span>').join('') + '</div>' +
+      '</div>';
+  }).join('');
+}
+
+async function openBlueprintModal(id) {
+  const bp = allBlueprints.find(b => b.name === id);
+  if (!bp) return;
+  const modal = document.getElementById('bp-modal');
+  document.getElementById('bp-modal-title').textContent = 'Deploy: ' + bp.name;
+  document.getElementById('bp-image').value = bp.image || '';
+  document.getElementById('bp-default-port').value = bp.defaultPort || '';
+  document.getElementById('bp-default-cmd').value = bp.defaultCmd || '';
+  document.getElementById('bp-is-multi').value = bp.isMulti ? 'true' : '';
+  document.getElementById('bp-name').value = bp.name.toLowerCase().replace(/[^a-z0-9-]/g, '-') + '-' + randStr(4);
+  document.getElementById('bp-port').value = bp.defaultPort || '';
+  document.getElementById('bp-restart').value = 'always';
+  document.getElementById('bp-cmd').value = bp.defaultCmd || '';
+  document.getElementById('bp-volumes').value = (bp.volumes || []).join('\n');
+
+  const envSection = document.getElementById('bp-env-section');
+  const envFields = document.getElementById('bp-env-fields');
+  const envVars = bp.env || [];
+  if (envVars.length > 0) {
+    envSection.style.display = 'block';
+    envFields.innerHTML = envVars.map((ev, i) =>
+      '<div class="env-field-row">' +
+      '<div class="env-key">' + esc(ev.key) + (ev.required ? '<span style="color:var(--red)">*</span>' : '') + '</div>' +
+      '<div style="flex:1">' +
+      '<input type="text" id="bp-env-' + i + '" value="' + esc(ev.default || '') + '" placeholder="' + esc(ev.description || 'Value') + '">' +
+      '<div class="env-desc">' + esc(ev.description || '') + '</div>' +
+      '</div></div>'
+    ).join('');
+  } else {
+    envSection.style.display = 'none';
+    envFields.innerHTML = '';
+  }
+
+  const hint = document.getElementById('bp-hint');
+  if (bp.hint) { hint.style.display = 'block'; hint.textContent = bp.hint; } else { hint.style.display = 'none'; }
+
+  document.getElementById('bp-output').style.display = 'none';
+  document.getElementById('bp-output').className = 'output-box';
+  document.getElementById('bp-deploy-btn').querySelector('.btn-text').textContent = 'Pull & Deploy';
+  document.getElementById('bp-deploy-btn').querySelector('.btn-spinner').style.display = 'none';
+  document.getElementById('bp-deploy-btn').disabled = false;
+  modal.style.display = 'flex';
+}
+
+function closeBlueprintModal() { document.getElementById('bp-modal').style.display = 'none'; }
+
+async function deployBlueprint(e) {
+  e.preventDefault();
+  const btn = document.getElementById('bp-deploy-btn');
+  const output = document.getElementById('bp-output');
+  btn.querySelector('.btn-text').textContent = 'Deploying...';
+  btn.querySelector('.btn-spinner').style.display = 'inline-block';
+  btn.disabled = true;
+  ptClear(output);
+
+  const isMulti = document.getElementById('bp-is-multi').value === 'true';
+  const envVars = {};
+  const envFields = document.getElementById('bp-env-fields').querySelectorAll('.env-field-row');
+  envFields.forEach((row, i) => {
+    const key = row.querySelector('.env-key').textContent.replace('*', '').trim();
+    const val = document.getElementById('bp-env-' + i).value.trim();
+    envVars[key] = val;
+  });
+
+  const volumes = document.getElementById('bp-volumes').value.split('\n').map(v => v.trim()).filter(Boolean);
+  const payload = {
+    name: document.getElementById('bp-name').value.trim(),
+    image: document.getElementById('bp-image').value.trim(),
+    port: document.getElementById('bp-port').value.trim(),
+    command: document.getElementById('bp-cmd').value.trim() || undefined,
+    restart: document.getElementById('bp-restart').value || undefined,
+    env: envVars,
+    volumes: volumes,
+  };
+
+  try {
+    ptWrite(output, 'Pulling image and creating container...');
+    const bpId = document.getElementById('bp-modal-title').textContent.replace('Deploy: ', '');
+    const res = await apiPost('/api/blueprints/' + encodeURIComponent(bpId) + '/launch', payload);
+    if (res.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + res.error); }
+    else {
+      ptWrite(output, '✓ Deploy started');
+      if (res.results) res.results.forEach(r => ptWrite(output, '  ' + r.name + ': ' + (r.success ? '✓' : '✗ ' + (r.error || ''))));
+      if (!res.results || res.results.length === 0) ptWrite(output, '✓ Container created');
+      toast('Blueprint deployed', 'success');
+    }
+  } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Request failed: ' + e.message); }
+  finally { btn.querySelector('.btn-text').textContent = 'Done'; btn.querySelector('.btn-spinner').style.display = 'none'; btn.disabled = false; }
+}
+
+/* Containers */
+async function loadContainers() {
+  const all = document.getElementById('show-all').checked;
+  const el = document.getElementById('container-list');
+  el.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+  try {
+    const containers = await apiGet('/api/containers?all=' + (all ? 'true' : 'false'));
+    state.containers = containers || [];
+    updateContainerTable(state.containers);
+  } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error loading containers</p></div>'; }
+}
+
+function updateContainerTable(containers) {
+  const el = document.getElementById('container-list');
+  if (!containers || containers.length === 0) { el.innerHTML = '<div class="empty-state"><p>No containers</p></div>'; return; }
+  const search = (document.getElementById('container-search').value || '').toLowerCase();
+  const showAll = document.getElementById('show-all').checked;
+  let list = containers;
+  if (!showAll) list = list.filter(c => c.status === 'running');
+  if (search) list = list.filter(c => (c.name || '').toLowerCase().includes(search) || (c.image || '').toLowerCase().includes(search));
+  el.innerHTML = '<table><thead><tr><th>Name</th><th>Image</th><th>Status</th><th>Ports</th><th>Created</th><th>Actions</th></tr></thead><tbody>' +
+    list.map(c => '<tr>' +
+      '<td><a href="#" onclick="navigate(\'container-detail\',\'' + esc(c.name) + '\')" style="color:var(--accent2)">' + esc(c.name) + '</a></td>' +
+      '<td>' + esc(c.image) + '</td>' +
+      '<td>' + statusBadge(c.status) + '</td>' +
+      '<td>' + fmtPorts(c.ports) + '</td>' +
+      '<td>' + esc(c.created || '') + '</td>' +
+      '<td>' +
+      (c.status !== 'running' ? '<button class="action-btn success" onclick="execAction(\'' + esc(c.name) + '\',\'start\')" title="Start">▶</button>' : '') +
+      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.name) + '\',\'stop\')" title="Stop">■</button>' : '') +
+      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.name) + '\',\'restart\')" title="Restart">↻</button>' : '') +
+      '<button class="action-btn danger" onclick="deleteContainer(\'' + esc(c.name) + '\')" title="Delete">✕</button>' +
+      '</td></tr>').join('') +
+    '</tbody></table>';
+}
+
+function filterContainers() { updateContainerTable(state.containers); }
+
+async function execAction(name, action) {
+  try {
+    const r = await apiPost('/api/containers/' + encodeURIComponent(name) + '/' + action);
+    if (r.error) toast(r.error, 'error');
+    else toast(action + ' ' + name, 'success');
+  } catch(e) { toast('Action failed', 'error'); }
+}
+
+async function deleteContainer(name) {
+  if (!confirm('Delete container "' + name + '"?')) return;
+  try {
+    const r = await apiDelete('/api/containers/' + encodeURIComponent(name));
+    if (r.error) toast(r.error, 'error');
+    else { toast('Deleted ' + name, 'success'); loadContainers(); }
+  } catch(e) { toast('Delete failed', 'error'); }
+}
+
+function showCreateContainer() { navigate('blueprints'); }
+
+/* Container Detail */
+async function loadContainerDetail(name) {
+  document.getElementById('detail-title').textContent = name;
+  switchDetailTab('info');
+  await loadDetailInfo(name);
+  await loadDetailLogs(name);
+  await loadDetailState(name);
+}
+
+async function loadDetailInfo(name) {
+  const el = document.getElementById('detail-info');
+  try {
+    const c = state.containers.find(x => x.name === name) || {};
+    const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || '—');
+    const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join(', ') : (c.volumes || '—');
+    const envs = Array.isArray(c.env) ? c.env.join(', ') : (c.env || '—');
+    el.innerHTML = '<div class="info-grid">' +
+      [
+        ['ID', c.id], ['Name', c.name], ['Image', (c.image_name || c.image || '') + (c.image_tag ? ':' + c.image_tag : '')],
+        ['Status', c.status], ['Ports', fmtPorts(c.ports)], ['IP', c.ip],
+        ['PID', c.pid], ['Hostname', c.hostname], ['Uptime', c.uptime || c.created || ''],
+        ['Restart', c.restart], ['Detach', c.detach], ['Interactive', c.interactive],
+        ['TTY', c.tty], ['RemoveOnExit', c.remove_on_exit],
+        ['Command', cmd], ['Volumes', vols], ['Environment', envs],
+      ].map(([k,v]) => '<div class="info-item"><strong>' + k.replace(/([A-Z])/g,' $1').trim() + '</strong><span>' + esc(String(v ?? '—')) + '</span></div>').join('') +
+      '</div>';
+  } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error</p></div>'; }
+}
+
+async function loadDetailLogs(name) {
+  const el = document.getElementById('log-viewer');
+  try {
+    const r = await apiGet('/api/containers/' + encodeURIComponent(name) + '/logs');
+    const text = typeof r === 'string' ? r : (r.logs || 'No logs');
+    el.innerHTML = '';
+    text.split('\n').forEach(l => ptWrite(el, l));
+  } catch(_) { el.innerHTML = ''; ptWrite(el, 'Error loading logs'); }
+}
+
+async function loadDetailState(name) {
+  const el = document.getElementById('state-viewer');
+  try {
+    const r = await apiGet('/api/containers/' + encodeURIComponent(name) + '/state');
+    const text = typeof r === 'string' ? r : JSON.stringify(r, null, 2);
+    el.innerHTML = '';
+    text.split('\n').forEach(l => ptWrite(el, l));
+  } catch(_) { el.innerHTML = ''; ptWrite(el, 'Error loading state'); }
+}
+
+function switchDetailTab(tab) {
+  if (tab !== 'console') disconnectConsole();
+  document.querySelectorAll('.detail-tabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('detail-' + tab).classList.add('active');
+  if (tab === 'console' && termFit) setTimeout(() => termFit.fit(), 50);
+  // Auto‑refresh info tab in real‑time
+  if (tab === 'info') {
+    // start polling every 2 s (SSE already updates state, we just re‑render)
+    infoInterval = setInterval(() => loadDetailInfo(currentDetailId), 2000);
+    // immediate refresh to avoid stale data
+    loadDetailInfo(currentDetailId);
+  } else {
+    clearInterval(infoInterval);
+  }
+}
+
+
+function refreshLogs() { loadDetailLogs(currentDetailId); }
+
+function toggleAutoRefresh() {
+  logAutoRefresh = !logAutoRefresh;
+  document.getElementById('auto-refresh-btn').textContent = 'Auto: ' + (logAutoRefresh ? 'ON' : 'OFF');
+  if (logAutoRefresh) {
+    logInterval = setInterval(() => loadDetailLogs(currentDetailId), 3000);
+  } else {
+    clearInterval(logInterval);
+  }
+}
+
+/* Console */
+let terminal = null;
+let termFit = null;
+let wsConsole = null;
+
+function connectConsole() {
+  const id = currentDetailId;
+  if (!id) return;
+  const container = document.getElementById('terminal-container');
+  const connBtn = document.getElementById('console-connect-btn');
+  const disBtn = document.getElementById('console-disconnect-btn');
+
+  if (terminal) { terminal.dispose(); terminal = null; }
+  terminal = new Terminal({ cursorBlink: true, fontSize: 13, fontFamily: "'SF Mono','Cascadia Code','JetBrains Mono',monospace", convertEOL: true, windowsMode: true, theme: { background: '#0a0e1a', foreground: '#e2e8f0', cursor: '#6366f1', selectionBackground: 'rgba(99,102,241,0.3)' } });
+  termFit = new FitAddon.FitAddon();
+  terminal.loadAddon(termFit);
+  terminal.open(container);
+  termFit.fit();
+
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const tok = getToken();
+  const url = proto + '//' + location.host + '/api/console/' + encodeURIComponent(id) + '?token=' + encodeURIComponent(tok);
+
+  connBtn.style.display = 'none';
+  disBtn.style.display = 'inline-flex';
+  terminal.focus();
+
+  try {
+    wsConsole = new WebSocket(url);
+    wsConsole.onopen = () => { terminal.write('\r\n\x1b[1;32m[' + ptTS() + '] Connecting...\x1b[0m\r\n'); };
+      wsConsole.onmessage = (e) => {
+        if (e.data instanceof Blob) {
+          e.data.text().then(txt => {
+            terminal.write(txt.replace(/\r/g, '').replace(/^ +/gm, ''));
+          });
+        } else {
+          terminal.write(e.data.replace(/\r/g, '').replace(/^ +/gm, ''));
+        }
+      };
+    wsConsole.onerror = () => { terminal.write('\r\n\x1b[1;31m[' + ptTS() + '] WebSocket error\x1b[0m\r\n'); };
+    wsConsole.onclose = () => { terminal.write('\r\n\x1b[1;33m[' + ptTS() + '] Disconnected\x1b[0m\r\n'); connBtn.style.display = 'inline-flex'; disBtn.style.display = 'none'; };
+
+    terminal.onData(data => { if (wsConsole && wsConsole.readyState === WebSocket.OPEN) wsConsole.send(data); });
+    terminal.onResize(() => { if (termFit) termFit.fit(); });
+  } catch(e) { terminal.write('\r\n\x1b[1;31mConnection failed: ' + e.message + '\x1b[0m\r\n'); }
+}
+
+function disconnectConsole() {
+  if (wsConsole) { wsConsole.close(); wsConsole = null; }
+  document.getElementById('console-connect-btn').style.display = 'inline-flex';
+  document.getElementById('console-disconnect-btn').style.display = 'none';
+}
+
+/* Images */
+async function loadImages() {
+  const el = document.getElementById('images-list');
+  try {
+    const images = await apiGet('/api/images');
+    state.images = images || [];
+    animateNum('stat-images', state.images.length);
+    if (state.images.length === 0) { el.innerHTML = '<div class="empty-state"><p>No images</p></div>'; return; }
+    el.innerHTML = '<table><thead><tr><th>Repository</th><th>Tag</th><th>ID</th><th>Size</th><th>Created</th><th></th></tr></thead><tbody>' +
+      state.images.map(img => '<tr>' +
+        '<td>' + esc(img.repository || img.name || '—') + '</td>' +
+        '<td>' + esc(img.tag || img.tags || 'latest') + '</td>' +
+        '<td class="mono">' + esc((img.id || '').substring(0, 12)) + '</td>' +
+        '<td>' + esc(img.size || '') + '</td>' +
+        '<td>' + esc(img.created || '') + '</td>' +
+        '<td><button class="action-btn danger" onclick="deleteImage(\'' + esc(img.id || img.name) + '\')">✕</button></td></tr>').join('') +
+      '</tbody></table>';
+  } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error</p></div>'; }
+}
+
+async function deleteImage(id) {
+  if (!confirm('Delete image ' + id + '?')) return;
+  try {
+    const r = await apiDelete('/api/images/' + encodeURIComponent(id));
+    if (r.error) toast(r.error, 'error');
+    else { toast('Image deleted', 'success'); loadImages(); }
+  } catch(e) { toast('Delete failed', 'error'); }
+}
+
+function togglePullForm() {
+  const el = document.getElementById('pull-form');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function pullImage() {
+  const ref = document.getElementById('pull-reference').value.trim();
+  if (!ref) return;
+  const output = document.getElementById('pull-output');
+  ptClear(output);
+  ptWrite(output, 'Pulling ' + ref + '...');
+  try {
+    const r = await apiPost('/api/images/pull', { reference: ref });
+    if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
+    else { ptWrite(output, '✓ Image pulled successfully'); toast('Image pulled', 'success'); loadImages(); }
+  } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Request failed'); }
+}
+
+/* Config */
+async function loadConfig() {
+  const el = document.getElementById('config-editor');
+  const path = document.getElementById('config-path');
+  el.value = 'Loading...';
+  try {
+    const r = await apiGet('/api/config');
+    if (r.error) { el.value = 'Error: ' + r.error; return; }
+    state.config = r;
+    path.textContent = r.path || '—';
+    el.value = r.content || '';
+  } catch(e) { el.value = 'Error loading config'; }
+}
+
+async function saveConfig() {
+  const content = document.getElementById('config-editor').value;
+  const output = document.getElementById('config-output');
+  ptClear(output);
+  ptWrite(output, 'Saving...');
+  try {
+    const r = await apiPut('/api/config', { content });
+    if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
+    else { ptWrite(output, '✓ Config saved'); toast('Config saved', 'success'); }
+  } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Save failed'); }
+}
+
+async function deployConfig() {
+  const output = document.getElementById('config-output');
+  ptClear(output);
+  ptWrite(output, 'Deploying...');
+  try {
+    const r = await apiPost('/api/config/deploy');
+    if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
+    else { ptWrite(output, '✓ ' + (r.message || 'Config deployed')); toast('Config deployed', 'success'); }
+  } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Deploy failed'); }
+}
+
+async function downConfig() {
+  if (!confirm('Stop all containers defined in config?')) return;
+  const output = document.getElementById('config-output');
+  ptClear(output);
+  ptWrite(output, 'Stopping...');
+  try {
+    const r = await apiPost('/api/config/down');
+    if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
+    else { ptWrite(output, '✓ ' + (r.message || 'Config down')); toast('Config down', 'success'); }
+  } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Down failed'); }
+}
+
+/* Settings */
+async function loadSettings() {
+  const u = localStorage.getItem('dck_user') || 'User';
+  document.getElementById('user-info').textContent = u;
+  document.getElementById('user-role').textContent = 'admin';
+  try {
+    const r = await apiGet('/api/settings');
+    if (r.error) return;
+    document.getElementById('set-dck-bin').value = r.dckBin || '';
+    document.getElementById('set-dck-data').value = r.dckData || '';
+    document.getElementById('set-reg-open').checked = r.allowRegistration || false;
+  } catch(_) {}
+}
+
+async function updateSettings(e) {
+  e.preventDefault();
+  const payload = {
+    dckBin: document.getElementById('set-dck-bin').value.trim(),
+    dckData: document.getElementById('set-dck-data').value.trim(),
+    allowRegistration: document.getElementById('set-reg-open').checked,
+  };
+  try {
+    const r = await apiPut('/api/settings', payload);
+    if (r.error) toast(r.error, 'error');
+    else toast('Settings saved', 'success');
+  } catch(e) { toast('Save failed', 'error'); }
+}
+
+/* Version */
+async function checkVersion() {
+  const badge = document.getElementById('version-badge');
+  const currEl = document.getElementById('ver-current');
+  const latEl = document.getElementById('ver-latest');
+  const dckVerEl = document.getElementById('ver-dck');
+  const dckLatEl = document.getElementById('ver-dck-latest');
+  const dckUpdateBtn = document.getElementById('dck-update-btn');
+  if (!badge) return;
+  badge.textContent = '...';
+  badge.className = 'version-badge';
+  try {
+    const r = await apiGet('/api/version');
+    const current = r.current || r.version || '—';
+    const latest = r.latest || r.latestVersion || '';
+    badge.textContent = 'v' + current;
+    if (currEl) currEl.textContent = 'v' + current;
+    if (latEl) latEl.textContent = latest ? 'v' + latest : '—';
+    if (latest && current !== latest && current !== '—') {
+      badge.className = 'version-badge update-available';
+      badge.title = 'Update available: v' + latest;
+    }
+    const dckVer = r.dck_version || r.dckVersion || '—';
+    const dckLat = r.dck_latest || r.dckLatest || '';
+    if (dckVerEl) dckVerEl.textContent = dckVer;
+    if (dckLatEl) dckLatEl.textContent = dckLat ? 'v' + dckLat : '—';
+    if (dckUpdateBtn) {
+      dckUpdateBtn.style.display = (dckLat && dckVer !== '—' && dckVer !== dckLat) ? 'inline-flex' : 'none';
+    }
+    state.dckVersion = dckVer;
+  } catch(_) { badge.textContent = '—'; badge.className = 'version-badge'; }
+}
+
+async function updateDck() {
+  if (!confirm('Download and install latest dck version? This will replace the current dck binary.')) return;
+  const btn = document.getElementById('dck-update-btn');
+  const origText = btn.textContent;
+  btn.textContent = 'Updating...';
+  btn.disabled = true;
+  try {
+    const r = await apiPost('/api/dck/update');
+    if (r.error) { toast('Update failed: ' + r.error, 'error'); }
+    else { toast('dck updated to ' + (r.version || 'latest'), 'success'); checkVersion(); }
+  } catch(e) { toast('Update failed', 'error'); }
+  finally { btn.textContent = origText; btn.disabled = false; }
+}
+
+/* Pterodactyl-style output */
+function ptTS() { const d=new Date(); return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+':'+('0'+d.getSeconds()).slice(-2); }
+function ptWrite(el, text) {
+  text.split('\n').forEach(l => {
+    const d = document.createElement('div');
+    d.className = 'pt-l';
+    d.innerHTML = '<span class="pt-t">['+ptTS()+']</span><span class="pt-m">'+(l||' ')+'</span>';
+    el.appendChild(d);
+  });
+  el.scrollTop = el.scrollHeight;
+}
+function ptClear(el) { el.innerHTML = ''; el.className = 'output-box'; el.style.display = 'block'; }
+
+/* Helpers */
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function statusBadge(s) { if (!s) return ''; const cls = s === 'running' ? 'running' : (s === 'stopped' ? 'stopped' : 'exited'); return '<span class="status-badge-sm ' + cls + '"><span class="status-dot"></span>' + esc(s) + '</span>'; }
+function fmtPorts(ports) { if (!ports) return ''; if (typeof ports === 'string') return ports; if (Array.isArray(ports)) return ports.map(p => (p.host_port || p.hostPort || '') + ':' + (p.container_port || p.containerPort || '') + (p.protocol && p.protocol !== 'tcp' ? '/' + p.protocol : '')).join(', '); return String(ports); }
+function randStr(n) { const c='abcdefghijklmnopqrstuvwxyz0123456789'; let r=''; for(let i=0;i<n;i++) r+=c[Math.floor(Math.random()*c.length)]; return r; }
