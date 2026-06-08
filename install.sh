@@ -32,9 +32,9 @@ SRC=$(mktemp -d)
 ARCHIVE="$SRC/archive.tar.gz"
 
 if command -v curl >/dev/null 2>&1; then
-    curl -sSL "$REPO/archive/main.tar.gz" -o "$ARCHIVE"
+    curl -sSL "https://api.github.com/repos/animesao/dck-client/tarball/main" -o "$ARCHIVE"
 elif command -v wget >/dev/null 2>&1; then
-    wget -q "$REPO/archive/main.tar.gz" -O "$ARCHIVE"
+    wget -q "https://api.github.com/repos/animesao/dck-client/tarball/main" -O "$ARCHIVE"
 else
     err "curl or wget required"
 fi
