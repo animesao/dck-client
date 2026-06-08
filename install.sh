@@ -29,19 +29,23 @@ fi
 # ── Download source ──
 section "Downloading dck-client"
 SRC=$(mktemp -d)
-ARCHIVE="$SRC/archive.tar.gz"
 
-if command -v curl >/dev/null 2>&1; then
-    curl -sSL "https://api.github.com/repos/animesao/dck-client/tarball/main" -o "$ARCHIVE"
+if command -v git >/dev/null 2>&1; then
+    git clone --depth 1 --branch main "https://github.com/animesao/dck-client.git" "$SRC/dck-client"
+    cd "$SRC/dck-client" || err "Failed to clone repository"
+elif command -v curl >/dev/null 2>&1; then
+    curl -sSL "https://github.com/animesao/dck-client/archive/refs/heads/main.tar.gz" -o "$SRC/archive.tar.gz"
+    tar xzf "$SRC/archive.tar.gz" -C "$SRC"
+    SRCDIR=$(find "$SRC" -maxdepth 1 -type d -name "dck-client*" | /usr/bin/head -1)
+    [ -n "$SRCDIR" ] && cd "$SRCDIR" || err "Failed to extract source archive"
 elif command -v wget >/dev/null 2>&1; then
-    wget -q "https://api.github.com/repos/animesao/dck-client/tarball/main" -O "$ARCHIVE"
+    wget -q "https://github.com/animesao/dck-client/archive/refs/heads/main.tar.gz" -O "$SRC/archive.tar.gz"
+    tar xzf "$SRC/archive.tar.gz" -C "$SRC"
+    SRCDIR=$(find "$SRC" -maxdepth 1 -type d -name "dck-client*" | /usr/bin/head -1)
+    [ -n "$SRCDIR" ] && cd "$SRCDIR" || err "Failed to extract source archive"
 else
-    err "curl or wget required"
+    err "git, curl or wget required"
 fi
-
-tar xzf "$ARCHIVE" -C "$SRC"
-SRCDIR=$(find "$SRC" -maxdepth 1 -type d -name "dck-client*" | /usr/bin/head -1)
-[ -n "$SRCDIR" ] && cd "$SRCDIR" || err "Failed to extract source archive"
 
 # ── Ensure Go 1.22+ ──
 install_go22() {
