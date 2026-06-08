@@ -220,6 +220,10 @@ strong{font-weight:600}
 .console-input-bar input{flex:1;padding:9px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#e2e8f0;font-family:'SF Mono','Cascadia Code','JetBrains Mono',monospace;font-size:13px;outline:none}
 .console-input-bar input:focus{border-color:var(--accent)}
 
+/* Status colors */
+.status-running{color:var(--green);font-weight:600}
+.status-stopped{color:var(--red);font-weight:600}
+
 /* Config */
 .config-toolbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
 .config-path{font-size:11px;color:var(--text2);margin-bottom:8px;padding:4px 8px;background:rgba(0,0,0,0.2);border-radius:4px;display:inline-block;font-family:monospace}

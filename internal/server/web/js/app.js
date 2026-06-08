@@ -397,22 +397,35 @@ async function loadContainerDetail(name) {
 async function loadDetailInfo(name) {
   const el = document.getElementById('detail-info');
   try {
-    const c = state.containers.find(x => x.name === name) || {};
+    const c = await apiGet('/api/containers/' + encodeURIComponent(name));
+    if (!c || c.error) { el.innerHTML = '<div class="empty-state"><p>Error loading container</p></div>'; return; }
     const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || '—');
     const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join(', ') : (c.volumes || '—');
     const envs = Array.isArray(c.env) ? c.env.join(', ') : (c.env || '—');
+    const statusClass = c.status === 'running' ? 'status-running' : (c.status === 'stopped' ? 'status-stopped' : '');
+    const uptime = c.created_at ? fmtUptime(c.created_at) : '—';
+    var netField = '';
+    if (c.ip) netField = 'IP';
     el.innerHTML = '<div class="info-grid">' +
       [
-        ['ID', c.id], ['Name', c.name], ['Image', (c.image_name || c.image || '') + (c.image_tag ? ':' + c.image_tag : '')],
-        ['Status', c.status], ['Ports', fmtPorts(c.ports)], ['IP', c.ip],
-        ['PID', c.pid], ['Hostname', c.hostname], ['Uptime', c.uptime || c.created || ''],
-        ['Restart', c.restart], ['Detach', c.detach], ['Interactive', c.interactive],
-        ['TTY', c.tty], ['RemoveOnExit', c.remove_on_exit],
-        ['Command', cmd], ['Volumes', vols], ['Environment', envs],
-      ].map(([k,v]) => '<div class="info-item"><strong>' + k.replace(/([A-Z])/g,' $1').trim() + '</strong><span>' + esc(String(v ?? '—')) + '</span></div>').join('') +
+        ['ID', '<code style="font-size:11px">' + esc(c.id) + '</code>'],
+        ['Name', esc(c.name)],
+        ['Image', esc((c.image_name || '') + (c.image_tag ? ':' + c.image_tag : ''))],
+        ['Status', '<span class="' + statusClass + '">' + esc(c.status) + '</span>'],
+        ['Uptime', uptime],
+        ['PID', c.pid > 0 ? c.pid : '—'],
+        [netField, c.ip || '—'],
+        ['Ports', fmtPorts(c.ports)],
+        ['Hostname', esc(c.hostname || '—')],
+        ['Restart', esc(c.restart || '—')],
+        ['Command', esc(cmd)],
+        ['Volumes', esc(vols)],
+        ['Environment', esc(envs)],
+        ['Auto Remove', c.remove_on_exit ? 'Yes' : 'No'],
+      ].filter(([k]) => k).map(([k,v]) => '<div class="info-item"><strong>' + k + '</strong><span>' + v + '</span></div>').join('') +
       '</div>' +
-      '<div id="detail-stats" class="detail-stats" style="margin-top:16px"><h3 style="font-size:14px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Resource Usage</h3><div class="empty-state"><p>Loading stats...</p></div></div>';
-    loadDetailStats(name);
+      '<div id="detail-stats" class="detail-stats" style="margin-top:16px"><h3 style="font-size:14px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Resource Usage</h3><div class="empty-state"><p>' + (c.status === 'running' ? 'Loading stats...' : 'Container not running') + '</p></div></div>';
+    if (c.status === 'running') loadDetailStats(name);
   } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error</p></div>'; }
 }
 
@@ -759,6 +772,22 @@ function resBar(percent, label) {
 }
 
 /* Helpers */
+function fmtUptime(created) {
+  var t = new Date(created);
+  if (isNaN(t.getTime())) return '—';
+  var diff = Math.floor((Date.now() - t.getTime()) / 1000);
+  if (diff < 0) return 'just now';
+  var d = Math.floor(diff / 86400); diff -= d * 86400;
+  var h = Math.floor(diff / 3600); diff -= h * 3600;
+  var m = Math.floor(diff / 60); diff -= m * 60;
+  var s = diff;
+  var parts = [];
+  if (d > 0) parts.push(d + 'd');
+  if (h > 0 || d > 0) parts.push(h + 'h');
+  if (m > 0 || h > 0 || d > 0) parts.push(m + 'm');
+  parts.push(s + 's');
+  return parts.join(' ');
+}
 function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function statusBadge(s) { if (!s) return ''; const cls = s === 'running' ? 'running' : (s === 'stopped' ? 'stopped' : 'exited'); return '<span class="status-badge-sm ' + cls + '"><span class="status-dot"></span>' + esc(s) + '</span>'; }
 function fmtPorts(ports) { if (!ports) return ''; if (typeof ports === 'string') return ports; if (Array.isArray(ports)) return ports.map(p => (p.host_port || p.hostPort || '') + ':' + (p.container_port || p.containerPort || '') + (p.protocol && p.protocol !== 'tcp' ? '/' + p.protocol : '')).join(', '); return String(ports); }
