@@ -6,7 +6,7 @@ A web-based management interface for [dck](https://github.com/animesao/dck) — 
 
 ```bash
 # 1. Install dck first (if not installed)
-curl -sSL https://github.com/animesao/dck-client/raw/main/install.sh | sudo bash
+curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash
 
 # 2. Clone and install dck-client directly (systemd — full host access)
 git clone https://github.com/animesao/dck-client.git

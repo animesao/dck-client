@@ -19,7 +19,7 @@ func (h *ConfigHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			writeJSON(w, http.StatusOK, map[string]string{
-				"content": "# dck.toml - Multi-container configuration\n# See: https://gitlab.com/animesao/dck\n\n",
+				"content": "# dck.toml - Multi-container configuration\n# See: https://github.com/animesao/dck\n\n",
 				"path":    cfgPath,
 			})
 			return

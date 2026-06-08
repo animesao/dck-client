@@ -88,7 +88,10 @@ func (h *VersionHandler) UpdateDck(w http.ResponseWriter, r *http.Request) {
 
 	// Step 1: fetch release info to get source archive URL
 	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Get("https://gitlab.com/api/v4/projects/animesao%2Fdck/releases/permalink/latest")
+	req, _ := http.NewRequest("GET", "https://api.github.com/repos/animesao/dck/releases/latest", nil)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "dck-client")
+	resp, err := client.Do(req)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "fetch release: "+err.Error())
 		return
@@ -110,7 +113,7 @@ func (h *VersionHandler) UpdateDck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Step 2: download source archive for this tag
-	archiveURL := fmt.Sprintf("https://gitlab.com/animesao/dck/-/archive/%s/dck-%s.tar.gz", release.TagName, release.TagName)
+	archiveURL := fmt.Sprintf("https://github.com/animesao/dck/archive/refs/tags/%s.tar.gz", release.TagName)
 	srcResp, err := client.Get(archiveURL)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "download source: "+err.Error())
@@ -247,7 +250,10 @@ func (h *VersionHandler) checkLatest() {
 	h.lastCheck = time.Now()
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get("https://gitlab.com/api/v4/projects/animesao%2Fdck-client/releases/permalink/latest")
+	req, _ := http.NewRequest("GET", "https://api.github.com/repos/animesao/dck-client/releases/latest", nil)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "dck-client")
+	resp, err := client.Do(req)
 	if err != nil {
 		return
 	}
@@ -270,7 +276,10 @@ func (h *VersionHandler) checkDckLatest() {
 	defer h.mu.Unlock()
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get("https://gitlab.com/api/v4/projects/animesao%2Fdck/releases/permalink/latest")
+	req, _ := http.NewRequest("GET", "https://api.github.com/repos/animesao/dck/releases/latest", nil)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "dck-client")
+	resp, err := client.Do(req)
 	if err != nil {
 		return
 	}
