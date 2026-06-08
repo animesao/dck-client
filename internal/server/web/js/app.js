@@ -421,7 +421,11 @@ async function loadDetailStats(name) {
   if (!el) return;
   try {
     const r = await apiGet('/api/containers/' + encodeURIComponent(name) + '/stats');
-    if (r.error) { el.innerHTML = '<div style="font-size:12px;color:var(--text2)">Stats unavailable (container not running)</div>'; return; }
+    if (r && r.error === 'container not running') {
+      el.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">Container is not running</div>';
+      return;
+    }
+    if (r.error) { el.innerHTML = '<div style="font-size:12px;color:var(--text2)">' + esc(r.error) + '</div>'; return; }
     el.innerHTML =
       '<div class="res-row"><span class="res-label">CPU</span><div class="res-bar-wrap"><div class="res-bar" style="width:' + Math.min(r.cpu_percent, 100) + '%"></div></div><span class="res-value">' + (r.cpu || '0') + '%</span></div>' +
       '<div class="res-row"><span class="res-label">RAM</span><div class="res-bar-wrap"><div class="res-bar mem" style="width:' + Math.min(r.mem_percent, 100) + '%"></div></div><span class="res-value">' + (r.mem || '0') + '</span></div>';
@@ -522,11 +526,9 @@ function connectConsole() {
     wsConsole.onopen = () => { terminal.write('\r\n\x1b[1;32m[' + ptTS() + '] Connecting...\x1b[0m\r\n'); };
       wsConsole.onmessage = (e) => {
         if (e.data instanceof Blob) {
-          e.data.text().then(txt => {
-            terminal.write(txt.replace(/\r/g, '').replace(/^ +/gm, ''));
-          });
+          e.data.text().then(txt => terminal.write(txt));
         } else {
-          terminal.write(e.data.replace(/\r/g, '').replace(/^ +/gm, ''));
+          terminal.write(e.data);
         }
       };
     wsConsole.onerror = () => { terminal.write('\r\n\x1b[1;31m[' + ptTS() + '] WebSocket error\x1b[0m\r\n'); };

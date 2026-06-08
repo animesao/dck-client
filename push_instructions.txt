@@ -1,36 +1,89 @@
-root@strawtopaz:~# curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash
-━━━ Downloading dck-client ━━━
-Cloning into '/tmp/tmp.Kx1bBpU2h0/dck-client'...
-remote: Enumerating objects: 40, done.
-remote: Counting objects: 100% (40/40), done.
-remote: Compressing objects: 100% (34/34), done.
-remote: Total 40 (delta 1), reused 24 (delta 0), pack-reused 0 (from 0)
-Receiving objects: 100% (40/40), 81.35 KiB | 6.78 MiB/s, done.
-Resolving deltas: 100% (1/1), done.
-━━━ Building dck-client ━━━
-[INFO] Installing Go 1.22...
-[INFO] Go go1.22.5 installed
-# dck-client/internal/dck
-internal/dck/dck.go:314:42: syntax error: unexpected int in argument list; possibly missing comma or )
-internal/dck/dck.go:393:2: syntax error: non-declaration statement outside function body
-root@strawtopaz:~# curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/uninstall.sh | sudo bash
-Stopping and removing systemd service...
-Removing binary...
-Removing data directory...
-dck-client has been uninstalled.
-root@strawtopaz:~# curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash
-━━━ Downloading dck-client ━━━
-Cloning into '/tmp/tmp.Zl8iFoP3Ku/dck-client'...
-remote: Enumerating objects: 40, done.
-remote: Counting objects: 100% (40/40), done.
-remote: Compressing objects: 100% (34/34), done.
-remote: Total 40 (delta 1), reused 24 (delta 0), pack-reused 0 (from 0)
-Receiving objects: 100% (40/40), 81.35 KiB | 6.78 MiB/s, done.
-Resolving deltas: 100% (1/1), done.
-━━━ Building dck-client ━━━
-[INFO] Installing Go 1.22...
-[INFO] Go go1.22.5 installed
-# dck-client/internal/dck
-internal/dck/dck.go:314:42: syntax error: unexpected int in argument list; possibly missing comma or )
-internal/dck/dck.go:393:2: syntax error: non-declaration statement outside function body
-root@strawtopaz:~#
+
+[19:15:54] Connecting...
+
+Connected to aaaae8326bb546df6c3edf11e75d1a79
+                                             [console-serve] started
+                                                                    [console-serve] client connected
+                                                                                                    [init] Changing ownership of /data to 1000 ...
+                                                                                                                                                  [init] Running as uid=1000 gid=1000 with /data as 'drwxr-x--- 1 1000 1000 4096 Jun  8 13:18 /data'
+                                                                                             [init] Image info: buildtime=2026-06-04T14:29:49.828Z,version=java25,revision=cecf4e8e95d797a220a02db88874705b5da8ffa8
+                                                            [init] Resolving type given PAPER
+                                                                                             [mc-image-helper] 14:00:38.618 INFO  : Downloaded /data/paper-1.20.4-499.jar
+                  [init] Copying any plugins from /plugins to /data/plugins
+                                                                           [init] Copying any configs from /config to /data/config
+                                                                                                                                  [init] Creating server properties in /data/server.properties
+                                       [init] Disabling whitelist functionality
+                                                                               [init] Setting mode
+                                                                                                  [mc-image-helper] 14:00:41.276 INFO  : Created/updated 6 properties in /data/server.properties
+                                         [mc-image-helper] 14:00:42.839 INFO  : Downloaded /data/config/paper-global.yml from https://raw.githubusercontent.com/Shonz1/minecraft-default-configs/main/1.20.4/paper-global.yml
+                                                                      [mc-image-helper] 14:00:42.839 INFO  : Downloaded /data/config/paper-world-defaults.yml from https://raw.githubusercontent.com/Shonz1/minecraft-default-configs/main/1.20.4/paper-world-defaults.yml
+                                                                                                                   [mc-image-helper] 14:00:44.534 INFO  : Downloaded /data/bukkit.yml from https://raw.githubusercontent.com/Shonz1/minecraft-default-configs/main/1.20.4/bukkit.yml
+                                                                                                                             [mc-image-helper] 14:00:44.574 INFO  : Downloaded /data/spigot.yml from https://raw.githubusercontent.com/Shonz1/minecraft-default-configs/main/1.20.4/spigot.yml
+                                                                                                                                       [init] Setting initial memory to 2G and max to 2G
+                                 [init] Starting the Minecraft server...
+                                                                        Downloading mojang_1.20.4.jar
+                                                                                                     Applying patches
+                                                                                                                     Starting org.bukkit.craftbukkit.Main
+  *** Warning, you've not updated in a while! ***
+                                                 *** Please download a new build as per instructions from https://papermc.io/downloads/paper ***
+                                                                                                                                                System Info: Java 25 (OpenJDK 64-Bit Server VM 25.0.3+9-LTS) Host: Linux 5.15.0-181-generic (amd64)
+                                                                                            Loading libraries, please wait...
+                                                                                                                             /tmp/jansi-2.4.0-df59762d1c5a066b-libjansi.so.lck (Permission denied)
+                                           2026-06-08 14:00:49,917 ServerMain WARN Advanced terminal features are not available in this environment
+                                                                                                                                                   WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+                                                                      WARNING: sun.misc.Unsafe::objectFieldOffset has been called by io.netty.util.internal.PlatformDependent0$4 (file:/data/libraries/io/netty/netty-common/4.1.97.Final/netty-common-4.1.97.Final.jar)
+                                                                                                                 WARNING: Please consider reporting this to the maintainers of class io.netty.util.internal.PlatformDependent0$4
+                                                                         WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+ WARNING: A restricted method in java.lang.System has been called
+                                                                 WARNING: java.lang.System::load has been called by com.sun.jna.Native in an unnamed module (file:/data/libraries/net/java/dev/jna/jna/5.13.0/jna-5.13.0.jar)
+                                                                      WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+            WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+                                                                                                           [14:00:54 INFO]: Environment: Environment[sessionHost=https://sessionserver.mojang.com, servicesHost=https://api.minecraftservices.com, name=PROD]
+                                                                                                      [14:00:54 INFO]: Found new data pack file/bukkit, loading it automatically
+                         [14:00:54 INFO]: No existing world data, creating new world
+                                                                                    [14:00:55 INFO]: Loaded 1174 recipes
+                                                                                                                        [14:00:55 INFO]: Loaded 1271 advancements
+          [14:00:55 INFO]: Starting minecraft server version 1.20.4
+                                                                   [14:00:55 INFO]: Loading properties
+                                                                                                      [14:00:55 INFO]: This server is running Paper version git-Paper-499 (MC: 1.20.4) (Implementing API version 1.20.4-R0.1-SNAPSHOT) (Git: 9de3f75 on ver/1.20.4)
+                                                                                                            [14:00:55 INFO]: Server Ping Player Sample Count: 12
+         [14:00:55 INFO]: Using 4 threads for Netty based IO
+                                                            [14:00:56 WARN]: [!] The timings profiler has been enabled but has been scheduled for removal from Paper in the future.
+                            We recommend installing the spark profiler as a replacement: https://spark.lucko.me/
+                                                                                                                For more information please visit: https://github.com/PaperMC/Paper/issues/8948
+                                        [14:00:56 INFO]: [ChunkTaskScheduler] Chunk system is using 1 I/O threads, 2 worker threads, and gen parallelism of 2 threads
+              [14:00:56 INFO]: Default game type: SURVIVAL
+                                                          [14:00:56 INFO]: Generating keypair
+                                                                                             [14:00:56 INFO]: Starting Minecraft server on *:25565
+                                                                                                                                                  [14:00:56 INFO]: Using default channel type
+                                      [14:00:56 INFO]: Paper: Using Java compression from Velocity.
+                                                                                                   [14:00:56 INFO]: Paper: Using Java cipher from Velocity.
+    [14:00:56 INFO]: Preparing level "world"
+                                            [14:01:01 INFO]: Preparing start region for dimension minecraft:overworld
+                                                                                                                     [14:01:01 INFO]: Time elapsed: 104 ms
+   [14:01:01 INFO]: Preparing start region for dimension minecraft:the_nether
+                                                                             [14:01:01 INFO]: Time elapsed: 75 ms
+                                                                                                                 [14:01:01 INFO]: Preparing start region for dimension minecraft:the_end
+                                 [14:01:01 INFO]: Time elapsed: 88 ms
+                                                                     [14:01:01 INFO]: Starting remote control listener
+                                                                                                                      [14:01:01 INFO]: Thread RCON Listener started
+            [14:01:01 INFO]: RCON running on 0.0.0.0:25575
+                                                          [14:01:01 INFO]: Running delayed init tasks
+                                                                                                     [14:01:01 INFO]: Done (6.324s)! For help, type "help"
+   [14:01:01 INFO]: Timings Reset
+                                 [14:01:10 INFO]: Unknown command. Type "/help" for help.
+                                                                                         [console-serve] client connected
+                                                                                                                         [14:13:12 INFO]: Unknown command. Type "/help" for help.
+                          [14:13:13 INFO]: Unknown or incomplete command, see below for error
+                                                                                             tp<--[HERE]
+                                                                                                        [14:13:15 INFO]: TPS from last 1m, 5m, 15m: 20.0, 20.0, 20.0
+             [console-serve] client connected
+                                             [14:18:11 INFO]: TPS from last 1m, 5m, 15m: 20.0, 20.0, 20.0
+                                                                                                         [console-serve] client connected
+                                                                                                                                         [console-serve] client connected
+                  [15:55:58 INFO]: TPS from last 1m, 5m, 15m: 20.0, 20.0, 20.0
+                                                                              [console-serve] client connected
+
+
+Stats unavailable (container not running)
