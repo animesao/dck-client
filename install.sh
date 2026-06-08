@@ -70,11 +70,11 @@ install_go22() {
 section "Building dck-client"
 install_go22
 VERSION="${VERSION:-$(date +%Y%m%d)}"
-go build -ldflags="-s -w -X main.Version=$VERSION" -o "$SRC/dck-client" ./cmd/server
-chmod 755 "$SRC/dck-client"
+go build -ldflags="-s -w -X main.Version=$VERSION" -o /tmp/dck-client-bin ./cmd/server
+chmod 755 /tmp/dck-client-bin
 
 # Verify binary exists and works
-if ! "$SRC/dck-client" --help >/dev/null 2>&1; then
+if ! /tmp/dck-client-bin --help >/dev/null 2>&1; then
     err "Binary built but failed to run. Check Go version and dependencies."
 fi
 info "Binary built successfully"
@@ -96,7 +96,7 @@ fi
 if [ "$MODE" = "direct" ]; then
     section "Installing as systemd service"
 
-    cp "$SRC/dck-client" "$BINDIR/dck-client"
+    cp /tmp/dck-client-bin "$BINDIR/dck-client"
     chmod 755 "$BINDIR/dck-client"
 
     cat > "$SYSTEMD/dck-client.service" << 'UNIT'
@@ -184,7 +184,7 @@ elif [ "$MODE" = "container" ]; then
         -n dck-client \
         -p 443:443 \
         -p 8080:8080 \
-        -v "$SRC/dck-client:/usr/local/bin/dck-client" \
+        -v /tmp/dck-client-bin:/usr/local/bin/dck-client \
         -v "$DCK_BIN:/usr/local/bin/dck" \
         -v "$DCK_DATA:/root/.dck" \
         --restart always \
