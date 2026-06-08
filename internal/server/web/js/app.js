@@ -499,6 +499,16 @@ let terminal = null;
 let termFit = null;
 let wsConsole = null;
 
+function sendCommand() {
+  const input = document.getElementById('console-command');
+  const cmd = input.value.trim();
+  if (!cmd || !wsConsole || wsConsole.readyState !== WebSocket.OPEN) return;
+  input.value = '';
+  terminal.write('\r\n\x1b[1;36m> ' + esc(cmd) + '\x1b[0m\r\n');
+  wsConsole.send(cmd + '\r');
+  terminal.focus();
+}
+
 function connectConsole() {
   const id = currentDetailId;
   if (!id) return;
@@ -519,6 +529,7 @@ function connectConsole() {
 
   connBtn.style.display = 'none';
   disBtn.style.display = 'inline-flex';
+  document.getElementById('console-input-bar').style.display = 'flex';
   terminal.focus();
 
   try {
@@ -548,6 +559,7 @@ function disconnectConsole() {
   if (wsConsole) { wsConsole.close(); wsConsole = null; }
   document.getElementById('console-connect-btn').style.display = 'inline-flex';
   document.getElementById('console-disconnect-btn').style.display = 'none';
+  document.getElementById('console-input-bar').style.display = 'none';
 }
 
 /* Images */

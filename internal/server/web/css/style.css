@@ -213,7 +213,12 @@ strong{font-weight:600}
 .log-viewer .pt-l:last-child{padding-bottom:8px}
 .log-viewer .pt-t{color:#484f58;flex-shrink:0;font-size:11px;user-select:none;letter-spacing:0.2px}
 .log-viewer .pt-m{color:#e2e8f0;word-break:break-all}
-.log-toolbar{display:flex;gap:6px;margin-bottom:8px}
+.log-toolbar{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+
+/* Console input bar */
+.console-input-bar{display:flex;gap:8px;margin-top:8px}
+.console-input-bar input{flex:1;padding:9px 12px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#e2e8f0;font-family:'SF Mono','Cascadia Code','JetBrains Mono',monospace;font-size:13px;outline:none}
+.console-input-bar input:focus{border-color:var(--accent)}
 
 /* Config */
 .config-toolbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}

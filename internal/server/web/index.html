@@ -208,6 +208,10 @@
           <button onclick="disconnectConsole()" class="btn btn-sm btn-danger" id="console-disconnect-btn" style="display:none">Disconnect</button>
         </div>
         <div id="terminal-container" style="background:#0a0e1a;border-radius:6px;border:1px solid var(--border);overflow:hidden;min-height:300px"></div>
+        <div class="console-input-bar" id="console-input-bar" style="display:none">
+          <input type="text" id="console-command" placeholder="Type a command..." onkeydown="if(event.key==='Enter')sendCommand()" autocomplete="off" spellcheck="false">
+          <button onclick="sendCommand()" class="btn btn-sm btn-primary">Send</button>
+        </div>
       </div>
     </div>
 
