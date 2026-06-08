@@ -169,7 +169,7 @@ function updateDashContainerTable(containers) {
       const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join('<br>') : (c.volumes || '—');
       const envs = Array.isArray(c.env) ? c.env.slice(0, 4).join('<br>') + (c.env.length > 4 ? '<br><span style="color:var(--text2)">+' + (c.env.length - 4) + ' more</span>' : '') : (c.env || '—');
       const img = (c.image_name || c.image || '') + (c.image_tag ? ':' + c.image_tag : '');
-      return '<div class="dash-container-card glass" onclick="navigate(\'container-detail\',\'' + esc(c.name) + '\')">' +
+      return '<div class="dash-container-card glass" onclick="navigate(\'container-detail\',\'' + esc(c.id) + '\')">' +
         '<div class="dash-card-header"><span class="dash-card-name">' + esc(c.name) + '</span>' + statusBadge(c.status) + '</div>' +
         '<div class="dash-card-id">ID ' + esc(c.id || '') + '</div>' +
         '<div class="dash-card-body">' +
@@ -350,54 +350,56 @@ function updateContainerTable(containers) {
   if (search) list = list.filter(c => (c.name || '').toLowerCase().includes(search) || (c.image || '').toLowerCase().includes(search));
   el.innerHTML = '<table><thead><tr><th>Name</th><th>Image</th><th>Status</th><th>Ports</th><th>Created</th><th>Actions</th></tr></thead><tbody>' +
     list.map(c => '<tr>' +
-      '<td><a href="#" onclick="navigate(\'container-detail\',\'' + esc(c.name) + '\')" style="color:var(--accent2)">' + esc(c.name) + '</a></td>' +
+      '<td><a href="#" onclick="navigate(\'container-detail\',\'' + esc(c.id) + '\')" style="color:var(--accent2)">' + esc(c.name) + '</a></td>' +
       '<td>' + esc(c.image) + '</td>' +
       '<td>' + statusBadge(c.status) + '</td>' +
       '<td>' + fmtPorts(c.ports) + '</td>' +
       '<td>' + esc(c.created || '') + '</td>' +
       '<td>' +
-      (c.status !== 'running' ? '<button class="action-btn success" onclick="execAction(\'' + esc(c.name) + '\',\'start\')" title="Start">▶</button>' : '') +
-      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.name) + '\',\'stop\')" title="Stop">■</button>' : '') +
-      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.name) + '\',\'restart\')" title="Restart">↻</button>' : '') +
-      '<button class="action-btn danger" onclick="deleteContainer(\'' + esc(c.name) + '\')" title="Delete">✕</button>' +
+      (c.status !== 'running' ? '<button class="action-btn success" onclick="execAction(\'' + esc(c.id) + '\',\'start\')" title="Start">▶</button>' : '') +
+      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.id) + '\',\'stop\')" title="Stop">■</button>' : '') +
+      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.id) + '\',\'restart\')" title="Restart">↻</button>' : '') +
+      '<button class="action-btn danger" onclick="deleteContainer(\'' + esc(c.id) + '\')" title="Delete">✕</button>' +
       '</td></tr>').join('') +
     '</tbody></table>';
 }
 
 function filterContainers() { updateContainerTable(state.containers); }
 
-async function execAction(name, action) {
+async function execAction(id, action) {
   try {
-    const r = await apiPost('/api/containers/' + encodeURIComponent(name) + '/' + action);
+    const r = await apiPost('/api/containers/' + encodeURIComponent(id) + '/' + action);
     if (r.error) toast(r.error, 'error');
-    else toast(action + ' ' + name, 'success');
+    else { const c = state.containers.find(x => x.id === id); toast(action + ' ' + (c ? c.name : id), 'success'); }
   } catch(e) { toast('Action failed', 'error'); }
 }
 
-async function deleteContainer(name) {
-  if (!confirm('Delete container "' + name + '"?')) return;
+async function deleteContainer(id) {
+  const c = state.containers.find(x => x.id === id);
+  if (!confirm('Delete container "' + (c ? c.name : id) + '"?')) return;
   try {
-    const r = await apiDelete('/api/containers/' + encodeURIComponent(name));
+    const r = await apiDelete('/api/containers/' + encodeURIComponent(id));
     if (r.error) toast(r.error, 'error');
-    else { toast('Deleted ' + name, 'success'); loadContainers(); }
+    else { toast('Deleted ' + (c ? c.name : id), 'success'); loadContainers(); }
   } catch(e) { toast('Delete failed', 'error'); }
 }
 
 function showCreateContainer() { navigate('blueprints'); }
 
 /* Container Detail */
-async function loadContainerDetail(name) {
-  document.getElementById('detail-title').textContent = name;
+async function loadContainerDetail(id) {
+  const c = state.containers.find(x => x.id === id) || {};
+  document.getElementById('detail-title').textContent = c.name || id;
   switchDetailTab('info');
-  await loadDetailInfo(name);
-  await loadDetailLogs(name);
-  await loadDetailState(name);
+  await loadDetailInfo(id);
+  await loadDetailLogs(id);
+  await loadDetailState(id);
 }
 
-async function loadDetailInfo(name) {
+async function loadDetailInfo(id) {
   const el = document.getElementById('detail-info');
   try {
-    const c = await apiGet('/api/containers/' + encodeURIComponent(name));
+    const c = await apiGet('/api/containers/' + encodeURIComponent(id));
     if (!c || c.error) { el.innerHTML = '<div class="empty-state"><p>Error loading container</p></div>'; return; }
     const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || '—');
     const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join(', ') : (c.volumes || '—');
@@ -425,15 +427,15 @@ async function loadDetailInfo(name) {
       ].filter(([k]) => k).map(([k,v]) => '<div class="info-item"><strong>' + k + '</strong><span>' + v + '</span></div>').join('') +
       '</div>' +
       '<div id="detail-stats" class="detail-stats" style="margin-top:16px"><h3 style="font-size:14px;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Resource Usage</h3><div class="empty-state"><p>' + (c.status === 'running' ? 'Loading stats...' : 'Container not running') + '</p></div></div>';
-    if (c.status === 'running') loadDetailStats(name);
+    if (c.status === 'running') loadDetailStats(id);
   } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error</p></div>'; }
 }
 
-async function loadDetailStats(name) {
+async function loadDetailStats(id) {
   const el = document.getElementById('detail-stats');
   if (!el) return;
   try {
-    const r = await apiGet('/api/containers/' + encodeURIComponent(name) + '/stats');
+    const r = await apiGet('/api/containers/' + encodeURIComponent(id) + '/stats');
     if (r && r.error === 'container not running') {
       el.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">Container is not running</div>';
       return;
@@ -445,20 +447,20 @@ async function loadDetailStats(name) {
   } catch(_) { el.innerHTML = '<div style="font-size:12px;color:var(--text2)">Stats unavailable</div>'; }
 }
 
-async function loadDetailLogs(name) {
+async function loadDetailLogs(id) {
   const el = document.getElementById('log-viewer');
   try {
-    const r = await apiGet('/api/containers/' + encodeURIComponent(name) + '/logs');
+    const r = await apiGet('/api/containers/' + encodeURIComponent(id) + '/logs');
     const text = typeof r === 'string' ? r : (r.logs || 'No logs');
     el.innerHTML = '';
     text.split('\n').forEach(l => ptWrite(el, l));
   } catch(_) { el.innerHTML = ''; ptWrite(el, 'Error loading logs'); }
 }
 
-async function loadDetailState(name) {
+async function loadDetailState(id) {
   const el = document.getElementById('state-viewer');
   try {
-    const r = await apiGet('/api/containers/' + encodeURIComponent(name) + '/state');
+    const r = await apiGet('/api/containers/' + encodeURIComponent(id) + '/state');
     const text = typeof r === 'string' ? r : JSON.stringify(r, null, 2);
     el.innerHTML = '';
     text.split('\n').forEach(l => ptWrite(el, l));
