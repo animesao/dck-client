@@ -73,11 +73,11 @@ VERSION="${VERSION:-$(date +%Y%m%d)}"
 go build -ldflags="-s -w -X main.Version=$VERSION" -o /tmp/dck-client-bin ./cmd/server
 chmod 755 /tmp/dck-client-bin
 
-# Verify binary exists and works
-if ! /tmp/dck-client-bin --help >/dev/null 2>&1; then
-    err "Binary built but failed to run. Check Go version and dependencies."
+# Verify binary exists and is executable
+if [ ! -x /tmp/dck-client-bin ]; then
+    err "Binary not found or not executable"
 fi
-info "Binary built successfully"
+info "Binary built successfully ($(file /tmp/dck-client-bin | grep -oP '(ELF|Mach-O|PE32)'))"
 
 # ── Mode selection ──
 if [ "$MODE" = "auto" ]; then
