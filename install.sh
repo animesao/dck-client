@@ -32,9 +32,9 @@ SRC=$(mktemp -d)
 ARCHIVE="$SRC/archive.tar.gz"
 
 if command -v curl >/dev/null 2>&1; then
-    curl -sSL "$REPO/-/archive/main/dck-client-main.tar.gz" -o "$ARCHIVE"
+    curl -sSL "$REPO/archive/main.tar.gz" -o "$ARCHIVE"
 elif command -v wget >/dev/null 2>&1; then
-    wget -q "$REPO/-/archive/main/dck-client-main.tar.gz" -O "$ARCHIVE"
+    wget -q "$REPO/archive/main.tar.gz" -O "$ARCHIVE"
 else
     err "curl or wget required"
 fi
