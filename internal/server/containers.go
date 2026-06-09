@@ -46,6 +46,14 @@ func (h *ContainerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Image == "" {
+		writeError(w, http.StatusBadRequest, "image is required")
+		return
+	}
+	if req.Name == "" {
+		req.Name = strings.NewReplacer("/", "-", ":", "-", "@", "-").Replace(req.Image) + "-" + randString(4)
+	}
+
 	out, err := h.dck.CreateContainer(&req)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

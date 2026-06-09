@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"dck-client/internal/models"
@@ -19,7 +20,10 @@ func (h *BlueprintHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
-	name := chi.URLParam(r, "name")
+	name, err := url.PathUnescape(chi.URLParam(r, "name"))
+	if err != nil {
+		name = chi.URLParam(r, "name")
+	}
 
 	blueprints := getBlueprints()
 	var bp *models.Blueprint
@@ -49,6 +53,25 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
+	}
+
+	// Validate required fields
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "container name is required")
+		return
+	}
+	if req.Port == "" && bp.DefaultPort != "" {
+		req.Port = bp.DefaultPort
+	}
+
+	// Validate required env vars
+	for _, ev := range bp.Env {
+		if ev.Required {
+			if val, ok := req.Env[ev.Key]; !ok || val == "" {
+				writeError(w, http.StatusBadRequest, ev.Key+" is required")
+				return
+			}
+		}
 	}
 
 	// Ensure unique container name

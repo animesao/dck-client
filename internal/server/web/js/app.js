@@ -347,6 +347,7 @@ async function openBlueprintModal(id) {
   const bp = allBlueprints.find(b => b.name === id);
   if (!bp) return;
   const modal = document.getElementById('bp-modal');
+  document.getElementById('bp-id').value = id;
   document.getElementById('bp-modal-title').textContent = 'Deploy: ' + bp.name;
   document.getElementById('bp-image').value = bp.image || '';
   document.getElementById('bp-default-port').value = bp.defaultPort || '';
@@ -437,7 +438,7 @@ async function deployBlueprint(e) {
 
   try {
     ptWrite(output, 'Pulling image and creating container...');
-    const bpId = document.getElementById('bp-modal-title').textContent.replace('Deploy: ', '');
+    const bpId = document.getElementById('bp-id').value;
     const res = await apiPost('/api/blueprints/' + encodeURIComponent(bpId) + '/launch', payload);
     if (res.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + res.error); }
     else {

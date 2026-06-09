@@ -154,7 +154,9 @@
           <input type="hidden" id="bp-default-port">
           <input type="hidden" id="bp-default-cmd">
           <input type="hidden" id="bp-is-multi">
+          <input type="hidden" id="bp-id">
 
+          <div class="form-section-label">Container</div>
           <div class="form-group"><label>Container Name</label><input type="text" id="bp-name" placeholder="my-service"></div>
           <div class="form-row">
             <div class="form-group"><label>Port <span class="field-hint">(host:container)</span></label><input type="text" id="bp-port" placeholder="80:80"></div>
@@ -162,18 +164,22 @@
           </div>
 
           <div id="bp-env-section">
-            <label class="section-label">Environment Variables</label>
+            <div class="form-section-label">Environment Variables</div>
             <div id="bp-env-fields"></div>
           </div>
 
-          <div class="form-group"><label>Command <span class="field-hint">(edit if needed)</span></label><textarea id="bp-cmd" rows="2" class="mono"></textarea></div>
-
+          <div class="form-section-label">Resources</div>
           <div class="form-row">
             <div class="form-group"><label>Memory <span class="field-hint">(e.g. 512m, 1g)</span></label><input type="text" id="bp-memory" placeholder="512m"></div>
             <div class="form-group"><label>CPUs <span class="field-hint">(e.g. 1.5)</span></label><input type="text" id="bp-cpus" placeholder="1.0"></div>
           </div>
           <div class="form-group"><label>Working Directory <span class="field-hint">(inside container)</span></label><input type="text" id="bp-workdir" placeholder="/app"></div>
+
+          <div class="form-section-label">Storage</div>
           <div class="form-group"><label>Volumes <span class="field-hint">(src:dst, one per line)</span></label><textarea id="bp-volumes" rows="2" class="mono" placeholder="/data:/data"></textarea></div>
+
+          <div class="form-section-label">Command</div>
+          <div class="form-group"><label>Command <span class="field-hint">(overrides image CMD)</span></label><textarea id="bp-cmd" rows="2" class="mono"></textarea></div>
 
           <div id="bp-hint" class="env-hint" style="display:none"></div>
 
@@ -199,23 +205,33 @@
       </div>
       <div class="card glass">
         <form onsubmit="createCustomContainer(event)">
+          <div class="form-section-label">Basic Settings</div>
           <div class="form-group"><label>Image <span class="field-hint">(name:tag)</span></label><input type="text" id="cr-image" placeholder="nginx:alpine" required></div>
           <div class="form-row">
             <div class="form-group"><label>Container Name</label><input type="text" id="cr-name" placeholder="my-container"></div>
             <div class="form-group"><label>Restart Policy</label><select id="cr-restart"><option value="">None</option><option value="always" selected>Always</option><option value="on-failure">On Failure</option><option value="unless-stopped">Unless Stopped</option></select></div>
           </div>
+
+          <div class="form-section-label">Resources</div>
           <div class="form-row">
             <div class="form-group"><label>Memory <span class="field-hint">(e.g. 512m, 1g)</span></label><input type="text" id="cr-memory" placeholder="512m"></div>
             <div class="form-group"><label>CPUs <span class="field-hint">(e.g. 1.5)</span></label><input type="text" id="cr-cpus" placeholder="1.0"></div>
           </div>
+          <div class="form-group"><label>Working Directory <span class="field-hint">(inside container, e.g. /app)</span></label><input type="text" id="cr-workdir" placeholder="/app"></div>
+
+          <div class="form-section-label">Network</div>
           <div class="form-row">
-            <div class="form-group"><label>Host Port</label><input type="text" id="cr-port" placeholder="80:80"></div>
+            <div class="form-group"><label>Host Port <span class="field-hint">(host:container)</span></label><input type="text" id="cr-port" placeholder="80:80"></div>
             <div class="form-group"><label>Hostname</label><input type="text" id="cr-hostname" placeholder="myhost"></div>
           </div>
-          <div class="form-group"><label>Working Directory <span class="field-hint">(inside container, e.g. /app)</span></label><input type="text" id="cr-workdir" placeholder="/app"></div>
-          <div class="form-group"><label>Command <span class="field-hint">(override image CMD)</span></label><input type="text" id="cr-cmd" placeholder="python main.py"></div>
-          <div class="form-group"><label>Environment Variables <span class="field-hint">(KEY=VAL, one per line)</span></label><textarea id="cr-env" rows="3" class="mono" placeholder="NODE_ENV=production"></textarea></div>
+
+          <div class="form-section-label">Storage</div>
           <div class="form-group"><label>Volumes <span class="field-hint">(src:dst, one per line)</span></label><textarea id="cr-volumes" rows="3" class="mono" placeholder="/host/path:/container/path"></textarea></div>
+
+          <div class="form-section-label">Advanced</div>
+          <div class="form-group"><label>Command <span class="field-hint">(overrides image CMD)</span></label><input type="text" id="cr-cmd" placeholder="python main.py"></div>
+          <div class="form-group"><label>Environment Variables <span class="field-hint">(KEY=VAL, one per line)</span></label><textarea id="cr-env" rows="3" class="mono" placeholder="NODE_ENV=production"></textarea></div>
+
           <div class="form-actions">
             <button type="submit" class="btn btn-glow" id="cr-btn">Create & Start</button>
             <button type="button" class="btn" onclick="navigate('containers')">Cancel</button>
