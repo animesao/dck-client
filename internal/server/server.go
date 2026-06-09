@@ -125,6 +125,11 @@ func (s *Server) Router() http.Handler {
 
 			r.Post("/dck-client/update", version.UpdateDckClient)
 
+			r.Route("/update", func(r chi.Router) {
+				r.Get("/check", version.CheckUpdatesWeb)
+				r.Post("/apply", version.UpdateDckClient)
+			})
+
 			r.Get("/version", version.Get)
 		})
 

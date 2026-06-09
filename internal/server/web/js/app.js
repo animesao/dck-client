@@ -57,6 +57,7 @@ function showMain() {
   document.getElementById('user-info').textContent = localStorage.getItem('dck_user') || 'User';
   document.getElementById('user-role').textContent = localStorage.getItem('dck_role') || 'admin';
   connectSSE(onSSE);
+  document.getElementById('update-banner').style.display = 'none';
   checkVersion();
   loadDashboard();
   apiGet('/api/auth/me').then(u => {
@@ -865,6 +866,15 @@ async function checkVersion() {
       clientUpdateBtn.style.display = (latest && current !== '—' && current !== latest) ? 'inline-flex' : 'none';
     }
     state.dckVersion = dckVer;
+
+    // Show update banner
+    const banner = document.getElementById('update-banner');
+    if (banner && latest && current !== '—' && current !== latest) {
+      const dismissed = localStorage.getItem('dck_update_banner_dismissed_' + latest);
+      if (!dismissed) {
+        banner.style.display = 'block';
+      }
+    }
   } catch(_) { badge.textContent = '—'; badge.className = 'version-badge'; }
 }
 
@@ -894,6 +904,111 @@ async function updateDck() {
     else { toast('dck updated to ' + (r.version || 'latest'), 'success'); checkVersion(); }
   } catch(e) { toast('Update failed', 'error'); }
   finally { btn.textContent = origText; btn.disabled = false; }
+}
+
+/* Update Banner & Modal */
+function dismissUpdateBanner() {
+  document.getElementById('update-banner').style.display = 'none';
+}
+
+async function showUpdateModal() {
+  const modal = document.getElementById('update-modal');
+  const body = document.getElementById('update-modal-body');
+  const actions = document.getElementById('um-actions');
+  const changelog = document.getElementById('um-changelog');
+  const output = document.getElementById('um-output');
+  const progress = document.getElementById('um-progress');
+  const applyBtn = document.getElementById('um-apply-btn');
+
+  output.style.display = 'none';
+  progress.style.display = 'none';
+  changelog.innerHTML = '<div class="empty-state"><p>Loading...</p></div>';
+  applyBtn.querySelector('.btn-text').textContent = 'Update to Latest';
+  applyBtn.querySelector('.btn-spinner').style.display = 'none';
+  applyBtn.disabled = false;
+  actions.style.display = 'flex';
+  modal.style.display = 'flex';
+
+  try {
+    const r = await apiGet('/api/update/check');
+    document.getElementById('um-current').textContent = 'v' + (r.current || '—');
+    document.getElementById('um-latest').textContent = r.release?.tag_name || '—';
+
+    if (r.release?.body) {
+      let body = r.release.body
+        .replace(/### (.+)/g, '<h4>$1</h4>')
+        .replace(/- (.+)/g, '<li>$1</li>')
+        .replace(/\n\n/g, '<br>');
+      changelog.innerHTML = '<div class="update-changelog-inner">' + body + '</div>';
+    } else {
+      changelog.innerHTML = '<div class="empty-state"><p>Changelog unavailable</p></div>';
+    }
+  } catch(e) {
+    changelog.innerHTML = '<div class="empty-state"><p>Failed to check for updates</p></div>';
+  }
+}
+
+function closeUpdateModal() {
+  document.getElementById('update-modal').style.display = 'none';
+}
+
+async function applyUpdate() {
+  const btn = document.getElementById('um-apply-btn');
+  const output = document.getElementById('um-output');
+  const progress = document.getElementById('um-progress');
+  const progressBar = document.getElementById('um-progress-bar');
+  const progressText = document.getElementById('um-progress-text');
+  const actions = document.getElementById('um-actions');
+  const changelog = document.getElementById('um-changelog');
+
+  if (!confirm('This will download, build, and replace the current binary. Continue?')) return;
+
+  btn.querySelector('.btn-text').textContent = 'Updating...';
+  btn.querySelector('.btn-spinner').style.display = 'inline-block';
+  btn.disabled = true;
+  progress.style.display = 'block';
+  output.style.display = 'block';
+  ptClear(output);
+
+  const steps = ['Fetching release info...', 'Downloading source...', 'Building binary...', 'Replacing binary...', 'Done!'];
+  let stepIdx = 0;
+  const progressInterval = setInterval(() => {
+    if (stepIdx < steps.length - 1) {
+      progressBar.style.width = ((stepIdx + 1) / (steps.length - 1) * 100) + '%';
+      progressText.textContent = steps[stepIdx];
+      stepIdx++;
+    }
+  }, 2000);
+
+  try {
+    ptWrite(output, 'Starting update...');
+    const r = await apiPost('/api/update/apply');
+    clearInterval(progressInterval);
+    if (r.error) {
+      output.className = 'output-box error';
+      ptWrite(output, 'Error: ' + r.error);
+      progressBar.style.width = '0%';
+      progressText.textContent = 'Update failed';
+    } else {
+      progressBar.style.width = '100%';
+      progressText.textContent = 'Update complete!';
+      ptWrite(output, '✓ dck-client updated to ' + (r.version || 'latest'));
+      ptWrite(output, '⚠ Please restart the service to apply changes');
+      actions.style.display = 'none';
+      document.getElementById('update-banner').style.display = 'none';
+      dismissUpdateBanner();
+    }
+  } catch(e) {
+    clearInterval(progressInterval);
+    output.className = 'output-box error';
+    ptWrite(output, 'Update request failed: ' + e.message);
+    progressBar.style.width = '0%';
+    progressText.textContent = 'Update failed';
+  } finally {
+    btn.querySelector('.btn-text').textContent = 'Update to Latest';
+    btn.querySelector('.btn-spinner').style.display = 'none';
+    btn.disabled = false;
+  }
 }
 
 /* Pterodactyl-style output */

@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var BuildVersion = "0.2.0"
+var BuildVersion = "0.3.0"
 
 type VersionInfo struct {
 	Current             string `json:"current"`
@@ -64,6 +64,41 @@ func (h *VersionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, info)
+}
+
+type ReleaseInfo struct {
+	TagName     string `json:"tag_name"`
+	Name        string `json:"name"`
+	Body        string `json:"body"`
+	HTMLURL     string `json:"html_url"`
+	PublishedAt string `json:"published_at"`
+}
+
+func (h *VersionHandler) CheckUpdatesWeb(w http.ResponseWriter, r *http.Request) {
+	h.mu.RLock()
+	latest := h.latestCache
+	h.mu.RUnlock()
+
+	var release ReleaseInfo
+	release.TagName = latest
+
+	// Try to get changelog
+	if latest != "" {
+		client := &http.Client{Timeout: 10 * time.Second}
+		req, _ := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/animesao/dck-client/releases/tags/%s", latest), nil)
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("User-Agent", "dck-client")
+		resp, err := client.Do(req)
+		if err == nil {
+			json.NewDecoder(resp.Body).Decode(&release)
+			resp.Body.Close()
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"current": BuildVersion,
+		"release": release,
+	})
 }
 
 func (h *VersionHandler) UpdateDckClient(w http.ResponseWriter, r *http.Request) {
