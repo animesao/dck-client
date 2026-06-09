@@ -149,6 +149,31 @@ func (c *Client) GetContainer(id string) (*Container, error) {
 	return &ct, nil
 }
 
+func (c *Client) UpdateContainerCmd(id, cmd string) error {
+	statePath := filepath.Join(c.containersDir(), id+".json")
+	b, err := os.ReadFile(statePath)
+	if err != nil {
+		return fmt.Errorf("container %s not found", id)
+	}
+	var ct Container
+	if err := json.Unmarshal(b, &ct); err != nil {
+		return err
+	}
+	if cmd == "" {
+		ct.Cmd = nil
+	} else {
+		ct.Cmd = strings.Fields(cmd)
+	}
+	b, err = json.MarshalIndent(ct, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(statePath, b, 0644); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd string) (string, error) {
 	args := []string{"run", "-d"}
 	if name != "" {

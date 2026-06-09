@@ -17,6 +17,9 @@ export interface Container {
   user_id?: string
   memory?: string
   cpus?: string
+  cmd?: string
+  entrypoint?: string
+  restart?: string
 }
 
 export interface PortMap {

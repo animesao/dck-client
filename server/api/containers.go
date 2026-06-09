@@ -12,18 +12,20 @@ import (
 )
 
 type ContainerResp struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Image     string          `json:"image"`
-	Status    string          `json:"status"`
-	Created   string          `json:"created"`
-	Ports     []PortMapResp   `json:"ports,omitempty"`
-	IP        string          `json:"ip,omitempty"`
-	Pid       int             `json:"pid,omitempty"`
-	Memory    string          `json:"memory,omitempty"`
-	CPUs      string          `json:"cpus,omitempty"`
-	Network   string          `json:"network,omitempty"`
-	Restart   string          `json:"restart,omitempty"`
+	ID         string          `json:"id"`
+	Name       string          `json:"name"`
+	Image      string          `json:"image"`
+	Status     string          `json:"status"`
+	Created    string          `json:"created"`
+	Ports      []PortMapResp   `json:"ports,omitempty"`
+	IP         string          `json:"ip,omitempty"`
+	Pid        int             `json:"pid,omitempty"`
+	Memory     string          `json:"memory,omitempty"`
+	CPUs       string          `json:"cpus,omitempty"`
+	Network    string          `json:"network,omitempty"`
+	Restart    string          `json:"restart,omitempty"`
+	Cmd        string          `json:"cmd,omitempty"`
+	Entrypoint string          `json:"entrypoint,omitempty"`
 }
 
 type PortMapResp struct {
@@ -68,6 +70,8 @@ func containerToResp(c *dck.Container) ContainerResp {
 		CPUs:    cpusStr,
 		Network: c.NetworkMode,
 		Restart: c.Restart,
+		Cmd:     strings.Join(c.Cmd, " "),
+		Entrypoint: c.Entrypoint,
 	}
 }
 
@@ -294,7 +298,19 @@ func (s *Server) handleContainerConfig(w http.ResponseWriter, r *http.Request, c
 }
 
 func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	_ = r.PathValue("id")
-	// dck doesn't support live config update; just return success
+	id := r.PathValue("id")
+
+	var req struct {
+		Cmd *string `json:"cmd,omitempty"`
+	}
+	json.NewDecoder(r.Body).Decode(&req)
+
+	if req.Cmd != nil {
+		if err := s.dck.UpdateContainerCmd(id, *req.Cmd); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

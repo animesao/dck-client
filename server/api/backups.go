@@ -79,23 +79,36 @@ func zipDir(src, dest string) error {
 	w := zip.NewWriter(out)
 	defer w.Close()
 
-	skipDirs := map[string]bool{"proc": true, "sys": true, "dev": true}
+	skipDirs := map[string]bool{
+		"proc": true, "sys": true, "dev": true,
+		"bin": true, "sbin": true, "lib": true, "lib64": true,
+		"usr": true, "etc": true, "var": true, "opt": true,
+		"root": true, "home": true, "tmp": true, "run": true,
+		"boot": true, "media": true, "mnt": true,
+		".rock": true,
+	}
 
 	return filepath.Walk(src, func(path string, fi os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return nil
 		}
 		rel, _ := filepath.Rel(src, path)
 		if rel == "." {
 			return nil
 		}
-		// Skip system directories
+		first := rel
+		if idx := strings.IndexByte(rel, os.PathSeparator); idx > 0 {
+			first = rel[:idx]
+		}
+		if fi.IsDir() && skipDirs[first] {
+			return filepath.SkipDir
+		}
 		if fi.IsDir() && skipDirs[rel] {
 			return filepath.SkipDir
 		}
 		header, err := zip.FileInfoHeader(fi)
 		if err != nil {
-			return err
+			return nil
 		}
 		header.Name = filepath.ToSlash(rel)
 		if fi.IsDir() {
@@ -105,16 +118,18 @@ func zipDir(src, dest string) error {
 		}
 		writer, err := w.CreateHeader(header)
 		if err != nil {
-			return err
+			return nil
 		}
 		if !fi.IsDir() {
 			f, err := os.Open(path)
 			if err != nil {
-				return err
+				return nil
 			}
-			defer f.Close()
 			_, err = io.Copy(writer, f)
-			return err
+			f.Close()
+			if err != nil {
+				return nil
+			}
 		}
 		return nil
 	})

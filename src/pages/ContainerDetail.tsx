@@ -4,6 +4,7 @@ import {
   getContainer, getContainerLogs, getContainerState,
   getContainerStats, execContainer, removeContainer,
   startContainer, stopContainer, restartContainer,
+  updateContainerConfig,
 } from '@/api/containers'
 import {
   listFiles, readFile, writeFile, deleteFile, mkdir, getUploadUrl,
@@ -37,6 +38,8 @@ export function ContainerDetailPage() {
   const [activeTab, setActiveTab] = useState('info')
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [startupCmd, setStartupCmd] = useState('')
+  const [savingStartup, setSavingStartup] = useState(false)
 
   const fetchData = async () => {
     if (!id) return
@@ -47,6 +50,7 @@ export function ContainerDetailPage() {
       ])
       setContainer(c)
       setStats(s)
+      setStartupCmd(c.cmd || '')
     } catch {
       addToast('Container not found', 'error')
       navigate('/containers')
@@ -86,6 +90,18 @@ export function ContainerDetailPage() {
     catch (err: any) { setExecOutput(`Error: ${err.message}`) }
   }
 
+  const handleSaveStartup = async () => {
+    if (!id) return
+    setSavingStartup(true)
+    try {
+      await updateContainerConfig(id, { cmd: startupCmd })
+      addToast('Startup command saved', 'success')
+    } catch (err: any) {
+      addToast(err.message || 'Failed to save startup command', 'error')
+    }
+    setSavingStartup(false)
+  }
+
   useEffect(() => { if (activeTab === 'logs') loadLogs(); if (activeTab === 'state') loadState() }, [activeTab])
 
   if (loading) return <PageLoading />
@@ -94,6 +110,7 @@ export function ContainerDetailPage() {
   const tabs = [
     { id: 'info', label: 'Info', icon: <Info size={14} /> },
     { id: 'logs', label: 'Logs', icon: <FileText size={14} /> },
+    { id: 'startup', label: 'Startup', icon: <Play size={14} /> },
     { id: 'state', label: 'State', icon: <Activity size={14} /> },
     { id: 'exec', label: 'Exec', icon: <Terminal size={14} /> },
     { id: 'console', label: 'Console', icon: <Cpu size={14} /> },
@@ -192,6 +209,53 @@ export function ContainerDetailPage() {
               </Card>
             )}
           </div>
+        )}
+
+        {activeTab === 'startup' && container && (
+          <Card>
+            <div className="p-5 space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold mb-3">Startup Command</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={startupCmd}
+                    onChange={e => setStartupCmd(e.target.value)}
+                    placeholder="Container startup command"
+                    className="flex-1 font-mono text-xs"
+                  />
+                  <Button onClick={handleSaveStartup} loading={savingStartup}>
+                    <Save size={14} /> Save
+                  </Button>
+                </div>
+                <p className="text-[10px] text-[#636d7d] mt-2">
+                  Changes will take effect on next container start
+                </p>
+              </div>
+
+              {container.entrypoint && (
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold mb-2">Entrypoint</p>
+                  <pre className="px-3 py-2 rounded-lg bg-white/[0.03] text-xs font-mono text-[#8b949e] border border-white/[0.06]">
+                    {container.entrypoint}
+                  </pre>
+                </div>
+              )}
+
+              <div>
+                <p className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold mb-2">Image</p>
+                <pre className="px-3 py-2 rounded-lg bg-white/[0.03] text-xs font-mono text-[#8b949e] border border-white/[0.06]">
+                  {container.image}
+                </pre>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold mb-2">Restart Policy</p>
+                <pre className="px-3 py-2 rounded-lg bg-white/[0.03] text-xs font-mono text-[#8b949e] border border-white/[0.06]">
+                  {container.restart || 'none'}
+                </pre>
+              </div>
+            </div>
+          </Card>
         )}
 
         {activeTab === 'logs' && (
