@@ -1,127 +1,115 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# dck Panel Installer for Ubuntu/Debian VPS
-# Usage: curl -fsSL https://raw.githubusercontent.com/your/repo/main/install.sh | bash
-# Or: bash install.sh [--port 8080] [--dck-bin /usr/local/bin/dck]
+# dck Panel Installer
+# Usage: curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash
+#   or: curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash -s 8443
 
-PORT="${1:-443}"
-DCK_BIN="${2:-dck}"
-DCK_PANEL_DIR="/opt/dck-panel"
-DCK_DATA_DIR="${DCK_HOME:-$HOME/.dck}"
-PANEL_USER="dck-panel"
+REPO="animesao/dck-client"
+BRANCH="main"
+PANEL_PORT="${1:-443}"
+PANEL_DIR="/opt/dck-panel"
+DCK_BIN="/usr/local/bin/dck"
 
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[+]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
-# Check root
-if [[ $EUID -ne 0 ]]; then
-  warn "It is recommended to run this script as root (sudo)."
-  warn "Continuing as non-root user..."
-fi
+if [[ $EUID -ne 0 ]]; then err "Must run as root: sudo bash install.sh"; fi
 
-# Detect OS
-if [[ ! -f /etc/os-release ]]; then
-  err "Unsupported OS (cannot detect)"
-fi
+# ---- OS detect ----
+if [[ ! -f /etc/os-release ]]; then err "Unsupported OS"; fi
 source /etc/os-release
-if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then
-  err "Unsupported OS: $ID. This script supports Ubuntu and Debian."
-fi
-log "Detected OS: $PRETTY_NAME"
+if [[ "$ID" != "ubuntu" && "$ID" != "debian" ]]; then err "Unsupported OS: $ID"; fi
+log "OS: $PRETTY_NAME"
 
-# Install dependencies
-log "Installing dependencies..."
+ARCH="amd64"
+if [[ "$(uname -m)" == "aarch64" ]]; then ARCH="arm64"; fi
+
+# ---- Dependencies ----
+log "Installing system dependencies..."
 apt-get update -qq
 apt-get install -y -qq curl git tar gzip build-essential
 
-# Install Go if not present
+# ---- Install dck if missing ----
+if ! command -v dck &> /dev/null; then
+  log "Installing dck container runtime..."
+  DCK_VERSION=$(curl -sfL "https://api.github.com/repos/anomalyco/dck/releases/latest" | grep tag_name | cut -d'"' -f4 2>/dev/null || echo "v1.5.0")
+  curl -fsSL "https://github.com/anomalyco/dck/releases/download/${DCK_VERSION}/dck-linux-${ARCH}" -o "$DCK_BIN"
+  chmod +x "$DCK_BIN"
+  log "dck ${DCK_VERSION} installed"
+else
+  log "dck already installed: $(dck version 2>/dev/null || echo 'ok')"
+fi
+
+# ---- Install Go ----
 if ! command -v go &> /dev/null; then
   log "Installing Go..."
   GO_VERSION="1.22.5"
-  ARCH="amd64"
-  if [[ "$(uname -m)" == "aarch64" ]]; then ARCH="arm64"; fi
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
   tar -C /usr/local -xzf /tmp/go.tar.gz
   export PATH=$PATH:/usr/local/go/bin
-  echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile.d/go.sh
+  echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
+  log "Go ${GO_VERSION} installed"
+else
+  log "Go already installed: $(go version | awk '{print $3}')"
 fi
 
-# Install Node.js (for frontend build)
+# ---- Install Node.js ----
 if ! command -v node &> /dev/null; then
   log "Installing Node.js..."
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
   apt-get install -y -qq nodejs
+  log "Node.js installed: $(node -v)"
+else
+  log "Node.js already installed: $(node -v)"
 fi
 
-# Check dck
-if ! command -v "$DCK_BIN" &> /dev/null; then
-  warn "dck binary not found at '$DCK_BIN'."
-  warn "Make sure dck is installed and available."
-  warn "Continuing anyway (the panel will try to use it)."
-fi
-
-# Create panel user
-if ! id -u "$PANEL_USER" &> /dev/null; then
-  log "Creating system user: $PANEL_USER"
-  useradd -r -s /bin/false -d "$DCK_PANEL_DIR" "$PANEL_USER"
-fi
-
-# Clone or update panel
-if [[ -d "$DCK_PANEL_DIR" ]]; then
-  log "Updating existing installation..."
-  cd "$DCK_PANEL_DIR"
-  # If installed via git, pull
+# ---- Clone / pull panel ----
+if [[ -d "$PANEL_DIR" ]]; then
+  log "Updating existing installation at $PANEL_DIR..."
+  cd "$PANEL_DIR"
   if [[ -d .git ]]; then
-    git pull
+    git stash 2>/dev/null || true
+    git pull origin "$BRANCH" 2>/dev/null || true
   fi
 else
-  log "Cloning panel to $DCK_PANEL_DIR..."
-  # Replace with actual repo URL
-  git clone https://github.com/anomalyco/dck-panel.git "$DCK_PANEL_DIR" 2>/dev/null || {
-    warn "Git clone failed. Copying from current directory..."
-    cp -r "$(dirname "$0")" "$DCK_PANEL_DIR"
-  }
-  cd "$DCK_PANEL_DIR"
+  log "Cloning panel from $REPO..."
+  git clone --depth 1 -b "$BRANCH" "https://github.com/$REPO.git" "$PANEL_DIR"
+  cd "$PANEL_DIR"
 fi
 
-# Build frontend
+# ---- Build frontend ----
 log "Building frontend..."
-cd "$DCK_PANEL_DIR/dck-client-new" 2>/dev/null || cd "$DCK_PANEL_DIR"
 if [[ -f package.json ]]; then
-  npm ci
+  npm ci --omit=dev 2>/dev/null || npm ci
   npm run build
-  # Copy dist to server
-  mkdir -p server/dist
-  cp -r dist/* server/dist/
+  rm -rf server/dist
+  cp -r dist server/dist
+  log "Frontend built"
+else
+  err "package.json not found in $PANEL_DIR"
 fi
 
-# Build Go backend
+# ---- Build Go backend ----
 log "Building Go backend..."
 cd server
 go build -o dck-panel -ldflags="-s -w" .
 cp dck-panel /usr/local/bin/dck-panel
-cd ..
+cd "$PANEL_DIR"
+log "Go binary built: $(/usr/local/bin/dck-panel --help 2>&1 | head -1 || echo 'ok')"
 
-# Create systemd service
+# ---- Systemd service ----
 log "Creating systemd service..."
-cat > /etc/systemd/system/dck-panel.service << 'SERVICE'
+cat > /etc/systemd/system/dck-panel.service << SERVICE
 [Unit]
 Description=dck Panel
 After=network.target
-Requires=dck.service
 
 [Service]
 Type=simple
-User=dck-panel
-Group=dck-panel
-ExecStart=/usr/local/bin/dck-panel --port ${DCK_PANEL_PORT}
+ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT}
 Restart=always
 RestartSec=5
 Environment=DCK_HOME=/root/.dck
@@ -132,22 +120,26 @@ SERVICE
 
 systemctl daemon-reload
 systemctl enable dck-panel
-systemctl start dck-panel
+systemctl restart dck-panel
 
-log "dck Panel installed successfully!"
-log ""
-  log "  Access the panel at: https://$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
-log "  Login with: admin / admin (change immediately!)"
-log ""
-log "  Management commands:"
-log "    sudo systemctl status dck-panel"
-log "    sudo systemctl restart dck-panel"
-log "    sudo systemctl stop dck-panel"
-log "    sudo journalctl -u dck-panel -f"
-log ""
-
-# Setup firewall
+# ---- Firewall ----
 if command -v ufw &> /dev/null; then
-  log "Configuring UFW firewall..."
-  ufw allow "$PORT/tcp" 2>/dev/null || true
+  ufw allow "${PANEL_PORT}/tcp" 2>/dev/null || true
+  log "UFW: port ${PANEL_PORT} allowed"
 fi
+
+# ---- Done ----
+IP=$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "your-server-ip")
+log ""
+log "╔══════════════════════════════════════════════╗"
+log "║       dck Panel installed successfully!     ║"
+log "╠══════════════════════════════════════════════╣"
+log "║  Panel:  https://${IP}:${PANEL_PORT}           "
+log "║  Login:  admin / admin                      ║"
+log "║                                              ║"
+log "║  Manage: sudo systemctl status dck-panel     ║"
+log "║  Logs:   sudo journalctl -u dck-panel -f     ║"
+log "╚══════════════════════════════════════════════╝"
+log ""
+warn "CHANGE THE DEFAULT PASSWORD IMMEDIATELY!"
+warn "Use a reverse proxy (Caddy/Nginx) for HTTPS termination."
