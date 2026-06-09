@@ -80,7 +80,10 @@ func (c *Client) run(args ...string) (string, error) {
 	cmd := exec.Command(c.BinPath, args...)
 	cmd.Env = append(os.Environ(), "DCK_HOME="+c.DataDir)
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	if err != nil {
+		return "", fmt.Errorf("dck %s: %s", strings.Join(args, " "), strings.TrimSpace(string(out)))
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func (c *Client) containersDir() string {
