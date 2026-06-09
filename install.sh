@@ -30,7 +30,7 @@ if [[ "$(uname -m)" == "aarch64" ]]; then ARCH="arm64"; fi
 # ---- Dependencies ----
 log "Installing system dependencies..."
 apt-get update -qq
-apt-get install -y -qq curl git tar gzip build-essential
+apt-get install -y -qq curl git tar gzip build-essential bc
 
 # ---- Install dck if missing ----
 if ! command -v dck &> /dev/null; then
@@ -43,9 +43,21 @@ else
   log "dck already installed: $(dck version 2>/dev/null || echo 'ok')"
 fi
 
-# ---- Install Go ----
+# ---- Install Go (need 1.22+ for routing syntax) ----
+GO_VERSION="1.22.5"
+INSTALL_GO=false
 if ! command -v go &> /dev/null; then
-  log "Installing Go..."
+  INSTALL_GO=true
+else
+  CURRENT_GO=$(go version | grep -oP 'go\K[0-9]+\.[0-9]+')
+  if [[ "$(echo "$CURRENT_GO < 1.22" | bc -l 2>/dev/null || echo 1)" == "1" ]]; then
+    warn "Go $CURRENT_GO is too old (need 1.22+). Installing newer version..."
+    INSTALL_GO=true
+  fi
+fi
+
+if [[ "$INSTALL_GO" == true ]]; then
+  log "Installing Go $GO_VERSION..."
   GO_VERSION="1.22.5"
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
   tar -C /usr/local -xzf /tmp/go.tar.gz
@@ -55,6 +67,9 @@ if ! command -v go &> /dev/null; then
 else
   log "Go already installed: $(go version | awk '{print $3}')"
 fi
+
+# Ensure /usr/local/go/bin is in PATH
+export PATH=$PATH:/usr/local/go/bin
 
 # ---- Install Node.js ----
 if ! command -v node &> /dev/null; then
@@ -83,7 +98,7 @@ fi
 # ---- Build frontend ----
 log "Building frontend..."
 if [[ -f package.json ]]; then
-  npm ci --omit=dev 2>/dev/null || npm ci
+  npm ci
   npm run build
   rm -rf server/dist
   cp -r dist server/dist
