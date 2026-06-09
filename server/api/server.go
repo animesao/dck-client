@@ -56,6 +56,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/containers/{id}/backups", s.auth(s.handleListBackups))
 	mux.HandleFunc("POST /api/containers/{id}/backups", s.auth(s.handleCreateBackup))
 	mux.HandleFunc("POST /api/containers/{id}/backups/{backup}/restore", s.auth(s.handleRestoreBackup))
+	mux.HandleFunc("GET /api/containers/{id}/backups/{backup}/download", s.auth(s.handleDownloadBackup))
 	mux.HandleFunc("DELETE /api/containers/{id}/backups/{backup}", s.auth(s.handleDeleteBackup))
 
 	mux.HandleFunc("GET /api/containers/{id}/state", s.auth(s.handleContainerState))
@@ -79,6 +80,10 @@ func (s *Server) Router() http.Handler {
 
 	mux.HandleFunc("GET /api/settings", s.auth(s.handleGetSettings))
 	mux.HandleFunc("PUT /api/settings", s.auth(s.handleUpdateSettings))
+
+	mux.HandleFunc("GET /api/projects/scan", s.auth(s.handleScanProjects))
+	mux.HandleFunc("DELETE /api/projects/delete", s.auth(s.handleDeleteProject))
+	mux.HandleFunc("POST /api/projects/deploy", s.auth(s.handleDeployProject))
 
 	mux.HandleFunc("GET /api/dashboard/stats", s.auth(s.handleDashboardStats))
 	mux.HandleFunc("GET /api/version", s.auth(s.handleVersion))

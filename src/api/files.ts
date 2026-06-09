@@ -54,3 +54,7 @@ export async function restoreBackup(id: string, name: string): Promise<void> {
 export async function deleteBackup(id: string, name: string): Promise<void> {
   return api('DELETE', `/containers/${id}/backups/${name}`)
 }
+
+export function getBackupDownloadUrl(id: string, name: string): string {
+  return apiUrl(`/containers/${id}/backups/${name}/download`)
+}

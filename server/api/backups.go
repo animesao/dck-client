@@ -102,6 +102,21 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, cla
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+	backupName := r.PathValue("backup")
+
+	backupFile := filepath.Join(s.dck.BackupDir(), id, backupName+".tar.gz")
+	if _, err := os.Stat(backupFile); os.IsNotExist(err) {
+		writeError(w, http.StatusNotFound, "Backup not found")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/gzip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.tar.gz"`, backupName))
+	http.ServeFile(w, r, backupFile)
+}
+
 func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
 	backupName := r.PathValue("backup")

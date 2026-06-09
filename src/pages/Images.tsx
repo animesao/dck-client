@@ -59,8 +59,8 @@ export function ImagesPage() {
     <div className="space-y-5 page-enter">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#e6edf3] tracking-tight">Images</h1>
-          <p className="text-[#636d7d] text-sm mt-1">Container images</p>
+          <h1 className="text-2xl font-bold text-[#e6edf3] tracking-tight">Container Images</h1>
+          <p className="text-[#636d7d] text-sm mt-1">Manage pulled container images</p>
         </div>
         <button onClick={fetchImages} className="btn-ghost p-2"><RefreshCw size={16} /></button>
       </div>

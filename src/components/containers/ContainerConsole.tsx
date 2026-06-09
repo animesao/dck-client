@@ -20,6 +20,7 @@ export function ContainerConsole({ containerId }: ContainerConsoleProps) {
     const terminal = new Terminal({
       cursorBlink: true,
       cursorStyle: 'block',
+      convertEol: true,
       fontSize: 13,
       fontFamily: "'JetBrains Mono', 'SFMono-Regular', 'Fira Code', monospace",
       theme: {
