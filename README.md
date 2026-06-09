@@ -12,11 +12,11 @@
 ## Features
 
 - **Dashboard** — Real-time system stats (CPU, RAM, Disk, uptime) from `/proc`, container overview
-- **Containers** — Create, start, stop, restart, delete containers via `dck` CLI
+- **Containers** — Create (with per-image environment presets), start, stop, restart, delete containers via `dck` CLI; includes stopped containers by default
 - **Image Management** — List, pull, and remove container images
 - **File Manager** — Browse, read, edit, upload, download, create, delete files directly in containers (via overlayfs at `~/.dck/overlay/<id>/merged/`)
 - **Backups** — Create and restore full container backups (tar.gz archives)
-- **Console** — Full WebSocket terminal with xterm.js, bridged to `dck` Unix socket (`~/.dck/consoles/<id>.sock`)
+- **Console** — Full WebSocket terminal with xterm.js, bridged to `dck` Unix socket (`~/.dck/consoles/<id>.sock`) with binary message support
 - **Exec** — Run arbitrary commands inside containers
 - **Blueprints** — Pre-configured templates for quick container deployment
 - **Admin Panel** — Multi-user management with roles (admin/user)
@@ -80,7 +80,10 @@
 
 ```bash
 # Download and run (requires dck installed)
-sudo ./dck-panel --port 443
+sudo DCK_HOME=/root/.dck ./dck-panel --port 443
+
+# Add -v for verbose/debug logging
+sudo DCK_HOME=/root/.dck ./dck-panel --port 443 -v
 
 # Login at https://your-server:443
 # Default: admin / admin
@@ -97,8 +100,11 @@ cd dck-client
 chmod +x build.sh
 ./build.sh
 
-# Run
+# Run (add -v for verbose/debug logs)
 sudo ./server/dck-panel --port 443
+
+# If HOME is not set (e.g. systemd service), set DCK_HOME:
+sudo DCK_HOME=/root/.dck ./server/dck-panel --port 443
 ```
 
 ### Option 3: Install script (Ubuntu/Debian)
@@ -228,6 +234,7 @@ dck-client/
 
 ### System Requirements
 - Linux server (Ubuntu 22.04+ / Debian 12+)
+- `DCK_HOME` env var must be set (e.g. `DCK_HOME=/root/.dck`) if `HOME` is not available in the runtime environment
 - [dck](https://github.com/anomalyco/dck) container runtime installed
 - root/sudo access (for port <1024 and cgroup access)
 
@@ -253,6 +260,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/dck-panel --port 443
+Environment=DCK_HOME=/root/.dck
 Restart=always
 RestartSec=5
 
