@@ -1,0 +1,170 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-white/[0.06];
+  }
+
+  body {
+    @apply bg-[#080b12] text-[#e6edf3] font-sans antialiased;
+    min-height: 100vh;
+  }
+
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-white/[0.08] rounded-full hover:bg-white/[0.15] transition-colors;
+  }
+
+  input, textarea, select {
+    @apply outline-none;
+  }
+
+  ::selection {
+    @apply bg-indigo-500/30 text-white;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply bg-[#0e1419]/80 backdrop-blur-xl border border-white/[0.06] shadow-lg shadow-black/40;
+  }
+
+  .glass-hover {
+    @apply hover:bg-[#141c24]/90 hover:border-white/[0.10] transition-all duration-300;
+  }
+
+  .card {
+    @apply glass rounded-2xl;
+  }
+
+  .card-hover {
+    @apply card glass-hover;
+  }
+
+  .card-gradient {
+    @apply card relative overflow-hidden;
+  }
+  .card-gradient::before {
+    content: '';
+    @apply absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, rgba(99,102,241,0.03) 0%, transparent 50%);
+  }
+  .card-gradient:hover::before {
+    @apply opacity-100;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all duration-200
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none
+           active:scale-[0.97] select-none;
+  }
+
+  .btn-primary {
+    @apply btn px-5 py-2.5 text-sm
+           bg-gradient-to-br from-indigo-500 to-indigo-600
+           hover:from-indigo-400 hover:to-indigo-500
+           text-white shadow-lg shadow-indigo-500/20
+           hover:shadow-indigo-500/30 hover:shadow-xl;
+  }
+
+  .btn-secondary {
+    @apply btn px-5 py-2.5 text-sm
+           bg-white/[0.04] hover:bg-white/[0.08]
+           text-[#e6edf3] border border-white/[0.08]
+           hover:border-white/[0.15];
+  }
+
+  .btn-danger {
+    @apply btn px-5 py-2.5 text-sm
+           bg-red-500/[0.06] hover:bg-red-500/[0.12]
+           text-red-400 border border-red-500/15
+           hover:border-red-500/30;
+  }
+
+  .btn-ghost {
+    @apply btn px-3 py-2 text-sm
+           text-[#8b949e] hover:text-[#e6edf3] hover:bg-white/[0.04];
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .badge-green { @apply badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
+  .badge-red { @apply badge bg-red-500/10 text-red-400 border border-red-500/20; }
+  .badge-yellow { @apply badge bg-yellow-500/10 text-yellow-400 border border-yellow-500/20; }
+  .badge-gray { @apply badge bg-white/[0.04] text-[#8b949e] border border-white/[0.08]; }
+  .badge-blue { @apply badge bg-blue-500/10 text-blue-400 border border-blue-500/20; }
+  .badge-indigo { @apply badge bg-indigo-500/10 text-indigo-400 border border-indigo-500/20; }
+
+  .input {
+    @apply w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08]
+           text-[#e6edf3] placeholder-[#636d7d] text-sm
+           focus:border-indigo-500/40 focus:ring-1 focus:ring-indigo-500/15
+           transition-all duration-200;
+  }
+
+  .input-error {
+    @apply input border-red-500/40 focus:border-red-500/40 focus:ring-red-500/15;
+  }
+
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+  .status-dot-running { @apply status-dot bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]; }
+  .status-dot-stopped { @apply status-dot bg-red-400 shadow-[0_0_6px_rgba(248,81,73,0.4)]; }
+  .status-dot-created { @apply status-dot bg-yellow-400 shadow-[0_0_6px_rgba(234,179,8,0.4)]; }
+
+  .skeleton {
+    @apply bg-gradient-to-r from-white/[0.03] via-white/[0.06] to-white/[0.03] bg-[length:200%_100%] animate-shimmer rounded-xl;
+  }
+}
+
+/* Page transition */
+.page-enter {
+  animation: pageEnter 0.3s ease-out;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Stat counter */
+.stat-value {
+  @apply text-2xl font-bold tracking-tight;
+}
+
+/* Card inner padding patterns */
+.card-inset {
+  @apply p-5;
+}
+
+/* Blueprint card image */
+.bp-image-icon {
+  @apply w-12 h-12 rounded-2xl flex items-center justify-center text-xl;
+}
+
+/* Xterm overrides */
+.xterm {
+  padding: 12px;
+  height: 100%;
+}
+.xterm-viewport {
+  scrollbar-width: thin;
+}
