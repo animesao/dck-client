@@ -54,6 +54,8 @@ func (s *Server) Router() http.Handler {
 	settings := &SettingsHandler{s}
 	version := &VersionHandler{Server: s}
 	blueprints := &BlueprintHandler{Server: s}
+	categories := &CategoriesHandler{Server: s}
+	projects := &ProjectHandler{Server: s}
 
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/auth/login", auth.Login)
@@ -62,14 +64,32 @@ func (s *Server) Router() http.Handler {
 		// Public SSE endpoint for container status (no auth required for streaming)
 		r.Get("/events", s.EventsHandler)
 
-		// Public catalog and blueprints
+		// Public catalog, categories, and blueprints
 		r.Get("/catalog", s.CatalogHandler)
+		r.Get("/categories", categories.List)
 		r.Get("/blueprints", blueprints.List)
+		r.Get("/blueprints/category/{category}", blueprints.ListByCategory)
 
 		// Blueprint launch (authenticated)
 		r.Group(func(r chi.Router) {
 			r.Use(s.authMiddleware)
 			r.Post("/blueprints/{name}/launch", blueprints.Launch)
+		})
+
+		// Project routes — public for scan (no auth needed), rest authenticated
+		r.Get("/projects/scan", projects.Scan)
+		r.Get("/projects/read", projects.Read)
+
+		r.Group(func(r chi.Router) {
+			r.Use(s.authMiddleware)
+
+			r.Route("/projects", func(r chi.Router) {
+				r.Post("/create", projects.Create)
+				r.Post("/save", projects.Save)
+				r.Delete("/delete", projects.Delete)
+				r.Post("/deploy", projects.Deploy)
+				r.Post("/auto-deploy", projects.AutoDeploy)
+			})
 		})
 
 		r.Group(func(r chi.Router) {

@@ -27,12 +27,18 @@ async function api(method, path, body) {
   return r.text();
 }
 
-function apiGet(path) { return api('GET', path); }
-function apiPost(path, body) { return api('POST', path, body); }
-function apiPut(path, body) { return api('PUT', path, body); }
-function apiDelete(path) { return api('DELETE', path); }
-
 let sseSource = null;
+
+/* Project API */
+function apiGetCategories() { return apiGet('/api/categories'); }
+function apiGetBlueprintsByCategory(cat) { return apiGet('/api/blueprints/category/' + encodeURIComponent(cat)); }
+function apiScanProjects() { return apiGet('/api/projects/scan'); }
+function apiReadProject(dir) { return apiGet('/api/projects/read?dir=' + encodeURIComponent(dir)); }
+function apiCreateProject(data) { return apiPost('/api/projects/create', data); }
+function apiSaveProject(dir, config) { return apiPost('/api/projects/save', { dir, config }); }
+function apiDeleteProject(dir, removeContainer) { return apiDelete('/api/projects/delete?dir=' + encodeURIComponent(dir) + '&remove_container=' + (removeContainer ? 'true' : 'false')); }
+function apiDeployProject(dir, profile) { return apiPost('/api/projects/deploy', { dir, profile }); }
+function apiAutoDeploy(profile) { return apiPost('/api/projects/auto-deploy', { profile }); }
 
 function connectSSE(onEvent) {
   if (sseSource) { sseSource.close(); sseSource = null; }

@@ -23,6 +23,13 @@ func (h *BlueprintHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, getBlueprints())
 }
 
+func (h *BlueprintHandler) ListByCategory(w http.ResponseWriter, r *http.Request) {
+	category := chi.URLParam(r, "category")
+	all := getBlueprints()
+	filtered := filterBlueprintsByCategory(all, category)
+	writeJSON(w, http.StatusOK, filtered)
+}
+
 func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 	name, err := url.PathUnescape(chi.URLParam(r, "name"))
 	if err != nil {

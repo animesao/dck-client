@@ -89,13 +89,14 @@ function navigate(page, data) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
 
-  const titles = { dashboard: 'Dashboard', blueprints: 'Blueprints', containers: 'Containers', images: 'Images', config: 'Config', guide: 'Guide', settings: 'Settings', 'container-detail': 'Container', create: 'Create Container' };
+  const titles = { dashboard: 'Dashboard', projects: 'Projects', blueprints: 'Blueprints', containers: 'Containers', images: 'Images', config: 'Config', guide: 'Guide', settings: 'Settings', 'container-detail': 'Container', create: 'Create Container' };
   document.getElementById('page-title').textContent = titles[page] || page;
 
   const el = document.getElementById('page-' + page);
   if (el) { el.classList.add('active'); }
 
   if (page === 'dashboard') loadDashboard();
+  else if (page === 'projects') loadProjects();
   else if (page === 'blueprints') loadBlueprints();
   else if (page === 'containers') loadContainers();
   else if (page === 'images') loadImages();
@@ -543,7 +544,380 @@ async function deployBlueprint(e) {
   finally { btn.querySelector('.btn-text').textContent = 'Done'; btn.querySelector('.btn-spinner').style.display = 'none'; btn.disabled = false; }
 }
 
-/* Containers */
+/* ── Projects ── */
+async function loadProjects() {
+  const el = document.getElementById('projects-list');
+  el.innerHTML = '<div class="empty-state"><p>Scanning...</p></div>';
+  try {
+    const projects = await apiScanProjects();
+    if (!projects || projects.length === 0) {
+      el.innerHTML = '<div class="empty-state"><p>No projects found. Create a <code>dck.json</code> in any directory or use <strong>+ New</strong>.</p></div>';
+      return;
+    }
+    el.innerHTML = '<div class="project-grid">' + projects.map(p => renderProjectCard(p)).join('') + '</div>';
+  } catch(e) { el.innerHTML = '<div class="empty-state"><p>Error: ' + e.message + '</p></div>'; }
+}
+
+function renderProjectCard(p) {
+  const c = p.config || {};
+  const cc = c.container || {};
+  const bp = c.blueprint || {};
+  const meta = c.meta || {};
+  const status = p.status || 'not_created';
+  const dir = p.dir || '';
+  const statusIcon = status === 'running' ? '●' : (status === 'stopped' ? '○' : '◇');
+  const statusClass = status === 'running' ? 'running' : (status === 'stopped' ? 'stopped' : '');
+  const catIcon = getCategoryIcon(c.category);
+  const tags = (meta.tags || []).join(', ');
+  return '<div class="project-card glass" data-dir="' + esc(dir) + '">' +
+    '<div class="project-card-header">' +
+      '<div class="project-icon">' + catIcon + '</div>' +
+      '<div class="project-info">' +
+        '<div class="project-name">' + esc(c.name || cc.name || '?') + '</div>' +
+        '<div class="project-desc">' + esc(meta.description || '') + '</div>' +
+      '</div>' +
+      '<div class="project-status ' + statusClass + '">' + statusIcon + ' ' + esc(status) + '</div>' +
+    '</div>' +
+    '<div class="project-card-body">' +
+      '<div class="project-detail-row"><span class="project-label">Image</span><span class="project-value">' + esc(cc.image || '—') + '</span></div>' +
+      (cc.ports && cc.ports.length ? '<div class="project-detail-row"><span class="project-label">Ports</span><span class="project-value">' + esc(cc.ports.join(', ')) + '</span></div>' : '') +
+      '<div class="project-detail-row"><span class="project-label">Resources</span><span class="project-value">' + esc(cc.memory || '—') + (cc.cpus ? ' / ' + cc.cpus + ' CPU' : '') + '</span></div>' +
+      (bp.name ? '<div class="project-detail-row"><span class="project-label">Blueprint</span><span class="project-value">' + esc(bp.name) + '</span></div>' : '') +
+      (tags ? '<div class="project-detail-row"><span class="project-label">Tags</span><span class="project-value">' + esc(tags) + '</span></div>' : '') +
+      '<div class="project-detail-row"><span class="project-label">Path</span><span class="project-value mono" style="font-size:11px">' + esc(p.path || dir) + '</span></div>' +
+    '</div>' +
+    '<div class="project-card-actions">' +
+      (status !== 'running' ? '<button class="btn btn-sm btn-glow" onclick="deployProject(\'' + esc(dir) + '\')">▶ Deploy</button>' : '<button class="btn btn-sm btn-success" onclick="deployProject(\'' + esc(dir) + '\')">↻ Redeploy</button>') +
+      (status === 'running' ? '<button class="btn btn-sm btn-danger" onclick="stopProjectContainer(\'' + esc(dir) + '\')">■ Stop</button>' : '') +
+      '<button class="btn btn-sm" onclick="openProjectEditor(\'' + esc(dir) + '\')">✎ Edit</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="deleteProject(\'' + esc(dir) + '\')">✕</button>' +
+    '</div>' +
+  '</div>';
+}
+
+function getCategoryIcon(cat) {
+  const icons = { 'bot': '🤖', 'web': '🌐', 'database': '🗄️', 'game': '🎮', 'tool': '🔧', 'runtime': '🏃', 'cms': '📝', 'dev': '💻', 'multi': '📦' };
+  return icons[cat] || '📁';
+}
+
+/* New Project Wizard */
+let pwCategories = [];
+let pwBlueprints = [];
+let pwSelectedBp = null;
+
+async function openNewProjectWizard() {
+  document.getElementById('project-wizard').style.display = 'flex';
+  document.getElementById('pw-title').textContent = 'New Project';
+  document.getElementById('pw-step1').style.display = 'block';
+  document.getElementById('pw-step2').style.display = 'none';
+  document.getElementById('pw-step3').style.display = 'none';
+  document.getElementById('pw-category').value = '';
+  document.getElementById('pw-blueprint').value = '';
+
+  try {
+    pwCategories = await apiGetCategories();
+  } catch(e) { pwCategories = []; }
+
+  const grid = document.getElementById('pw-categories');
+  grid.innerHTML = (pwCategories.length ? pwCategories : [
+    {name:'bot',icon:'message-circle',description:'Bots',default_ram:'256m',default_cpu:0.25},
+    {name:'web',icon:'globe',description:'Web servers',default_ram:'512m',default_cpu:0.5},
+    {name:'database',icon:'database',description:'Databases',default_ram:'2g',default_cpu:1},
+    {name:'game',icon:'gamepad-2',description:'Game servers',default_ram:'4g',default_cpu:2},
+    {name:'runtime',icon:'terminal',description:'Code runtimes',default_ram:'1g',default_cpu:1},
+  ]).map(c => '<div class="cat-card glass" data-cat="' + esc(c.name) + '" onclick="pwSelectCategory(\'' + esc(c.name) + '\')">' +
+    '<div class="cat-card-icon">' + getCategoryIcon(c.name) + '</div>' +
+    '<div class="cat-card-name">' + esc(c.name) + '</div>' +
+    '<div class="cat-card-desc">' + esc(c.description || '') + '</div>' +
+    '<div class="cat-card-res">' + esc(c.default_ram || '—') + ' / ' + (c.default_cpu || '—') + ' CPU</div>' +
+  '</div>').join('');
+}
+
+function pwSelectCategory(cat) {
+  document.getElementById('pw-category').value = cat;
+  document.querySelectorAll('.cat-card').forEach(el => el.classList.toggle('selected', el.dataset.cat === cat));
+  document.getElementById('pw-step1').style.display = 'none';
+  document.getElementById('pw-step2').style.display = 'block';
+  document.getElementById('pw-title').textContent = 'New Project — ' + cat;
+  loadWizardBlueprints(cat);
+}
+
+async function loadWizardBlueprints(cat) {
+  try {
+    pwBlueprints = await apiGetBlueprintsByCategory(cat);
+  } catch(e) { pwBlueprints = []; }
+  const grid = document.getElementById('pw-blueprints');
+  if (!pwBlueprints || pwBlueprints.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><p>No blueprints for this category. Skip to manual config.</p></div>';
+    return;
+  }
+  grid.innerHTML = pwBlueprints.map(b =>
+    '<div class="bp-card-sm glass" data-bp="' + esc(b.name) + '" onclick="pwSelectBlueprint(\'' + esc(b.name) + '\')">' +
+      '<h4>' + esc(b.name) + '</h4>' +
+      '<p>' + esc(b.description || '') + '</p>' +
+      '<div class="bp-sm-info">' + esc(b.image || '') + (b.defaultPort ? ' | port ' + b.defaultPort : '') + '</div>' +
+    '</div>'
+  ).join('');
+}
+
+function pwSelectBlueprint(name) {
+  pwSelectedBp = name;
+  document.getElementById('pw-blueprint').value = name;
+  document.querySelectorAll('.bp-card-sm').forEach(el => el.classList.toggle('selected', el.dataset.bp === name));
+  pwGoToStep3();
+}
+
+function pwSkipBlueprint() {
+  pwSelectedBp = null;
+  document.getElementById('pw-blueprint').value = '';
+  pwGoToStep3();
+}
+
+async function pwGoToStep3() {
+  const cat = document.getElementById('pw-category').value;
+  const bpName = document.getElementById('pw-blueprint').value;
+
+  document.getElementById('pw-step2').style.display = 'none';
+  document.getElementById('pw-step3').style.display = 'block';
+  document.getElementById('pw-title').textContent = 'Create Project';
+
+  // Generate preview
+  const preview = document.getElementById('pw-config-preview');
+  preview.innerHTML = '<div class="empty-state"><p>Generating config...</p></div>';
+
+  try {
+    const res = await apiCreateProject({
+      category: cat,
+      blueprint: bpName || undefined,
+    });
+    preview.innerHTML = '<pre class="config-preview-code">' + esc(JSON.stringify(res, null, 2)) + '</pre>';
+    document.getElementById('pw-name').value = res.container.name || '';
+  } catch(e) {
+    preview.innerHTML = '<div class="empty-state">Error: ' + esc(e.message) + '</div>';
+  }
+}
+
+async function pwCreateProject() {
+  const dir = document.getElementById('pw-dir').value.trim() || '.';
+  const cat = document.getElementById('pw-category').value;
+  const bpName = document.getElementById('pw-blueprint').value || undefined;
+  const name = document.getElementById('pw-name').value.trim();
+
+  try {
+    const res = await apiCreateProject({ dir, category: cat, blueprint: bpName, container_name: name });
+    if (res.error) { toast('Error: ' + res.error, 'error'); return; }
+    // Save to disk
+    const saveRes = await apiSaveProject(dir, res);
+    if (saveRes.error) { toast('Error: ' + saveRes.error, 'error'); return; }
+    toast('Project created!', 'success');
+    closeProjectWizard();
+    loadProjects();
+    // Auto-deploy
+    setTimeout(() => deployProject(dir), 500);
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function pwPrevStep() {
+  const step1 = document.getElementById('pw-step1').style.display !== 'none';
+  const step2 = document.getElementById('pw-step2').style.display !== 'none';
+  if (step2) {
+    document.getElementById('pw-step2').style.display = 'none';
+    document.getElementById('pw-step1').style.display = 'block';
+    document.getElementById('pw-title').textContent = 'New Project';
+  } else if (document.getElementById('pw-step3').style.display !== 'none') {
+    document.getElementById('pw-step3').style.display = 'none';
+    document.getElementById('pw-step2').style.display = 'block';
+    document.getElementById('pw-title').textContent = 'New Project — ' + document.getElementById('pw-category').value;
+  }
+}
+
+function closeProjectWizard() {
+  document.getElementById('project-wizard').style.display = 'none';
+}
+
+/* Deploy Project */
+async function deployProject(dir) {
+  try {
+    const res = await apiDeployProject(dir);
+    if (res.error) { toast('Deploy error: ' + res.error, 'error'); return; }
+    toast('Deployed! Container: ' + (res.name || res.output), 'success');
+    setTimeout(loadProjects, 1000);
+  } catch(e) { toast('Deploy failed: ' + e.message, 'error'); }
+}
+
+async function stopProjectContainer(dir) {
+  try {
+    const info = await apiReadProject(dir);
+    if (!info || !info.container || !info.container.name) { toast('No container running', 'error'); return; }
+    const name = info.container.name;
+    // Find the container ID from state
+    const id = info.container.id || name;
+    const r = await apiPost('/api/containers/' + encodeURIComponent(id) + '/stop');
+    if (r.error) toast(r.error, 'error');
+    else { toast('Stopped ' + name, 'success'); setTimeout(loadProjects, 1000); }
+  } catch(e) { toast('Stop failed: ' + e.message, 'error'); }
+}
+
+/* Project Editor */
+async function openProjectEditor(dir) {
+  const modal = document.getElementById('project-editor');
+  const peDir = document.getElementById('pe-dir');
+  peDir.value = dir;
+
+  document.getElementById('pe-output').style.display = 'none';
+
+  // Load categories
+  try {
+    const cats = await apiGetCategories();
+    const sel = document.getElementById('pe-category');
+    sel.innerHTML = '<option value="">— None —</option>' + cats.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+  } catch(e) {}
+
+  // Load project config
+  try {
+    const info = await apiReadProject(dir);
+    const cfg = info && info.config ? info.config : { version: '1', name: '', container: {} };
+    const cc = cfg.container || {};
+    const bp = cfg.blueprint || {};
+    const meta = cfg.meta || {};
+
+    document.getElementById('pe-name').value = cfg.name || '';
+    document.getElementById('pe-category').value = cfg.category || '';
+    document.getElementById('pe-image').value = cc.image || '';
+    document.getElementById('pe-restart').value = cc.restart || 'always';
+    document.getElementById('pe-memory').value = cc.memory || '';
+    document.getElementById('pe-cpus').value = cc.cpus || '';
+    document.getElementById('pe-ports').value = (cc.ports || []).join(', ');
+    document.getElementById('pe-hostname').value = cc.hostname || '';
+    document.getElementById('pe-command').value = cc.command || '';
+    document.getElementById('pe-workdir').value = cc.workdir || '';
+
+    // Env: map to KEY=VAL lines
+    const envMap = cc.env || {};
+    document.getElementById('pe-env').value = Object.entries(envMap).map(([k,v]) => k + '=' + v).join('\n');
+
+    document.getElementById('pe-volumes').value = (cc.volumes || []).join('\n');
+    document.getElementById('pe-blueprint').value = bp.name || '';
+    document.getElementById('pe-description').value = meta.description || '';
+    document.getElementById('pe-tags').value = (meta.tags || []).join(', ');
+
+    // Show deploy/delete buttons if project exists
+    document.getElementById('pe-deploy-btn').style.display = 'inline-block';
+    document.getElementById('pe-delete-btn').style.display = 'inline-block';
+  } catch(e) { toast('Error loading project: ' + e.message, 'error'); }
+
+  document.getElementById('pe-title').textContent = 'Edit Project — ' + dir;
+  modal.style.display = 'flex';
+}
+
+function peOnCategoryChange() {
+  const cat = document.getElementById('pe-category').value;
+  if (!cat) return;
+  const defRAM = { bot: '256m', web: '512m', database: '2g', game: '4g', tool: '128m', runtime: '1g', cms: '512m', dev: '2g', multi: '2g' }[cat] || '';
+  const defCPU = { bot: 0.25, web: 0.5, database: 1, game: 2, tool: 0.25, runtime: 1, cms: 0.5, dev: 2, multi: 1 }[cat] || 0;
+  const memEl = document.getElementById('pe-memory');
+  const cpuEl = document.getElementById('pe-cpus');
+  if (!memEl.value) memEl.value = defRAM;
+  if (!cpuEl.value) cpuEl.value = defCPU;
+}
+
+async function saveProjectConfig(e) {
+  e.preventDefault();
+  const dir = document.getElementById('pe-dir').value;
+  const output = document.getElementById('pe-output');
+  output.style.display = 'block';
+  output.className = 'output-box';
+  output.textContent = 'Saving...';
+
+  // Parse env lines to map
+  const envLines = document.getElementById('pe-env').value.trim().split('\n').filter(Boolean);
+  const envMap = {};
+  envLines.forEach(line => {
+    const idx = line.indexOf('=');
+    if (idx > 0) envMap[line.substring(0, idx)] = line.substring(idx + 1);
+  });
+
+  // Parse ports
+  const portsStr = document.getElementById('pe-ports').value.trim();
+  const ports = portsStr ? portsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  // Parse volumes
+  const volsStr = document.getElementById('pe-volumes').value.trim();
+  const volumes = volsStr ? volsStr.split('\n').map(s => s.trim()).filter(Boolean) : [];
+
+  // Parse tags
+  const tagsStr = document.getElementById('pe-tags').value.trim();
+  const tags = tagsStr ? tagsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const cfg = {
+    version: '1',
+    name: document.getElementById('pe-name').value.trim(),
+    category: document.getElementById('pe-category').value || undefined,
+    container: {
+      image: document.getElementById('pe-image').value.trim(),
+      name: document.getElementById('pe-name').value.trim(),
+      command: document.getElementById('pe-command').value.trim() || undefined,
+      workdir: document.getElementById('pe-workdir').value.trim() || undefined,
+      restart: document.getElementById('pe-restart').value || undefined,
+      hostname: document.getElementById('pe-hostname').value.trim() || undefined,
+      memory: document.getElementById('pe-memory').value.trim() || undefined,
+      cpus: parseFloat(document.getElementById('pe-cpus').value.trim()) || 0,
+      ports: ports.length ? ports : undefined,
+      env: Object.keys(envMap).length ? envMap : undefined,
+      volumes: volumes.length ? volumes : undefined,
+    },
+    blueprint: document.getElementById('pe-blueprint').value.trim() ? { name: document.getElementById('pe-blueprint').value.trim() } : undefined,
+    meta: {
+      description: document.getElementById('pe-description').value.trim() || undefined,
+      tags: tags.length ? tags : undefined,
+    },
+  };
+
+  try {
+    const res = await apiSaveProject(dir, cfg);
+    if (res.error) { output.className = 'output-box error'; output.textContent = 'Error: ' + res.error; return; }
+    output.textContent = '✓ Saved to ' + res.path;
+    toast('Project saved!', 'success');
+    setTimeout(() => { output.style.display = 'none'; }, 2000);
+  } catch(e) { output.className = 'output-box error'; output.textContent = 'Error: ' + e.message; }
+}
+
+async function deployProjectFromEditor() {
+  const dir = document.getElementById('pe-dir').value;
+  await saveProjectConfig(null); // Save first
+  setTimeout(async () => {
+    await deployProject(dir);
+    closeProjectEditor();
+  }, 500);
+}
+
+async function deleteProjectFromEditor() {
+  const dir = document.getElementById('pe-dir').value;
+  if (!confirm('Delete project in ' + dir + '? This will also remove the container.')) return;
+  try {
+    const res = await apiDeleteProject(dir, true);
+    if (res.error) { toast('Error: ' + res.error, 'error'); return; }
+    toast('Project deleted', 'success');
+    closeProjectEditor();
+    loadProjects();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+async function deleteProject(dir) {
+  if (!confirm('Delete project and its container?')) return;
+  try {
+    const res = await apiDeleteProject(dir, true);
+    if (res.error) { toast('Error: ' + res.error, 'error'); return; }
+    toast('Project deleted', 'success');
+    loadProjects();
+  } catch(e) { toast('Error: ' + e.message, 'error'); }
+}
+
+function closeProjectEditor() {
+  document.getElementById('project-editor').style.display = 'none';
+}
+
+/* ── Containers ── */
 async function loadContainers() {
   const all = document.getElementById('show-all').checked;
   const el = document.getElementById('container-list');

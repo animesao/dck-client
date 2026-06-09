@@ -135,21 +135,32 @@ type ContainerCPU struct {
 }
 
 type CreateContainerRequest struct {
-	Image       string   `json:"image"`
-	Name        string   `json:"name"`
-	Command     string   `json:"command"`
-	Detach      bool     `json:"detach"`
-	Interactive bool     `json:"interactive"`
-	TTY         bool     `json:"tty"`
-	RemoveOnExit bool    `json:"remove_on_exit"`
-	Hostname    string   `json:"hostname"`
-	Restart     string   `json:"restart"`
-	Memory      string   `json:"memory,omitempty"`
-	CPUs        float64  `json:"cpus,omitempty"`
-	WorkingDir  string   `json:"workdir,omitempty"`
-	Ports       []string `json:"ports"`
-	Volumes     []string `json:"volumes"`
-	Env         []string `json:"env"`
+	Image          string            `json:"image"`
+	Name           string            `json:"name"`
+	Command        string            `json:"command"`
+	Detach         bool              `json:"detach"`
+	Interactive    bool              `json:"interactive"`
+	TTY            bool              `json:"tty"`
+	RemoveOnExit   bool              `json:"remove_on_exit"`
+	Hostname       string            `json:"hostname"`
+	Restart        string            `json:"restart"`
+	Memory         string            `json:"memory,omitempty"`
+	CPUs           float64           `json:"cpus,omitempty"`
+	WorkingDir     string            `json:"workdir,omitempty"`
+	Ports          []string          `json:"ports"`
+	Volumes        []string          `json:"volumes"`
+	Env            []string          `json:"env"`
+	Entrypoint     string            `json:"entrypoint,omitempty"`
+	NetworkMode    string            `json:"network_mode,omitempty"`
+	Labels         map[string]string `json:"labels,omitempty"`
+	CapAdd         []string          `json:"cap_add,omitempty"`
+	CapDrop        []string          `json:"cap_drop,omitempty"`
+	User           string            `json:"user,omitempty"`
+	ReadonlyRootfs bool              `json:"readonly_rootfs,omitempty"`
+	NoNewPrivileges bool             `json:"no_new_privileges,omitempty"`
+	Sysctls        map[string]string `json:"sysctls,omitempty"`
+	Ulimits        map[string]string `json:"ulimits,omitempty"`
+	DNS            []string          `json:"dns,omitempty"`
 	Healthcheck struct {
 		Cmd      string `json:"cmd"`
 		Interval int    `json:"interval"`
@@ -233,4 +244,91 @@ type Blueprint struct {
 	EnvTips     string         `json:"env_tips,omitempty"`
 	Volumes     []string       `json:"volumes,omitempty"`
 	IsMulti     bool           `json:"is_multi"`
+}
+
+type CategoryPreset struct {
+	Name        string  `json:"name"`
+	Icon        string  `json:"icon"`
+	Description string  `json:"description"`
+	DefaultRAM  string  `json:"default_ram"`
+	DefaultCPU  float64 `json:"default_cpu"`
+}
+
+type Healthcheck struct {
+	Cmd      string `json:"cmd,omitempty"`
+	Interval int    `json:"interval,omitempty"`
+	Retries  int    `json:"retries,omitempty"`
+	Timeout  int    `json:"timeout,omitempty"`
+}
+
+type ContainerConfigV2 struct {
+	Image          string            `json:"image"`
+	Name           string            `json:"name,omitempty"`
+	Command        string            `json:"command,omitempty"`
+	Entrypoint     string            `json:"entrypoint,omitempty"`
+	Workdir        string            `json:"workdir,omitempty"`
+	Restart        string            `json:"restart,omitempty"`
+	Hostname       string            `json:"hostname,omitempty"`
+	Interactive    bool              `json:"interactive,omitempty"`
+	TTY            bool              `json:"tty,omitempty"`
+	RemoveOnExit   bool              `json:"remove_on_exit,omitempty"`
+	Ports          []string          `json:"ports,omitempty"`
+	Env            map[string]string `json:"env,omitempty"`
+	Volumes        []string          `json:"volumes,omitempty"`
+	Memory         string            `json:"memory,omitempty"`
+	CPUs           float64           `json:"cpus,omitempty"`
+	Healthcheck    *Healthcheck      `json:"healthcheck,omitempty"`
+	NetworkMode    string            `json:"network_mode,omitempty"`
+	Labels         map[string]string `json:"labels,omitempty"`
+	CapAdd         []string          `json:"cap_add,omitempty"`
+	CapDrop        []string          `json:"cap_drop,omitempty"`
+	User           string            `json:"user,omitempty"`
+	ReadonlyRootfs bool              `json:"readonly_rootfs,omitempty"`
+	NoNewPrivileges bool             `json:"no_new_privileges,omitempty"`
+	Sysctls        map[string]string `json:"sysctls,omitempty"`
+	Ulimits        map[string]string `json:"ulimits,omitempty"`
+	DNS            []string          `json:"dns,omitempty"`
+}
+
+type DeploySettings struct {
+	DataDir    string              `json:"data_dir,omitempty"`
+	AutoStart  bool                `json:"auto_start,omitempty"`
+	PreHook    string              `json:"pre_hook,omitempty"`
+	PostHook   string              `json:"post_hook,omitempty"`
+	Profiles   map[string]*Profile `json:"profiles,omitempty"`
+}
+
+type Profile struct {
+	Memory string  `json:"memory,omitempty"`
+	CPUs   float64 `json:"cpus,omitempty"`
+	Env    map[string]string `json:"env,omitempty"`
+}
+
+type MetaInfo struct {
+	Description string   `json:"description,omitempty"`
+	Tags        []string `json:"tags,omitempty"`
+	Icon        string   `json:"icon,omitempty"`
+}
+
+type BlueprintRef struct {
+	Name string            `json:"name"`
+	Env  map[string]string `json:"env,omitempty"`
+}
+
+type ProjectConfig struct {
+	Version   string            `json:"version"`
+	Name      string            `json:"name"`
+	Category  string            `json:"category,omitempty"`
+	Container ContainerConfigV2 `json:"container"`
+	Blueprint *BlueprintRef     `json:"blueprint,omitempty"`
+	Deploy    *DeploySettings   `json:"deploy,omitempty"`
+	Meta      *MetaInfo         `json:"meta,omitempty"`
+}
+
+type ProjectInfo struct {
+	Path      string           `json:"path"`
+	Dir       string           `json:"dir"`
+	Config    *ProjectConfig   `json:"config"`
+	Container *Container       `json:"container,omitempty"`
+	Status    string           `json:"status"`
 }

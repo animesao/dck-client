@@ -159,6 +159,39 @@ func (e *Executor) CreateContainer(req *models.CreateContainerRequest) (string, 
 	for _, e := range req.Env {
 		args = append(args, "-e", e)
 	}
+	if req.Entrypoint != "" {
+		args = append(args, "--entrypoint", req.Entrypoint)
+	}
+	if req.NetworkMode != "" {
+		args = append(args, "--network", req.NetworkMode)
+	}
+	if req.User != "" {
+		args = append(args, "--user", req.User)
+	}
+	if req.ReadonlyRootfs {
+		args = append(args, "--readonly")
+	}
+	if req.NoNewPrivileges {
+		args = append(args, "--no-new-privs")
+	}
+	for k, v := range req.Labels {
+		args = append(args, "-l", k+"="+v)
+	}
+	for _, cap := range req.CapAdd {
+		args = append(args, "--cap-add", cap)
+	}
+	for _, cap := range req.CapDrop {
+		args = append(args, "--cap-drop", cap)
+	}
+	for k, v := range req.Sysctls {
+		args = append(args, "--sysctl", k+"="+v)
+	}
+	for k, v := range req.Ulimits {
+		args = append(args, "--ulimit", k+"="+v)
+	}
+	for _, d := range req.DNS {
+		args = append(args, "--dns", d)
+	}
 	args = append(args, req.Image)
 	if req.Command != "" {
 		args = append(args, strings.Fields(req.Command)...)
