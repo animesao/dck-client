@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-var BuildVersion = "0.1.0"
+var BuildVersion = "0.2.0"
 
 type VersionInfo struct {
 	Current             string `json:"current"`
