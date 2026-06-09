@@ -328,7 +328,8 @@ async function openBlueprintModal(id) {
   }
 
   const hint = document.getElementById('bp-hint');
-  if (bp.hint) { hint.style.display = 'block'; hint.textContent = bp.hint; } else { hint.style.display = 'none'; }
+  const hintText = bp.env_tips || bp.hint || '';
+  if (hintText) { hint.style.display = 'block'; hint.textContent = hintText; } else { hint.style.display = 'none'; }
 
   document.getElementById('bp-output').style.display = 'none';
   document.getElementById('bp-output').className = 'output-box';
