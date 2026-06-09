@@ -401,14 +401,14 @@ function updateContainerTable(containers) {
   const showAll = document.getElementById('show-all').checked;
   let list = containers;
   if (!showAll) list = list.filter(c => c.status === 'running');
-  if (search) list = list.filter(c => (c.name || '').toLowerCase().includes(search) || (c.image || '').toLowerCase().includes(search));
+  if (search) list = list.filter(c => (c.name || '').toLowerCase().includes(search) || (c.image_name || '').toLowerCase().includes(search));
   el.innerHTML = '<table><thead><tr><th>Name</th><th>Image</th><th>Status</th><th>Ports</th><th>Created</th><th>Actions</th></tr></thead><tbody>' +
     list.map(c => '<tr>' +
       '<td><a href="#" onclick="navigate(\'container-detail\',\'' + esc(c.id) + '\')" style="color:var(--accent2)">' + esc(c.name) + '</a></td>' +
-      '<td>' + esc(c.image) + '</td>' +
+      '<td>' + esc(c.image_name + (c.image_tag ? ':' + c.image_tag : '')) + '</td>' +
       '<td>' + statusBadge(c.status) + '</td>' +
       '<td>' + fmtPorts(c.ports) + '</td>' +
-      '<td>' + esc(c.created || '') + '</td>' +
+      '<td>' + esc(c.created_at || '') + '</td>' +
       '<td>' +
       (c.status !== 'running' ? '<button class="action-btn success" onclick="execAction(\'' + esc(c.id) + '\',\'start\')" title="Start">▶</button>' : '') +
       (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.id) + '\',\'stop\')" title="Stop">■</button>' : '') +
@@ -640,22 +640,20 @@ async function loadImages() {
     state.images = images || [];
     animateNum('stat-images', state.images.length);
     if (state.images.length === 0) { el.innerHTML = '<div class="empty-state"><p>No images</p></div>'; return; }
-    el.innerHTML = '<table><thead><tr><th>Repository</th><th>Tag</th><th>ID</th><th>Size</th><th>Created</th><th></th></tr></thead><tbody>' +
+    el.innerHTML = '<table><thead><tr><th>Repository</th><th>Tag</th><th>Size</th><th></th></tr></thead><tbody>' +
       state.images.map(img => '<tr>' +
-        '<td>' + esc(img.repository || img.name || '—') + '</td>' +
-        '<td>' + esc(img.tag || img.tags || 'latest') + '</td>' +
-        '<td class="mono">' + esc((img.id || '').substring(0, 12)) + '</td>' +
+        '<td>' + esc(img.name || '—') + '</td>' +
+        '<td>' + esc(img.tag || 'latest') + '</td>' +
         '<td>' + esc(img.size || '') + '</td>' +
-        '<td>' + esc(img.created || '') + '</td>' +
-        '<td><button class="action-btn danger" onclick="deleteImage(\'' + esc(img.id || img.name) + '\')">✕</button></td></tr>').join('') +
+        '<td><button class="action-btn danger" onclick="deleteImage(\'' + esc(img.name) + '\',\'' + esc(img.tag || 'latest') + '\')">✕</button></td></tr>').join('') +
       '</tbody></table>';
   } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error</p></div>'; }
 }
 
-async function deleteImage(id) {
-  if (!confirm('Delete image ' + id + '?')) return;
+async function deleteImage(name, tag) {
+  if (!confirm('Delete image ' + (name + ':' + tag) + '?')) return;
   try {
-    const r = await apiDelete('/api/images/' + encodeURIComponent(id));
+    const r = await apiDelete('/api/images/' + encodeURIComponent(name) + '/' + encodeURIComponent(tag));
     if (r.error) toast(r.error, 'error');
     else { toast('Image deleted', 'success'); loadImages(); }
   } catch(e) { toast('Delete failed', 'error'); }
@@ -860,7 +858,7 @@ function fmtUptime(created) {
   parts.push(s + 's');
   return parts.join(' ');
 }
-function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 function statusBadge(s) { if (!s) return ''; const cls = s === 'running' ? 'running' : (s === 'stopped' ? 'stopped' : 'exited'); return '<span class="status-badge-sm ' + cls + '"><span class="status-dot"></span>' + esc(s) + '</span>'; }
 function fmtPorts(ports) { if (!ports) return ''; if (typeof ports === 'string') return ports; if (Array.isArray(ports)) return ports.map(p => (p.host_port || p.hostPort || '') + ':' + (p.container_port || p.containerPort || '') + (p.protocol && p.protocol !== 'tcp' ? '/' + p.protocol : '')).join(', '); return String(ports); }
 function randStr(n) { const c='abcdefghijklmnopqrstuvwxyz0123456789'; let r=''; for(let i=0;i<n;i++) r+=c[Math.floor(Math.random()*c.length)]; return r; }

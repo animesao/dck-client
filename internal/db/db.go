@@ -142,15 +142,25 @@ func (d *Database) Authenticate(username, password string) (*models.User, error)
 	d.mu.RLock()
 	defer d.mu.RUnlock()
 
+	if len(d.users) == 0 {
+		return nil, fmt.Errorf("no users exist")
+	}
+
 	for _, u := range d.users {
 		if u.Username == username {
 			if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
-				return nil, fmt.Errorf("invalid credentials")
+				return nil, fmt.Errorf("wrong password")
 			}
 			return u, nil
 		}
 	}
-	return nil, fmt.Errorf("invalid credentials")
+	return nil, fmt.Errorf("user not found")
+}
+
+func (d *Database) UserCount() int {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return len(d.users)
 }
 
 func (d *Database) GetUser(id int64) (*models.User, error) {

@@ -45,9 +45,22 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		userID := int64(claims["user_id"].(float64))
-		username := claims["username"].(string)
-		role := claims["role"].(string)
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "invalid token claims")
+			return
+		}
+		userID := int64(userIDFloat)
+		username, ok := claims["username"].(string)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "invalid token claims")
+			return
+		}
+		role, ok := claims["role"].(string)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "invalid token claims")
+			return
+		}
 
 		ctx := context.WithValue(r.Context(), userIDKey, userID)
 		ctx = context.WithValue(ctx, usernameKey, username)

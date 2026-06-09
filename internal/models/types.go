@@ -47,6 +47,10 @@ type Container struct {
 	Interactive  bool               `json:"interactive,omitempty"`
 	TTY          bool               `json:"tty,omitempty"`
 	RemoveOnExit bool               `json:"remove_on_exit,omitempty"`
+	StoppedByUser bool              `json:"stopped_by_user,omitempty"`
+	MemoryLimit   int64             `json:"memory_limit,omitempty"`
+	CPUCount      float64           `json:"cpu_count,omitempty"`
+	CgroupPath    string            `json:"cgroup_path,omitempty"`
 	Healthcheck  *HealthcheckConfig `json:"healthcheck,omitempty"`
 }
 
@@ -92,6 +96,8 @@ type ContainerConfig struct {
 	Env         map[string]string `toml:"env,omitempty"`
 	Restart     string            `toml:"restart,omitempty"`
 	Hostname    string            `toml:"hostname,omitempty"`
+	Memory      int64             `toml:"memory,omitempty"`
+	CPUs        float64           `toml:"cpus,omitempty"`
 	Healthcheck *HealthcheckConfig `toml:"healthcheck,omitempty"`
 }
 
@@ -136,6 +142,8 @@ type CreateContainerRequest struct {
 	RemoveOnExit bool    `json:"remove_on_exit"`
 	Hostname    string   `json:"hostname"`
 	Restart     string   `json:"restart"`
+	Memory      int64    `json:"memory,omitempty"`
+	CPUs        float64  `json:"cpus,omitempty"`
 	Ports       []string `json:"ports"`
 	Volumes     []string `json:"volumes"`
 	Env         []string `json:"env"`

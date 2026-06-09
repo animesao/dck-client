@@ -1,3 +1,5 @@
+//go:build windows
+
 package server
 
 // Windows stubs for system info functions

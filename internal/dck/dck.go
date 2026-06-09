@@ -141,6 +141,12 @@ func (e *Executor) CreateContainer(req *models.CreateContainerRequest) (string, 
 	if req.Restart != "" {
 		args = append(args, "--restart", req.Restart)
 	}
+	if req.Memory > 0 {
+		args = append(args, "--memory", strconv.FormatInt(req.Memory, 10))
+	}
+	if req.CPUs > 0 {
+		args = append(args, "--cpus", strconv.FormatFloat(req.CPUs, 'f', -1, 64))
+	}
 	for _, p := range req.Ports {
 		args = append(args, "-p", p)
 	}

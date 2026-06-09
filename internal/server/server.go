@@ -221,8 +221,10 @@ func (b *eventBroker) subscribe() chan string {
 func (b *eventBroker) unsubscribe(ch chan string) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	delete(b.clients, ch)
-	close(ch)
+	if _, ok := b.clients[ch]; ok {
+		delete(b.clients, ch)
+		close(ch)
+	}
 }
 
 func (b *eventBroker) publish(data string) {
