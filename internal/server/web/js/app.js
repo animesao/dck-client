@@ -269,7 +269,7 @@ function setBpCategory(cat) {
 }
 
 function getBpIcon(name) {
-  const icons = { 'nginx': 'N', 'flask': 'F', 'node': 'N', 'postgres': 'P', 'mysql': 'M', 'redis': 'R', 'discord': 'D', 'telegram': 'T', 'minecraft': '⛏' };
+  const icons = { 'nginx': 'N', 'flask': 'F', 'node': 'N', 'postgres': 'P', 'mysql': 'M', 'redis': 'R', 'discord': 'D', 'telegram': 'T', 'minecraft': 'M' };
   for (const [k,v] of Object.entries(icons)) { if (name.toLowerCase().includes(k)) return v; }
   return name.charAt(0).toUpperCase();
 }
