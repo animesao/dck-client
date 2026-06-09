@@ -14,24 +14,66 @@ type Client struct {
 	DataDir string
 }
 
+type PortMap struct {
+	HostPort      int    `json:"host_port"`
+	ContainerPort int    `json:"container_port"`
+	Protocol      string `json:"protocol"`
+}
+
+type VolumeMount struct {
+	Source string `json:"source"`
+	Target string `json:"target"`
+}
+
+type HealthcheckConfig struct {
+	Cmd      string `json:"cmd"`
+	Interval int    `json:"interval,omitempty"`
+	Retries  int    `json:"retries,omitempty"`
+	Timeout  int    `json:"timeout,omitempty"`
+}
+
+type Ulimit struct {
+	Name string `json:"name"`
+	Soft uint64 `json:"soft"`
+	Hard uint64 `json:"hard"`
+}
+
 type Container struct {
-	ID     string `json:"id"`
-	Name   string `json:"name"`
-	Image  string `json:"image"`
-	Status string `json:"status"`
-	PID    int    `json:"pid"`
-	Ports  []struct {
-		Host      string `json:"host"`
-		Container string `json:"container"`
-		Protocol  string `json:"protocol"`
-	} `json:"ports"`
-	IP        string `json:"ip"`
-	CreatedAt string `json:"created_at"`
-	Memory    string `json:"memory"`
-	CPUs      string `json:"cpus"`
-	UserID    string `json:"user_id"`
-	Network   string `json:"network"`
-	Restart   string `json:"restart"`
+	ID              string             `json:"id"`
+	Name            string             `json:"name"`
+	ImageName       string             `json:"image_name"`
+	ImageTag        string             `json:"image_tag"`
+	PID             int                `json:"pid"`
+	Status          string             `json:"status"`
+	Cmd             []string           `json:"cmd"`
+	CreatedAt       string             `json:"created_at"`
+	Ports           []PortMap          `json:"ports,omitempty"`
+	Volumes         []VolumeMount      `json:"volumes,omitempty"`
+	Env             []string           `json:"env,omitempty"`
+	Hostname        string             `json:"hostname,omitempty"`
+	Restart         string             `json:"restart,omitempty"`
+	IP              string             `json:"ip,omitempty"`
+	Detach          bool               `json:"detach,omitempty"`
+	Interactive     bool               `json:"interactive,omitempty"`
+	TTY             bool               `json:"tty,omitempty"`
+	RemoveOnExit    bool               `json:"remove_on_exit,omitempty"`
+	StoppedByUser   bool               `json:"stopped_by_user,omitempty"`
+	MemoryLimit     int64              `json:"memory_limit,omitempty"`
+	CPUCount        float64            `json:"cpu_count,omitempty"`
+	CgroupPath      string             `json:"cgroup_path,omitempty"`
+	WorkingDir      string             `json:"working_dir,omitempty"`
+	Healthcheck     *HealthcheckConfig `json:"healthcheck,omitempty"`
+	Labels          map[string]string  `json:"labels,omitempty"`
+	CapAdd          []string           `json:"cap_add,omitempty"`
+	CapDrop         []string           `json:"cap_drop,omitempty"`
+	User            string             `json:"user,omitempty"`
+	ReadonlyRootfs  bool               `json:"readonly_rootfs,omitempty"`
+	NoNewPrivileges bool               `json:"no_new_privileges,omitempty"`
+	Sysctls         map[string]string  `json:"sysctls,omitempty"`
+	DNS             []string           `json:"dns,omitempty"`
+	NetworkMode     string             `json:"network_mode,omitempty"`
+	Entrypoint      string             `json:"entrypoint,omitempty"`
+	Ulimits         []Ulimit           `json:"ulimits,omitempty"`
 }
 
 func (c *Client) run(args ...string) (string, error) {
@@ -41,50 +83,43 @@ func (c *Client) run(args ...string) (string, error) {
 	return string(out), err
 }
 
-func (c *Client) runWithStdin(args []string, stdin string) (string, error) {
-	cmd := exec.Command(c.BinPath, args...)
-	cmd.Env = append(os.Environ(), "DCK_HOME="+c.DataDir)
-	cmd.Stdin = strings.NewReader(stdin)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
+func (c *Client) containersDir() string {
+	return filepath.Join(c.DataDir, "containers")
+}
+
+func (c *Client) imagesDir() string {
+	return filepath.Join(c.DataDir, "images")
 }
 
 func (c *Client) ListContainers(all bool) ([]Container, error) {
-	args := []string{"ps"}
-	if all {
-		args = append(args, "-a")
-	}
-	args = append(args, "--format", "json")
-	out, err := c.run(args...)
+	entries, err := os.ReadDir(c.containersDir())
 	if err != nil {
-		if strings.Contains(out, "no containers") || out == "" {
+		if os.IsNotExist(err) {
 			return []Container{}, nil
 		}
-		return nil, fmt.Errorf("dck ps: %s: %w", strings.TrimSpace(out), err)
+		return nil, err
 	}
-	return parseContainerList(out)
-}
 
-func parseContainerList(out string) ([]Container, error) {
-	lines := strings.Split(strings.TrimSpace(out), "\n")
 	var containers []Container
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
+	for _, e := range entries {
+		if !strings.HasSuffix(e.Name(), ".json") {
 			continue
 		}
-		var c Container
-		if err := json.Unmarshal([]byte(line), &c); err != nil {
+		id := strings.TrimSuffix(e.Name(), ".json")
+		ct, err := c.GetContainer(id)
+		if err != nil {
 			continue
 		}
-		containers = append(containers, c)
+		if !all && ct.Status != "running" {
+			continue
+		}
+		containers = append(containers, *ct)
 	}
 	return containers, nil
 }
 
 func (c *Client) GetContainer(id string) (*Container, error) {
-	// Read from state file directly
-	statePath := filepath.Join(c.DataDir, "containers", id+".json")
+	statePath := filepath.Join(c.containersDir(), id+".json")
 	b, err := os.ReadFile(statePath)
 	if err != nil {
 		return nil, fmt.Errorf("container %s not found", id)
@@ -94,6 +129,11 @@ func (c *Client) GetContainer(id string) (*Container, error) {
 		return nil, err
 	}
 	ct.ID = id
+	if ct.Status == "running" {
+		if _, err := os.Stat(filepath.Join("/proc", fmt.Sprintf("%d", ct.PID))); os.IsNotExist(err) {
+			ct.Status = "stopped"
+		}
+	}
 	return &ct, nil
 }
 
@@ -169,15 +209,42 @@ func (c *Client) Logs(id string) (string, error) {
 }
 
 func (c *Client) ListImages() ([]string, error) {
-	out, err := c.run("images")
+	var images []string
+	root := c.imagesDir()
+	namespaces, err := os.ReadDir(root)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return images, nil
+		}
 		return nil, err
 	}
-	lines := strings.Split(strings.TrimSpace(out), "\n")
-	var images []string
-	for _, line := range lines {
-		if line != "" {
-			images = append(images, line)
+	for _, ns := range namespaces {
+		if !ns.IsDir() {
+			continue
+		}
+		nsPath := filepath.Join(root, ns.Name())
+		imgDirs, err := os.ReadDir(nsPath)
+		if err != nil {
+			continue
+		}
+		for _, img := range imgDirs {
+			if !img.IsDir() {
+				continue
+			}
+			imgPath := filepath.Join(nsPath, img.Name())
+			tags, err := os.ReadDir(imgPath)
+			if err != nil {
+				continue
+			}
+			for _, tag := range tags {
+				if tag.IsDir() {
+					if ns.Name() == "library" {
+						images = append(images, img.Name()+":"+tag.Name())
+					} else {
+						images = append(images, ns.Name()+"/"+img.Name()+":"+tag.Name())
+					}
+				}
+			}
 		}
 	}
 	return images, nil
@@ -206,11 +273,11 @@ func (c *Client) ConsoleSocketPath(id string) string {
 }
 
 func (c *Client) ContainerStatePath(id string) string {
-	return filepath.Join(c.DataDir, "containers", id+".json")
+	return filepath.Join(c.containersDir(), id+".json")
 }
 
 func (c *Client) ContainersDir() string {
-	return filepath.Join(c.DataDir, "containers")
+	return c.containersDir()
 }
 
 func (c *Client) BackupDir() string {

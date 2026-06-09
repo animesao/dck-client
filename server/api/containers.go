@@ -5,10 +5,79 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"dck-panel/dck"
 )
+
+type ContainerResp struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Image     string          `json:"image"`
+	Status    string          `json:"status"`
+	Created   string          `json:"created"`
+	Ports     []PortMapResp   `json:"ports,omitempty"`
+	IP        string          `json:"ip,omitempty"`
+	Pid       int             `json:"pid,omitempty"`
+	Memory    string          `json:"memory,omitempty"`
+	CPUs      string          `json:"cpus,omitempty"`
+	Network   string          `json:"network,omitempty"`
+	Restart   string          `json:"restart,omitempty"`
+}
+
+type PortMapResp struct {
+	Host      string `json:"host"`
+	Container string `json:"container"`
+	Protocol  string `json:"protocol"`
+}
+
+func containerToResp(c *dck.Container) ContainerResp {
+	image := c.ImageName
+	if c.ImageTag != "" && c.ImageTag != "latest" {
+		image += ":" + c.ImageTag
+	} else if !strings.Contains(c.ImageName, "/") {
+		image = c.ImageName + ":" + c.ImageTag
+	}
+	ports := make([]PortMapResp, 0, len(c.Ports))
+	for _, p := range c.Ports {
+		ports = append(ports, PortMapResp{
+			Host:      strconv.Itoa(p.HostPort),
+			Container: strconv.Itoa(p.ContainerPort),
+			Protocol:  p.Protocol,
+		})
+	}
+	memoryStr := ""
+	if c.MemoryLimit > 0 {
+		memoryStr = strconv.FormatInt(c.MemoryLimit, 10)
+	}
+	cpusStr := ""
+	if c.CPUCount > 0 {
+		cpusStr = strconv.FormatFloat(c.CPUCount, 'f', -1, 64)
+	}
+	return ContainerResp{
+		ID:      c.ID,
+		Name:    c.Name,
+		Image:   image,
+		Status:  c.Status,
+		Created: c.CreatedAt,
+		Ports:   ports,
+		IP:      c.IP,
+		Pid:     c.PID,
+		Memory:  memoryStr,
+		CPUs:    cpusStr,
+		Network: c.NetworkMode,
+		Restart: c.Restart,
+	}
+}
+
+func containersToResp(containers []dck.Container) []ContainerResp {
+	out := make([]ContainerResp, len(containers))
+	for i, c := range containers {
+		out[i] = containerToResp(&c)
+	}
+	return out
+}
 
 func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	all := r.URL.Query().Get("all") == "true"
@@ -20,7 +89,7 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, cl
 	if containers == nil {
 		containers = []dck.Container{}
 	}
-	writeJSON(w, http.StatusOK, containers)
+	writeJSON(w, http.StatusOK, containersToResp(containers))
 }
 
 func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
@@ -30,7 +99,7 @@ func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, clai
 		writeError(w, http.StatusNotFound, "Container not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, c)
+	writeJSON(w, http.StatusOK, containerToResp(c))
 }
 
 func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
@@ -208,11 +277,19 @@ func (s *Server) handleContainerConfig(w http.ResponseWriter, r *http.Request, c
 		writeError(w, http.StatusNotFound, "Container not found")
 		return
 	}
+	memoryStr := ""
+	if c.MemoryLimit > 0 {
+		memoryStr = strconv.FormatInt(c.MemoryLimit, 10)
+	}
+	cpusStr := ""
+	if c.CPUCount > 0 {
+		cpusStr = strconv.FormatFloat(c.CPUCount, 'f', -1, 64)
+	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"restart_policy": c.Restart,
-		"memory":         c.Memory,
-		"cpus":           c.CPUs,
-		"network":        c.Network,
+		"memory":         memoryStr,
+		"cpus":           cpusStr,
+		"network":        c.NetworkMode,
 	})
 }
 
