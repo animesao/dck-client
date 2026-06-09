@@ -232,18 +232,67 @@ function updateDashContainerStats(statsMap) {
       if (label) label.textContent = (s.mem || '0');
     }
   });
+  renderDashResourceOverview(statsMap);
+}
+
+function renderDashResourceOverview(statsMap) {
+  const el = document.getElementById('res-overview');
+  const body = document.getElementById('res-overview-body');
+  if (!el || !body) return;
+  const entries = Object.values(statsMap).filter(s => s && !s.error);
+  if (entries.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  let totalCpu = 0, cpuCount = 0, avgCpu = 0;
+  entries.forEach(s => {
+    const p = parseFloat(s.cpu_percent);
+    if (!isNaN(p)) { totalCpu += p; cpuCount++; }
+  });
+  if (cpuCount > 0) avgCpu = totalCpu / cpuCount;
+  const memParts = entries.map(s => String(s.mem || '').split('/')[0].trim().replace(/[^0-9.]/g, '')).filter(Boolean);
+  const memNums = memParts.map(parseFloat).filter(n => !isNaN(n));
+  const totalMem = memNums.reduce((a, b) => a + b, 0);
+  body.innerHTML =
+    '<div class="res-overview-item"><div class="res-overview-value green">' + entries.length + '</div><div class="res-overview-label">Containers</div></div>' +
+    '<div class="res-overview-item"><div class="res-overview-value accent">' + (totalCpu > 0 ? totalCpu.toFixed(1) + '%' : '—') + '</div><div class="res-overview-label">Total CPU</div></div>' +
+    '<div class="res-overview-item"><div class="res-overview-value">' + (avgCpu > 0 ? avgCpu.toFixed(1) + '%' : '—') + '</div><div class="res-overview-label">Avg CPU</div></div>' +
+    '<div class="res-overview-item"><div class="res-overview-value">' + (totalMem > 0 ? totalMem.toFixed(0) + 'MB' : '—') + '</div><div class="res-overview-label">Total RAM</div></div>';
+}
+
+function fmtBytes(bytes) {
+  if (!bytes || bytes === 0) return '0B';
+  const units = ['B','KB','MB','GB','TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + units[i];
+}
+
+function fmtMem(memStr) {
+  if (!memStr) return '—';
+  const parts = String(memStr).split('/');
+  if (parts.length === 2) {
+    const used = parts[0].trim();
+    const total = parts[1].trim();
+    const usedNum = parseFloat(used);
+    if (!isNaN(usedNum) && usedNum > 1024) return fmtBytes(usedNum * 1024 * 1024) + ' / ' + total;
+    return memStr;
+  }
+  return memStr;
 }
 
 function updateDetailStats(s) {
   const el = document.getElementById('detail-stats');
   if (!el) return;
   if (!s || s.error) {
-    el.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">Container not running</div>';
+    el.innerHTML = '<div class="empty-state"><p>Container not running</p></div>';
     return;
   }
+  const cpuP = Math.min(s.cpu_percent || 0, 100);
+  const memP = Math.min(s.mem_percent || 0, 100);
+  const memLabel = fmtMem(s.mem);
   el.innerHTML =
-    '<div class="res-row"><span class="res-label">CPU</span><div class="res-bar-wrap"><div class="res-bar" style="width:' + Math.min(s.cpu_percent, 100) + '%"></div></div><span class="res-value">' + (s.cpu || '0') + '%</span></div>' +
-    '<div class="res-row"><span class="res-label">RAM</span><div class="res-bar-wrap"><div class="res-bar mem" style="width:' + Math.min(s.mem_percent, 100) + '%"></div></div><span class="res-value">' + (s.mem || '0') + '</span></div>';
+    '<div class="detail-stats-header">Resource Usage</div>' +
+    '<div class="res-row"><span class="res-label">CPU</span><div class="res-bar-wrap"><div class="res-bar' + (cpuP > 80 ? ' high' : cpuP > 50 ? ' mid' : '') + '" style="width:' + cpuP + '%"></div></div><span class="res-value">' + (s.cpu || '0') + '%</span></div>' +
+    '<div class="res-row"><span class="res-label">RAM</span><div class="res-bar-wrap"><div class="res-bar mem' + (memP > 80 ? ' high' : memP > 50 ? ' mid' : '') + '" style="width:' + memP + '%"></div></div><span class="res-value">' + memLabel + '</span></div>' +
+    (s.net_rx || s.net_tx ? '<div class="res-row" style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border)"><span class="res-label">NET</span><span class="res-value" style="text-align:left;font-size:11px;color:var(--text2)">▼ ' + fmtBytes(s.net_rx || 0) + ' ▲ ' + fmtBytes(s.net_tx || 0) + '</span></div>' : '');
 }
 
 /* Blueprints */
@@ -314,14 +363,24 @@ async function openBlueprintModal(id) {
   const envVars = bp.env || [];
   if (envVars.length > 0) {
     envSection.style.display = 'block';
-    envFields.innerHTML = envVars.map((ev, i) =>
-      '<div class="env-field-row">' +
-      '<div class="env-key">' + esc(ev.key) + (ev.required ? '<span style="color:var(--red)">*</span>' : '') + '</div>' +
-      '<div style="flex:1">' +
-      '<input type="text" id="bp-env-' + i + '" value="' + esc(ev.default || '') + '" placeholder="' + esc(ev.description || 'Value') + '">' +
-      '<div class="env-desc">' + esc(ev.description || '') + '</div>' +
-      '</div></div>'
-    ).join('');
+    envFields.innerHTML = envVars.map((ev, i) => {
+      const hasOptions = ev.options && ev.options.length > 0;
+      let inputHtml;
+      if (hasOptions) {
+        const opts = ev.options.map(o =>
+          '<option value="' + esc(o) + '"' + (ev.default === o ? ' selected' : '') + '>' + esc(o) + '</option>'
+        ).join('');
+        inputHtml = '<select id="bp-env-' + i + '" class="env-select">' + opts + '</select>';
+      } else {
+        inputHtml = '<input type="text" id="bp-env-' + i + '" value="' + esc(ev.default || '') + '" placeholder="' + esc(ev.description || 'Value') + '">';
+      }
+      return '<div class="env-field-row">' +
+        '<div class="env-key">' + esc(ev.key) + (ev.required ? '<span style="color:var(--red)">*</span>' : '') + '</div>' +
+        '<div style="flex:1">' +
+        inputHtml +
+        '<div class="env-desc">' + esc(ev.description || '') + '</div>' +
+        '</div></div>';
+    }).join('');
   } else {
     envSection.style.display = 'none';
     envFields.innerHTML = '';

@@ -116,13 +116,17 @@
       </div>
     </div>
 
-    <!-- Dashboard -->
+      <!-- Dashboard -->
     <div id="page-dashboard" class="page active">
       <div class="stats-grid" id="stats-grid">
         <div class="stat-card glass"><div class="stat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h20v14H2z"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></div><div class="stat-value" id="stat-containers">—</div><div class="stat-label">Total</div></div>
         <div class="stat-card glass"><div class="stat-icon running-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg></div><div class="stat-value running" id="stat-running">—</div><div class="stat-label">Running</div></div>
         <div class="stat-card glass"><div class="stat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg></div><div class="stat-value" id="stat-stopped">—</div><div class="stat-label">Stopped</div></div>
         <div class="stat-card glass"><div class="stat-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div><div class="stat-value" id="stat-images">—</div><div class="stat-label">Images</div></div>
+      </div>
+      <div class="res-overview glass" id="res-overview" style="display:none">
+        <div class="res-overview-header">Resource Overview</div>
+        <div class="res-overview-body" id="res-overview-body"></div>
       </div>
       <div class="card glass"><h3>System</h3><div class="info-grid" id="sys-info"><div class="info-item"><strong>Loading</strong><span class="skeleton">&nbsp;</span></div></div></div>
       <div class="card glass"><h3><span>Active Containers</span><span class="live-badge">LIVE</span></h3><div class="table-container" id="dash-containers"><div class="empty-state"><p>Loading...</p></div></div></div>

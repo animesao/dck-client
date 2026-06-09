@@ -197,10 +197,11 @@ type CatalogItem struct {
 }
 
 type BlueprintEnv struct {
-	Key         string `json:"key"`
-	Description string `json:"description"`
-	Default     string `json:"default,omitempty"`
-	Required    bool   `json:"required"`
+	Key         string   `json:"key"`
+	Description string   `json:"description"`
+	Default     string   `json:"default,omitempty"`
+	Required    bool     `json:"required"`
+	Options     []string `json:"options,omitempty"`
 }
 
 type Blueprint struct {
