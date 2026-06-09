@@ -69,10 +69,8 @@ func main() {
 	}
 
 	go func() {
-		scheme := "http"
 		var err error
 		if *certFile != "" && *keyFile != "" {
-			scheme = "https"
 			log.Printf("dck Panel listening on https://0.0.0.0%s", addr)
 			err = httpServer.ListenAndServeTLS(*certFile, *keyFile)
 		} else {
