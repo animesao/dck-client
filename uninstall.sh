@@ -13,15 +13,28 @@ log()  { echo -e "${GREEN}[+]${NC} $1"; }
 warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
+FORCE=false
+for arg in "$@"; do
+  [[ "$arg" == "-f" || "$arg" == "--force" ]] && FORCE=true
+done
+
 if [[ $EUID -ne 0 ]]; then err "Must run as root: sudo bash uninstall.sh"; fi
 
 warn "This will remove dck Panel completely."
 warn "Containers managed by dck will NOT be affected."
 warn "Go installed by the panel will also be removed."
-read -rp "Continue? [y/N] " confirm
-if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-  log "Cancelled."
-  exit 0
+if [[ "$FORCE" != "true" ]]; then
+  confirm=""
+  if [[ -t 0 ]]; then
+    read -rp "Continue? [y/N] " confirm
+  else
+    # When piped (curl | sudo bash), read from terminal directly
+    read -rp "Continue? [y/N] " confirm </dev/tty 2>/dev/null || true
+  fi
+  if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+    log "Cancelled."
+    exit 0
+  fi
 fi
 
 # Stop, kill and disable service
