@@ -1,11 +1,10 @@
 /* State */
-let state = { containers: [], images: [], config: {}, blueprints: [], version: '', dckVersion: '' };
+let state = { containers: [], images: [], config: {}, blueprints: [], version: '', dckVersion: '', _stats: {} };
 let currentPage = 'dashboard';
 let currentDetailId = '';
 let logAutoRefresh = true;
 let logInterval = null;
 let infoInterval = null;
-let statsInterval = null;
 let bpImagesCache = null;
 
 /* Init */
@@ -29,7 +28,7 @@ async function login() {
   try {
     const r = await apiPost('/api/auth/login', { username: u, password: p });
     if (r.error) { err.textContent = r.error; return; }
-    if (r.token) { setToken(r.token); showMain(); navigate('dashboard'); }
+    if (r.token) { setToken(r.token, r.username, r.role); showMain(); navigate('dashboard'); }
   } catch(e) { err.textContent = 'Connection error'; }
   finally { document.getElementById('login-btn').disabled = false; }
 }
@@ -50,16 +49,24 @@ async function register() {
   } catch(e) { err.textContent = 'Connection error'; }
 }
 
-function logout() { localStorage.removeItem('dck_token'); localStorage.removeItem('dck_expires'); if (sseSource) { sseSource.close(); sseSource = null; } window.location.reload(); }
+function logout() { localStorage.removeItem('dck_token'); localStorage.removeItem('dck_expires'); localStorage.removeItem('dck_user'); localStorage.removeItem('dck_role'); if (sseSource) { sseSource.close(); sseSource = null; } window.location.reload(); }
 
 function showMain() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('main-screen').style.display = 'flex';
   document.getElementById('user-info').textContent = localStorage.getItem('dck_user') || 'User';
-  document.getElementById('user-role').textContent = 'admin';
+  document.getElementById('user-role').textContent = localStorage.getItem('dck_role') || 'admin';
   connectSSE(onSSE);
   checkVersion();
   loadDashboard();
+  apiGet('/api/auth/me').then(u => {
+    if (u && u.username) {
+      localStorage.setItem('dck_user', u.username);
+      if (u.role) localStorage.setItem('dck_role', u.role);
+      document.getElementById('user-info').textContent = u.username;
+      document.getElementById('user-role').textContent = u.role || 'admin';
+    }
+  }).catch(() => {});
 }
 
 /* Toast */
@@ -102,12 +109,22 @@ function toggleSidebar() { document.getElementById('sidebar').classList.toggle('
 function onSSE(data) {
   const el = document.getElementById('connection-status');
   el.innerHTML = '<span class="status-dot running"></span>Live';
-  if (data.containers) {
-    state.containers = data.containers;
-    if (currentPage === 'dashboard') updateDashContainerTable(data.containers);
-    if (currentPage === 'containers') updateContainerTable(data.containers);
+  if (data.type === 'containers' && Array.isArray(data.data)) {
+    state.containers = data.data;
+    if (currentPage === 'dashboard') updateDashContainerTable(data.data);
+    if (currentPage === 'containers') updateContainerTable(data.data);
     if (currentPage === 'container-detail' && currentDetailId) loadDetailInfo(currentDetailId);
-    updateStats(data.containers);
+    updateStats(data.data);
+  }
+  if (data.type === 'container_stats' && Array.isArray(data.data)) {
+    const statsMap = {};
+    data.data.forEach(s => { statsMap[s.id] = s; });
+    state._stats = statsMap;
+    if (currentPage === 'dashboard') updateDashContainerStats(statsMap);
+    if (currentPage === 'container-detail' && currentDetailId) {
+      const s = statsMap[currentDetailId];
+      if (s) updateDetailStats(s);
+    }
   }
 }
 
@@ -169,7 +186,7 @@ function updateDashContainerTable(containers) {
       const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join('<br>') : (c.volumes || '—');
       const envs = Array.isArray(c.env) ? c.env.slice(0, 4).join('<br>') + (c.env.length > 4 ? '<br><span style="color:var(--text2)">+' + (c.env.length - 4) + ' more</span>' : '') : (c.env || '—');
       const img = (c.image_name || c.image || '') + (c.image_tag ? ':' + c.image_tag : '');
-      return '<div class="dash-container-card glass" onclick="navigate(\'container-detail\',\'' + esc(c.id) + '\')">' +
+      return '<div class="dash-container-card glass" data-container-id="' + esc(c.id) + '" onclick="navigate(\'container-detail\',\'' + esc(c.id) + '\')">' +
         '<div class="dash-card-header"><span class="dash-card-name">' + esc(c.name) + '</span>' + statusBadge(c.status) + '</div>' +
         '<div class="dash-card-id">ID ' + esc(c.id || '') + '</div>' +
         '<div class="dash-card-body">' +
@@ -181,13 +198,50 @@ function updateDashContainerTable(containers) {
           '<div class="dash-card-row"><span class="dash-label">Uptime</span><span class="dash-value">' + esc(c.uptime || c.created || '') + '</span></div>' +
           (c.restart ? '<div class="dash-card-row"><span class="dash-label">Restart</span><span class="dash-value">' + esc(c.restart) + '</span></div>' : '') +
           (cmd && cmd !== '—' ? '<div class="dash-card-row"><span class="dash-label">Command</span><span class="dash-value mono" style="font-size:11px">' + esc(cmd) + '</span></div>' : '') +
-          '<div class="dash-card-row"><span class="dash-label">CPU</span>' + resBar(c.cpu_percent, c.cpu) + '</div>' +
-          '<div class="dash-card-row"><span class="dash-label">RAM</span>' + resBar(c.mem_percent, c.mem) + '</div>' +
+          '<div class="dash-card-row"><span class="dash-label">CPU</span>' + resBar(c.cpu_percent, c.cpu, 'dash-cpu-bar') + '</div>' +
+          '<div class="dash-card-row"><span class="dash-label">RAM</span>' + resBar(c.mem_percent, c.mem, 'dash-mem-bar') + '</div>' +
           (vols && vols !== '—' ? '<div class="dash-card-row"><span class="dash-label">Volumes</span><span class="dash-value" style="font-size:11px">' + vols + '</span></div>' : '') +
           (envs && envs !== '—' ? '<div class="dash-card-row"><span class="dash-label">Env</span><span class="dash-value" style="font-size:11px">' + envs + '</span></div>' : '') +
         '</div></div>';
     }).join('') +
     '</div>';
+}
+
+function updateDashContainerStats(statsMap) {
+  document.querySelectorAll('.dash-container-card').forEach(card => {
+    const id = card.dataset.containerId;
+    if (!id) return;
+    const s = statsMap[id];
+    if (!s) return;
+    const cpuEl = card.querySelector('.dash-cpu-bar');
+    const memEl = card.querySelector('.dash-mem-bar');
+    if (cpuEl) {
+      const p = Math.min(s.cpu_percent || 0, 100);
+      cpuEl.style.width = p + '%';
+      cpuEl.className = 'dash-res-bar ' + (p > 80 ? 'high' : (p > 50 ? 'mid' : 'low'));
+      const label = cpuEl.closest('.dash-card-row').querySelector('.dash-value:last-child');
+      if (label) label.textContent = (s.cpu || '0') + '%';
+    }
+    if (memEl) {
+      const p = Math.min(s.mem_percent || 0, 100);
+      memEl.style.width = p + '%';
+      memEl.className = 'dash-res-bar mem ' + (p > 80 ? 'high' : (p > 50 ? 'mid' : 'low'));
+      const label = memEl.closest('.dash-card-row').querySelector('.dash-value:last-child');
+      if (label) label.textContent = (s.mem || '0');
+    }
+  });
+}
+
+function updateDetailStats(s) {
+  const el = document.getElementById('detail-stats');
+  if (!el) return;
+  if (!s || s.error) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--text2);text-align:center;padding:8px">Container not running</div>';
+    return;
+  }
+  el.innerHTML =
+    '<div class="res-row"><span class="res-label">CPU</span><div class="res-bar-wrap"><div class="res-bar" style="width:' + Math.min(s.cpu_percent, 100) + '%"></div></div><span class="res-value">' + (s.cpu || '0') + '%</span></div>' +
+    '<div class="res-row"><span class="res-label">RAM</span><div class="res-bar-wrap"><div class="res-bar mem" style="width:' + Math.min(s.mem_percent, 100) + '%"></div></div><span class="res-value">' + (s.mem || '0') + '</span></div>';
 }
 
 /* Blueprints */
@@ -475,14 +529,12 @@ function switchDetailTab(tab) {
   if (tab === 'console') {
     setTimeout(() => { if (termFit) termFit.fit(); connectConsole(); }, 50);
   }
-  // Auto‑refresh info tab + stats in real‑time
+  // Auto‑refresh info tab; stats come via SSE in real‑time
   if (tab === 'info') {
     infoInterval = setInterval(() => loadDetailInfo(currentDetailId), 4000);
-    statsInterval = setInterval(() => loadDetailStats(currentDetailId), 2000);
     loadDetailInfo(currentDetailId);
   } else {
     clearInterval(infoInterval);
-    clearInterval(statsInterval);
   }
   if (tab === 'logs') {
     startLogAutoRefresh();
@@ -684,18 +736,18 @@ async function loadSettings() {
   try {
     const r = await apiGet('/api/settings');
     if (r.error) return;
-    document.getElementById('set-dck-bin').value = r.dckBin || '';
-    document.getElementById('set-dck-data').value = r.dckData || '';
-    document.getElementById('set-reg-open').checked = r.allowRegistration || false;
+    document.getElementById('set-dck-bin').value = r.dck_binary_path || r.dckBin || '';
+    document.getElementById('set-dck-data').value = r.dck_data_dir || r.dckData || '';
+    document.getElementById('set-reg-open').checked = r.registration_open !== undefined ? r.registration_open : (r.allowRegistration || false);
   } catch(_) {}
 }
 
 async function updateSettings(e) {
   e.preventDefault();
   const payload = {
-    dckBin: document.getElementById('set-dck-bin').value.trim(),
-    dckData: document.getElementById('set-dck-data').value.trim(),
-    allowRegistration: document.getElementById('set-reg-open').checked,
+    dck_binary_path: document.getElementById('set-dck-bin').value.trim(),
+    dck_data_dir: document.getElementById('set-dck-data').value.trim(),
+    registration_open: document.getElementById('set-reg-open').checked,
   };
   try {
     const r = await apiPut('/api/settings', payload);
@@ -712,6 +764,7 @@ async function checkVersion() {
   const dckVerEl = document.getElementById('ver-dck');
   const dckLatEl = document.getElementById('ver-dck-latest');
   const dckUpdateBtn = document.getElementById('dck-update-btn');
+  const clientUpdateBtn = document.getElementById('client-update-btn');
   if (!badge) return;
   badge.textContent = '...';
   badge.className = 'version-badge';
@@ -733,8 +786,25 @@ async function checkVersion() {
     if (dckUpdateBtn) {
       dckUpdateBtn.style.display = (dckLat && dckVer !== '—' && dckVer !== dckLat) ? 'inline-flex' : 'none';
     }
+    if (clientUpdateBtn) {
+      clientUpdateBtn.style.display = (latest && current !== '—' && current !== latest) ? 'inline-flex' : 'none';
+    }
     state.dckVersion = dckVer;
   } catch(_) { badge.textContent = '—'; badge.className = 'version-badge'; }
+}
+
+async function updateDckClient() {
+  if (!confirm('Download and install latest dck-client version? This will replace the current binary and restart the service.')) return;
+  const btn = document.getElementById('client-update-btn');
+  const origText = btn.textContent;
+  btn.textContent = 'Updating...';
+  btn.disabled = true;
+  try {
+    const r = await apiPost('/api/dck-client/update');
+    if (r.error) { toast('Update failed: ' + r.error, 'error'); }
+    else { toast('dck-client updated to ' + (r.version || 'latest') + ' — please restart the service', 'success'); checkVersion(); }
+  } catch(e) { toast('Update failed', 'error'); }
+  finally { btn.textContent = origText; btn.disabled = false; }
 }
 
 async function updateDck() {
@@ -765,12 +835,12 @@ function ptWrite(el, text) {
 function ptClear(el) { el.innerHTML = ''; el.className = 'output-box'; el.style.display = 'block'; }
 
 /* Resource bar helper */
-function resBar(percent, label) {
+function resBar(percent, label, clsName) {
   const p = parseFloat(percent);
   if (isNaN(p) || p < 0) return '<span class="dash-value" style="color:var(--text2)">—</span>';
   const w = Math.min(p, 100);
   const cls = p > 80 ? 'high' : (p > 50 ? 'mid' : 'low');
-  return '<div class="dash-res-bar-wrap"><div class="dash-res-bar ' + cls + '" style="width:' + w + '%"></div></div><span class="dash-value" style="font-size:11px;font-family:monospace">' + esc(label || '') + '</span>';
+  return '<div class="dash-res-bar-wrap"><div class="dash-res-bar ' + cls + (clsName ? ' ' + clsName : '') + '" style="width:' + w + '%"></div></div><span class="dash-value" style="font-size:11px;font-family:monospace">' + esc(label || '') + '</span>';
 }
 
 /* Helpers */

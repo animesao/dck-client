@@ -66,6 +66,152 @@ func (h *VersionHandler) Get(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, info)
 }
 
+func (h *VersionHandler) UpdateDckClient(w http.ResponseWriter, r *http.Request) {
+	h.mu.RLock()
+	latest := h.latestCache
+	h.mu.RUnlock()
+	if latest == "" {
+		writeError(w, http.StatusInternalServerError, "no version info yet, try checking for updates first")
+		return
+	}
+
+	currentExe, err := os.Executable()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "cannot determine executable path: "+err.Error())
+		return
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+
+	// Fetch release info
+	req, _ := http.NewRequest("GET", "https://api.github.com/repos/animesao/dck-client/releases/latest", nil)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "dck-client")
+	resp, err := client.Do(req)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "fetch release: "+err.Error())
+		return
+	}
+
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		resp.Body.Close()
+		writeError(w, http.StatusInternalServerError, "parse release: "+err.Error())
+		return
+	}
+	resp.Body.Close()
+
+	if release.TagName == "" {
+		writeError(w, http.StatusInternalServerError, "no releases found")
+		return
+	}
+
+	// Download source archive
+	archiveURL := fmt.Sprintf("https://github.com/animesao/dck-client/archive/refs/tags/%s.tar.gz", release.TagName)
+	srcResp, err := client.Get(archiveURL)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "download source: "+err.Error())
+		return
+	}
+	defer srcResp.Body.Close()
+
+	if srcResp.StatusCode != http.StatusOK {
+		writeError(w, http.StatusInternalServerError, "source download returned "+srcResp.Status)
+		return
+	}
+
+	// Extract to temp dir
+	tmpDir, err := os.MkdirTemp("", "dck-client-update-*")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "create tmp dir: "+err.Error())
+		return
+	}
+	defer os.RemoveAll(tmpDir)
+
+	archivePath := filepath.Join(tmpDir, "dck-client.tar.gz")
+	f, err := os.Create(archivePath)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "create archive: "+err.Error())
+		return
+	}
+	if _, err := io.Copy(f, srcResp.Body); err != nil {
+		f.Close()
+		writeError(w, http.StatusInternalServerError, "write archive: "+err.Error())
+		return
+	}
+	f.Close()
+
+	if out, err := exec.Command("tar", "-xzf", archivePath, "-C", tmpDir).CombinedOutput(); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("extract: %s: %s", err, string(out)))
+		return
+	}
+
+	entries, _ := os.ReadDir(tmpDir)
+	var srcDir string
+	for _, e := range entries {
+		if e.IsDir() && strings.HasPrefix(e.Name(), "dck-client-") {
+			srcDir = filepath.Join(tmpDir, e.Name())
+			break
+		}
+	}
+	if srcDir == "" {
+		writeError(w, http.StatusInternalServerError, "source dir not found in archive")
+		return
+	}
+
+	// Ensure Go is available
+	if _, err := exec.LookPath("go"); err != nil {
+		if out, err := exec.Command("which", "go").CombinedOutput(); err != nil {
+			writeError(w, http.StatusInternalServerError, "go binary not found, install Go first")
+			return
+		} else {
+			_ = out
+		}
+	}
+
+	buildCmd := exec.Command("go", "build", "-ldflags=-s -w", "-o", filepath.Join(tmpDir, "dck-client"), "./cmd/server")
+	buildCmd.Dir = srcDir
+	buildCmd.Env = append(os.Environ(),
+		"GOPATH="+filepath.Join(tmpDir, "gopath"),
+		"GOMODCACHE="+filepath.Join(tmpDir, "gopath", "pkg", "mod"),
+		"GOCACHE="+filepath.Join(tmpDir, "gocache"),
+		"GOFLAGS=-mod=mod",
+	)
+	buildOut, err := buildCmd.CombinedOutput()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("build: %s: %s", err, string(buildOut)))
+		return
+	}
+
+	builtBinary := filepath.Join(tmpDir, "dck-client")
+	if _, err := os.Stat(builtBinary); err != nil {
+		writeError(w, http.StatusInternalServerError, "built binary not found")
+		return
+	}
+
+	// Verify the built binary
+	if out, err := exec.Command(builtBinary, "--version").Output(); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("built binary invalid: %s: %s", err, string(out)))
+		return
+	}
+
+	// Replace the current binary
+	if err := os.Rename(builtBinary, currentExe); err != nil {
+		input, _ := os.ReadFile(builtBinary)
+		if err := os.WriteFile(currentExe, input, 0755); err != nil {
+			writeError(w, http.StatusInternalServerError, "replace binary: "+err.Error())
+			return
+		}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"status":  "updated",
+		"version": latest,
+	})
+}
+
 func (h *VersionHandler) UpdateDck(w http.ResponseWriter, r *http.Request) {
 	h.mu.RLock()
 	latest := h.dckLatestCache

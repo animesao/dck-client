@@ -8,10 +8,11 @@ function getToken() {
   return t;
 }
 
-function setToken(t) {
+function setToken(t, username, role) {
   localStorage.setItem('dck_token', t);
-  // Expire after 24 hours, matching server token TTL
   localStorage.setItem('dck_expires', String(Date.now() + 24 * 60 * 60 * 1000));
+  if (username != null) localStorage.setItem('dck_user', username);
+  if (role != null) localStorage.setItem('dck_role', role);
 }
 
 async function api(method, path, body) {

@@ -123,6 +123,8 @@ func (s *Server) Router() http.Handler {
 				r.Post("/update", version.UpdateDck)
 			})
 
+			r.Post("/dck-client/update", version.UpdateDckClient)
+
 			r.Get("/version", version.Get)
 		})
 
@@ -235,21 +237,54 @@ func (b *eventBroker) publish(data string) {
 }
 
 func (s *Server) broadcastEvents() {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
+	statsTicker := time.NewTicker(2 * time.Second)
+	containersTicker := time.NewTicker(2 * time.Second)
+	defer statsTicker.Stop()
+	defer containersTicker.Stop()
 
-	for range ticker.C {
+	go func() {
+		for range containersTicker.C {
+			containers, err := s.dck.ListContainers(true)
+			if err != nil {
+				continue
+			}
+			if len(containers) == 0 {
+				s.events.publish(`{"type":"containers","data":[]}`)
+				continue
+			}
+			data, err := json.Marshal(map[string]interface{}{
+				"type": "containers",
+				"data": containers,
+			})
+			if err != nil {
+				continue
+			}
+			s.events.publish(string(data))
+		}
+	}()
+
+	for range statsTicker.C {
 		containers, err := s.dck.ListContainers(true)
-		if err != nil {
+		if err != nil || len(containers) == 0 {
 			continue
 		}
-		if len(containers) == 0 {
-			s.events.publish(`{"type":"containers","data":[]}`)
+		var statsList []models.ContainerCPU
+		for _, c := range containers {
+			if c.PID > 0 {
+				stats, err := s.dck.GetContainerStats(c.PID)
+				if err == nil {
+					stats.ID = c.ID
+					stats.Name = c.Name
+					statsList = append(statsList, *stats)
+				}
+			}
+		}
+		if len(statsList) == 0 {
 			continue
 		}
 		data, err := json.Marshal(map[string]interface{}{
-			"type": "containers",
-			"data": containers,
+			"type": "container_stats",
+			"data": statsList,
 		})
 		if err != nil {
 			continue
