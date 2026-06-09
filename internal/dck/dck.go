@@ -292,6 +292,24 @@ func (e *Executor) DownConfig(path string, all bool) (string, error) {
 	return e.runCommand(args...)
 }
 
+func (e *Executor) ExecContainer(id, command string) (string, error) {
+	container, err := e.GetContainer(id)
+	if err != nil {
+		return "", fmt.Errorf("container not found: %w", err)
+	}
+	if container.PID <= 0 {
+		return "", fmt.Errorf("container not running")
+	}
+	cmd := exec.Command("nsenter", "-t", strconv.Itoa(container.PID), "-a", "--", "sh", "-c", command)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%s: %s", err, strings.TrimSpace(stderr.String()))
+	}
+	return strings.TrimSpace(stdout.String()), nil
+}
+
 func (e *Executor) Bootstrap() (string, error) {
 	return e.runCommand("bootstrap")
 }

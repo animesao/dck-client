@@ -585,6 +585,7 @@ async function loadContainerDetail(id) {
   await loadDetailInfo(id);
   await loadDetailLogs(id);
   await loadDetailState(id);
+  await loadDetailConfig();
 }
 
 async function loadDetailInfo(id) {
@@ -659,6 +660,56 @@ async function loadDetailState(id) {
     el.innerHTML = '';
     text.split('\n').forEach(l => ptWrite(el, l));
   } catch(_) { el.innerHTML = ''; ptWrite(el, 'Error loading state'); }
+}
+
+async function loadDetailConfig() {
+  const id = currentDetailId;
+  const el = document.getElementById('config-editor-detail');
+  const output = document.getElementById('config-output-detail');
+  if (!el) return;
+  output.style.display = 'none';
+  el.value = 'Loading...';
+  el.readOnly = false;
+  try {
+    const r = await apiGet('/api/containers/' + encodeURIComponent(id) + '/config');
+    if (r.error) { el.value = '// ' + r.error; el.readOnly = true; return; }
+    el.value = JSON.stringify(r, null, 2);
+  } catch(e) { el.value = '// Error loading config'; el.readOnly = true; }
+}
+
+async function saveDetailConfig() {
+  const id = currentDetailId;
+  const el = document.getElementById('config-editor-detail');
+  const output = document.getElementById('config-output-detail');
+  ptClear(output);
+  if (!el || el.readOnly) { output.className = 'output-box error'; ptWrite(output, 'No config to save'); return; }
+  try {
+    const cfg = JSON.parse(el.value);
+    const r = await apiPut('/api/containers/' + encodeURIComponent(id) + '/config', cfg);
+    if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
+    else { ptWrite(output, 'Config saved'); toast('Config updated', 'success'); }
+  } catch(e) {
+    if (e instanceof SyntaxError) { output.className = 'output-box error'; ptWrite(output, 'Invalid JSON: ' + e.message); }
+    else { output.className = 'output-box error'; ptWrite(output, 'Save failed: ' + e.message); }
+  }
+}
+
+async function execContainerCommand() {
+  const id = currentDetailId;
+  const input = document.getElementById('exec-command-input');
+  const output = document.getElementById('exec-output');
+  const cmd = input.value.trim();
+  if (!cmd) { toast('Enter a command', 'error'); return; }
+  ptClear(output);
+  ptWrite(output, '$ ' + cmd);
+  try {
+    const r = await apiPost('/api/containers/' + encodeURIComponent(id) + '/exec', { command: cmd });
+    if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
+    else {
+      if (r.output) r.output.split('\n').forEach(l => ptWrite(output, l));
+      else ptWrite(output, '(no output)');
+    }
+  } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Request failed: ' + e.message); }
 }
 
 function switchDetailTab(tab) {

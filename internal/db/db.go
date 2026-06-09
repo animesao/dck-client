@@ -268,6 +268,10 @@ func (d *Database) DeleteTemplate(id int64) error {
 	return fmt.Errorf("template not found")
 }
 
+func (d *Database) DataDir() string {
+	return d.dataDir
+}
+
 func (d *Database) LogAction(userID int64, action, details string) {
 	// Stub — audit log can be added later
 }

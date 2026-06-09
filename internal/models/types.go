@@ -204,6 +204,21 @@ type BlueprintEnv struct {
 	Options     []string `json:"options,omitempty"`
 }
 
+type DeploymentConfig struct {
+	Blueprint   string            `json:"blueprint,omitempty"`
+	Image       string            `json:"image"`
+	Port        string            `json:"port,omitempty"`
+	Command     string            `json:"command,omitempty"`
+	Restart     string            `json:"restart,omitempty"`
+	Memory      string            `json:"memory,omitempty"`
+	CPUs        float64           `json:"cpus,omitempty"`
+	WorkingDir  string            `json:"workdir,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+	Volumes     []string          `json:"volumes,omitempty"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+}
+
 type Blueprint struct {
 	Name        string         `json:"name"`
 	Description string         `json:"description"`

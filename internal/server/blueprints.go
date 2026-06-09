@@ -4,7 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"dck-client/internal/models"
 
@@ -77,6 +80,31 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 	// Ensure unique container name
 	req.Name = h.ensureNameUnique(req.Name)
 
+	// Save deployment config and mount it into the container
+	deployDir := filepath.Join(h.db.DataDir(), "deployments")
+	os.MkdirAll(deployDir, 0755)
+	dc := models.DeploymentConfig{
+		Blueprint:  bp.Name,
+		Image:      req.Image,
+		Port:       req.Port,
+		Command:    req.Command,
+		Restart:    req.Restart,
+		Memory:     req.Memory,
+		CPUs:       req.CPUs,
+		WorkingDir: req.WorkingDir,
+		Env:        req.Env,
+		Volumes:    req.Volumes,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	if dc.Image == "" {
+		dc.Image = bp.Image
+	}
+	configPath := filepath.Join(deployDir, req.Name+".json")
+	if configData, err := json.MarshalIndent(dc, "", "  "); err == nil {
+		os.WriteFile(configPath, configData, 0644)
+	}
+
 	var results []map[string]interface{}
 	addResult := func(name, status, errStr string) {
 		m := map[string]interface{}{"name": name, "success": errStr == ""}
@@ -99,6 +127,10 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 		if len(parts) == 2 {
 			vols = append(vols, v)
 		}
+	}
+	// Mount config file into container
+	if _, err := os.Stat(configPath); err == nil {
+		vols = append(vols, configPath+":/etc/dck-deploy.json:ro")
 	}
 
 	if bp.IsMulti {

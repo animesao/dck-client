@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"math/rand"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"dck-client/internal/models"
 
@@ -241,6 +244,85 @@ func (h *ContainerHandler) LaunchTemplate(w http.ResponseWriter, r *http.Request
 	h.db.LogAction(userID, "launch_template", "Launched template: "+tmpl.Name+" -> "+name)
 
 	writeJSON(w, http.StatusCreated, map[string]string{"id": out, "name": name})
+}
+
+// Config returns the deployment config for a container
+func (h *ContainerHandler) Config(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	// Look up container to get its name
+	container, err := h.dck.GetContainer(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "container not found")
+		return
+	}
+
+	configPath := filepath.Join(h.db.DataDir(), "deployments", container.Name+".json")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "no deployment config found for this container")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(data)
+}
+
+// UpdateConfig updates the deployment config for a container
+func (h *ContainerHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	container, err := h.dck.GetContainer(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "container not found")
+		return
+	}
+
+	var cfg models.DeploymentConfig
+	if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	cfg.UpdatedAt = time.Now()
+
+	configPath := filepath.Join(h.db.DataDir(), "deployments", container.Name+".json")
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "config updated"})
+}
+
+// Exec runs a command inside a running container
+func (h *ContainerHandler) Exec(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	var req struct {
+		Command string `json:"command"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	if req.Command == "" {
+		writeError(w, http.StatusBadRequest, "command is required")
+		return
+	}
+
+	out, err := h.dck.ExecContainer(id, req.Command)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"output": out})
 }
 
 func splitCSV(s string) []string {
