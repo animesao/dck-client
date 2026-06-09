@@ -166,14 +166,14 @@ async function loadDashboard() {
 function renderSysInfo(sys) {
   const el = document.getElementById('sys-info');
   const fields = [
-    ['Hostname', sys.hostname || '—'],
-    ['OS', sys.os || sys.platform || '—'],
-    ['Arch', sys.arch || '—'],
-    ['dck Version', sys.dck_version || sys.dckVersion || '—'],
-    ['Memory', sys.memory || '—'],
-    ['Disk', sys.disk || '—'],
-    ['CPU', sys.cpu || '—'],
-    ['Uptime', sys.uptime || '—'],
+    ['Hostname', sys.hostname || 'вЂ”'],
+    ['OS', sys.os || sys.platform || 'вЂ”'],
+    ['Arch', sys.arch || 'вЂ”'],
+    ['dck Version', sys.dck_version || sys.dckVersion || 'вЂ”'],
+    ['Memory', sys.memory || 'вЂ”'],
+    ['Disk', sys.disk || 'вЂ”'],
+    ['CPU', sys.cpu || 'вЂ”'],
+    ['Uptime', sys.uptime || 'вЂ”'],
   ];
   el.innerHTML = fields.map(([k,v]) => '<div class="info-item"><strong>' + k + '</strong><span>' + v + '</span></div>').join('');
 }
@@ -185,9 +185,9 @@ function updateDashContainerTable(containers) {
   if (running.length === 0) { el.innerHTML = '<div class="empty-state"><p>No active containers</p></div>'; return; }
   el.innerHTML = '<div class="dash-container-grid">' +
     running.map(c => {
-      const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || '—');
-      const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join('<br>') : (c.volumes || '—');
-      const envs = Array.isArray(c.env) ? c.env.slice(0, 4).join('<br>') + (c.env.length > 4 ? '<br><span style="color:var(--text2)">+' + (c.env.length - 4) + ' more</span>' : '') : (c.env || '—');
+      const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || 'вЂ”');
+      const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join('<br>') : (c.volumes || 'вЂ”');
+      const envs = Array.isArray(c.env) ? c.env.slice(0, 4).join('<br>') + (c.env.length > 4 ? '<br><span style="color:var(--text2)">+' + (c.env.length - 4) + ' more</span>' : '') : (c.env || 'вЂ”');
       const img = (c.image_name || c.image || '') + (c.image_tag ? ':' + c.image_tag : '');
       return '<div class="dash-container-card glass" data-container-id="' + esc(c.id) + '" onclick="navigate(\'container-detail\',\'' + esc(c.id) + '\')">' +
         '<div class="dash-card-header"><span class="dash-card-name">' + esc(c.name) + '</span>' + statusBadge(c.status) + '</div>' +
@@ -200,11 +200,11 @@ function updateDashContainerTable(containers) {
           (c.hostname ? '<div class="dash-card-row"><span class="dash-label">Hostname</span><span class="dash-value">' + esc(c.hostname) + '</span></div>' : '') +
           '<div class="dash-card-row"><span class="dash-label">Uptime</span><span class="dash-value">' + esc(c.uptime || c.created || '') + '</span></div>' +
           (c.restart ? '<div class="dash-card-row"><span class="dash-label">Restart</span><span class="dash-value">' + esc(c.restart) + '</span></div>' : '') +
-          (cmd && cmd !== '—' ? '<div class="dash-card-row"><span class="dash-label">Command</span><span class="dash-value mono" style="font-size:11px">' + esc(cmd) + '</span></div>' : '') +
+          (cmd && cmd !== 'вЂ”' ? '<div class="dash-card-row"><span class="dash-label">Command</span><span class="dash-value mono" style="font-size:11px">' + esc(cmd) + '</span></div>' : '') +
           '<div class="dash-card-row"><span class="dash-label">CPU</span>' + resBar(c.cpu_percent, c.cpu, 'dash-cpu-bar') + '</div>' +
           '<div class="dash-card-row"><span class="dash-label">RAM</span>' + resBar(c.mem_percent, c.mem, 'dash-mem-bar') + '</div>' +
-          (vols && vols !== '—' ? '<div class="dash-card-row"><span class="dash-label">Volumes</span><span class="dash-value" style="font-size:11px">' + vols + '</span></div>' : '') +
-          (envs && envs !== '—' ? '<div class="dash-card-row"><span class="dash-label">Env</span><span class="dash-value" style="font-size:11px">' + envs + '</span></div>' : '') +
+          (vols && vols !== 'вЂ”' ? '<div class="dash-card-row"><span class="dash-label">Volumes</span><span class="dash-value" style="font-size:11px">' + vols + '</span></div>' : '') +
+          (envs && envs !== 'вЂ”' ? '<div class="dash-card-row"><span class="dash-label">Env</span><span class="dash-value" style="font-size:11px">' + envs + '</span></div>' : '') +
         '</div></div>';
     }).join('') +
     '</div>';
@@ -254,9 +254,9 @@ function renderDashResourceOverview(statsMap) {
   const totalMem = memNums.reduce((a, b) => a + b, 0);
   body.innerHTML =
     '<div class="res-overview-item"><div class="res-overview-value green">' + entries.length + '</div><div class="res-overview-label">Containers</div></div>' +
-    '<div class="res-overview-item"><div class="res-overview-value accent">' + (totalCpu > 0 ? totalCpu.toFixed(1) + '%' : '—') + '</div><div class="res-overview-label">Total CPU</div></div>' +
-    '<div class="res-overview-item"><div class="res-overview-value">' + (avgCpu > 0 ? avgCpu.toFixed(1) + '%' : '—') + '</div><div class="res-overview-label">Avg CPU</div></div>' +
-    '<div class="res-overview-item"><div class="res-overview-value">' + (totalMem > 0 ? totalMem.toFixed(0) + 'MB' : '—') + '</div><div class="res-overview-label">Total RAM</div></div>';
+    '<div class="res-overview-item"><div class="res-overview-value accent">' + (totalCpu > 0 ? totalCpu.toFixed(1) + '%' : 'вЂ”') + '</div><div class="res-overview-label">Total CPU</div></div>' +
+    '<div class="res-overview-item"><div class="res-overview-value">' + (avgCpu > 0 ? avgCpu.toFixed(1) + '%' : 'вЂ”') + '</div><div class="res-overview-label">Avg CPU</div></div>' +
+    '<div class="res-overview-item"><div class="res-overview-value">' + (totalMem > 0 ? totalMem.toFixed(0) + 'MB' : 'вЂ”') + '</div><div class="res-overview-label">Total RAM</div></div>';
 }
 
 function fmtBytes(bytes) {
@@ -267,7 +267,7 @@ function fmtBytes(bytes) {
 }
 
 function fmtMem(memStr) {
-  if (!memStr) return '—';
+  if (!memStr) return 'вЂ”';
   const parts = String(memStr).split('/');
   if (parts.length === 2) {
     const used = parts[0].trim();
@@ -293,7 +293,7 @@ function updateDetailStats(s) {
     '<div class="detail-stats-header">Resource Usage</div>' +
     '<div class="res-row"><span class="res-label">CPU</span><div class="res-bar-wrap"><div class="res-bar' + (cpuP > 80 ? ' high' : cpuP > 50 ? ' mid' : '') + '" style="width:' + cpuP + '%"></div></div><span class="res-value">' + (s.cpu || '0') + '%</span></div>' +
     '<div class="res-row"><span class="res-label">RAM</span><div class="res-bar-wrap"><div class="res-bar mem' + (memP > 80 ? ' high' : memP > 50 ? ' mid' : '') + '" style="width:' + memP + '%"></div></div><span class="res-value">' + memLabel + '</span></div>' +
-    (s.net_rx || s.net_tx ? '<div class="res-row" style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border)"><span class="res-label">NET</span><span class="res-value" style="text-align:left;font-size:11px;color:var(--text2)">▼ ' + fmtBytes(s.net_rx || 0) + ' ▲ ' + fmtBytes(s.net_tx || 0) + '</span></div>' : '');
+    (s.net_rx || s.net_tx ? '<div class="res-row" style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border)"><span class="res-label">NET</span><span class="res-value" style="text-align:left;font-size:11px;color:var(--text2)">в–ј ' + fmtBytes(s.net_rx || 0) + ' в–І ' + fmtBytes(s.net_tx || 0) + '</span></div>' : '');
 }
 
 /* Blueprints */
@@ -401,7 +401,7 @@ async function openBlueprintModal(id) {
   const hintText = bp.env_tips || bp.hint || '';
   if (hintText) { hint.style.display = 'block'; hint.textContent = hintText; } else { hint.style.display = 'none'; }
 
-  // Smart version→Java sync for Minecraft blueprints
+  // Smart versionв†’Java sync for Minecraft blueprints
   initBpVersionSync();
 
   document.getElementById('bp-output').style.display = 'none';
@@ -481,12 +481,12 @@ function initBpVersionSync() {
     }
     const hint = document.getElementById('bp-hint');
     if (isMc && ver) {
-      const line = '• ' + ver + ' → ' + (javaMap[ver] || 'jdk21-jre (по умолчанию)');
+      const line = 'вЂў ' + ver + ' в†’ ' + (javaMap[ver] || 'jdk21-jre (РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ)');
       hint.setAttribute('data-ver-hint', line);
       // Keep original text + appended version line
-      const base = (hint.getAttribute('data-base') || hint.textContent || '').split('\n✓ Подобрано:')[0];
+      const base = (hint.getAttribute('data-base') || hint.textContent || '').split('\nвњ“ РџРѕРґРѕР±СЂР°РЅРѕ:')[0];
       if (!hint.getAttribute('data-base')) hint.setAttribute('data-base', base);
-      hint.textContent = base + '\n\n✓ Smart auto-match: ' + line;
+      hint.textContent = base + '\n\nвњ“ Smart auto-match: ' + line;
     }
   }
 
@@ -535,16 +535,16 @@ async function deployBlueprint(e) {
     const res = await apiPost('/api/blueprints/' + encodeURIComponent(bpId) + '/launch', payload);
     if (res.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + res.error); }
     else {
-      ptWrite(output, '✓ Deploy started');
-      if (res.results) res.results.forEach(r => ptWrite(output, '  ' + r.name + ': ' + (r.success ? '✓' : '✗ ' + (r.error || ''))));
-      if (!res.results || res.results.length === 0) ptWrite(output, '✓ Container created');
+      ptWrite(output, 'вњ“ Deploy started');
+      if (res.results) res.results.forEach(r => ptWrite(output, '  ' + r.name + ': ' + (r.success ? 'вњ“' : 'вњ— ' + (r.error || ''))));
+      if (!res.results || res.results.length === 0) ptWrite(output, 'вњ“ Container created');
       toast('Blueprint deployed', 'success');
     }
   } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Request failed: ' + e.message); }
   finally { btn.querySelector('.btn-text').textContent = 'Done'; btn.querySelector('.btn-spinner').style.display = 'none'; btn.disabled = false; }
 }
 
-/* ── Projects ── */
+/* в”Ђв”Ђ Projects в”Ђв”Ђ */
 async function loadProjects() {
   const el = document.getElementById('projects-list');
   el.innerHTML = '<div class="empty-state"><p>Scanning...</p></div>';
@@ -565,7 +565,7 @@ function renderProjectCard(p) {
   const meta = c.meta || {};
   const status = p.status || 'not_created';
   const dir = p.dir || '';
-  const statusIcon = status === 'running' ? '●' : (status === 'stopped' ? '○' : '◇');
+  const statusIcon = status === 'running' ? 'в—Џ' : (status === 'stopped' ? 'в—‹' : 'в—‡');
   const statusClass = status === 'running' ? 'running' : (status === 'stopped' ? 'stopped' : '');
   const catIcon = getCategoryIcon(c.category);
   const tags = (meta.tags || []).join(', ');
@@ -579,25 +579,25 @@ function renderProjectCard(p) {
       '<div class="project-status ' + statusClass + '">' + statusIcon + ' ' + esc(status) + '</div>' +
     '</div>' +
     '<div class="project-card-body">' +
-      '<div class="project-detail-row"><span class="project-label">Image</span><span class="project-value">' + esc(cc.image || '—') + '</span></div>' +
+      '<div class="project-detail-row"><span class="project-label">Image</span><span class="project-value">' + esc(cc.image || 'вЂ”') + '</span></div>' +
       (cc.ports && cc.ports.length ? '<div class="project-detail-row"><span class="project-label">Ports</span><span class="project-value">' + esc(cc.ports.join(', ')) + '</span></div>' : '') +
-      '<div class="project-detail-row"><span class="project-label">Resources</span><span class="project-value">' + esc(cc.memory || '—') + (cc.cpus ? ' / ' + cc.cpus + ' CPU' : '') + '</span></div>' +
+      '<div class="project-detail-row"><span class="project-label">Resources</span><span class="project-value">' + esc(cc.memory || 'вЂ”') + (cc.cpus ? ' / ' + cc.cpus + ' CPU' : '') + '</span></div>' +
       (bp.name ? '<div class="project-detail-row"><span class="project-label">Blueprint</span><span class="project-value">' + esc(bp.name) + '</span></div>' : '') +
       (tags ? '<div class="project-detail-row"><span class="project-label">Tags</span><span class="project-value">' + esc(tags) + '</span></div>' : '') +
       '<div class="project-detail-row"><span class="project-label">Path</span><span class="project-value mono" style="font-size:11px">' + esc(p.path || dir) + '</span></div>' +
     '</div>' +
     '<div class="project-card-actions">' +
-      (status !== 'running' ? '<button class="btn btn-sm btn-glow" onclick="deployProject(\'' + esc(dir) + '\')">▶ Deploy</button>' : '<button class="btn btn-sm btn-success" onclick="deployProject(\'' + esc(dir) + '\')">↻ Redeploy</button>') +
-      (status === 'running' ? '<button class="btn btn-sm btn-danger" onclick="stopProjectContainer(\'' + esc(dir) + '\')">■ Stop</button>' : '') +
-      '<button class="btn btn-sm" onclick="openProjectEditor(\'' + esc(dir) + '\')">✎ Edit</button>' +
-      '<button class="btn btn-sm btn-danger" onclick="deleteProject(\'' + esc(dir) + '\')">✕</button>' +
+      (status !== 'running' ? '<button class="btn btn-sm btn-glow" onclick="deployProject(\'' + esc(dir) + '\')">в–¶ Deploy</button>' : '<button class="btn btn-sm btn-success" onclick="deployProject(\'' + esc(dir) + '\')">в†» Redeploy</button>') +
+      (status === 'running' ? '<button class="btn btn-sm btn-danger" onclick="stopProjectContainer(\'' + esc(dir) + '\')">в–  Stop</button>' : '') +
+      '<button class="btn btn-sm" onclick="openProjectEditor(\'' + esc(dir) + '\')">вњЋ Edit</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="deleteProject(\'' + esc(dir) + '\')">вњ•</button>' +
     '</div>' +
   '</div>';
 }
 
 function getCategoryIcon(cat) {
-  const icons = { 'bot': '🤖', 'web': '🌐', 'database': '🗄️', 'game': '🎮', 'tool': '🔧', 'runtime': '🏃', 'cms': '📝', 'dev': '💻', 'multi': '📦' };
-  return icons[cat] || '📁';
+  const icons = { 'bot': 'рџ¤–', 'web': 'рџЊђ', 'database': 'рџ—„пёЏ', 'game': 'рџЋ®', 'tool': 'рџ”§', 'runtime': 'рџЏѓ', 'cms': 'рџ“ќ', 'dev': 'рџ’»', 'multi': 'рџ“¦' };
+  return icons[cat] || 'рџ“Ѓ';
 }
 
 /* New Project Wizard */
@@ -629,7 +629,7 @@ async function openNewProjectWizard() {
     '<div class="cat-card-icon">' + getCategoryIcon(c.name) + '</div>' +
     '<div class="cat-card-name">' + esc(c.name) + '</div>' +
     '<div class="cat-card-desc">' + esc(c.description || '') + '</div>' +
-    '<div class="cat-card-res">' + esc(c.default_ram || '—') + ' / ' + (c.default_cpu || '—') + ' CPU</div>' +
+    '<div class="cat-card-res">' + esc(c.default_ram || 'вЂ”') + ' / ' + (c.default_cpu || 'вЂ”') + ' CPU</div>' +
   '</div>').join('');
 }
 
@@ -638,7 +638,7 @@ function pwSelectCategory(cat) {
   document.querySelectorAll('.cat-card').forEach(el => el.classList.toggle('selected', el.dataset.cat === cat));
   document.getElementById('pw-step1').style.display = 'none';
   document.getElementById('pw-step2').style.display = 'block';
-  document.getElementById('pw-title').textContent = 'New Project — ' + cat;
+  document.getElementById('pw-title').textContent = 'New Project вЂ” ' + cat;
   loadWizardBlueprints(cat);
 }
 
@@ -727,7 +727,7 @@ function pwPrevStep() {
   } else if (document.getElementById('pw-step3').style.display !== 'none') {
     document.getElementById('pw-step3').style.display = 'none';
     document.getElementById('pw-step2').style.display = 'block';
-    document.getElementById('pw-title').textContent = 'New Project — ' + document.getElementById('pw-category').value;
+    document.getElementById('pw-title').textContent = 'New Project вЂ” ' + document.getElementById('pw-category').value;
   }
 }
 
@@ -770,7 +770,7 @@ async function openProjectEditor(dir) {
   try {
     const cats = await apiGetCategories();
     const sel = document.getElementById('pe-category');
-    sel.innerHTML = '<option value="">— None —</option>' + cats.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
+    sel.innerHTML = '<option value="">вЂ” None вЂ”</option>' + cats.map(c => '<option value="' + esc(c.name) + '">' + esc(c.name) + '</option>').join('');
   } catch(e) {}
 
   // Load project config
@@ -806,7 +806,7 @@ async function openProjectEditor(dir) {
     document.getElementById('pe-delete-btn').style.display = 'inline-block';
   } catch(e) { toast('Error loading project: ' + e.message, 'error'); }
 
-  document.getElementById('pe-title').textContent = 'Edit Project — ' + dir;
+  document.getElementById('pe-title').textContent = 'Edit Project вЂ” ' + dir;
   modal.style.display = 'flex';
 }
 
@@ -876,7 +876,7 @@ async function saveProjectConfig(e) {
   try {
     const res = await apiSaveProject(dir, cfg);
     if (res.error) { output.className = 'output-box error'; output.textContent = 'Error: ' + res.error; return; }
-    output.textContent = '✓ Saved to ' + res.path;
+    output.textContent = 'вњ“ Saved to ' + res.path;
     toast('Project saved!', 'success');
     setTimeout(() => { output.style.display = 'none'; }, 2000);
   } catch(e) { output.className = 'output-box error'; output.textContent = 'Error: ' + e.message; }
@@ -917,7 +917,7 @@ function closeProjectEditor() {
   document.getElementById('project-editor').style.display = 'none';
 }
 
-/* ── Containers ── */
+/* в”Ђв”Ђ Containers в”Ђв”Ђ */
 async function loadContainers() {
   const all = document.getElementById('show-all').checked;
   const el = document.getElementById('container-list');
@@ -945,10 +945,10 @@ function updateContainerTable(containers) {
       '<td>' + fmtPorts(c.ports) + '</td>' +
       '<td>' + esc(c.created_at || '') + '</td>' +
       '<td>' +
-      (c.status !== 'running' ? '<button class="action-btn success" onclick="execAction(\'' + esc(c.id) + '\',\'start\')" title="Start">▶</button>' : '') +
-      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.id) + '\',\'stop\')" title="Stop">■</button>' : '') +
-      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.id) + '\',\'restart\')" title="Restart">↻</button>' : '') +
-      '<button class="action-btn danger" onclick="deleteContainer(\'' + esc(c.id) + '\')" title="Delete">✕</button>' +
+      (c.status !== 'running' ? '<button class="action-btn success" onclick="execAction(\'' + esc(c.id) + '\',\'start\')" title="Start">в–¶</button>' : '') +
+      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.id) + '\',\'stop\')" title="Stop">в– </button>' : '') +
+      (c.status === 'running' ? '<button class="action-btn danger" onclick="execAction(\'' + esc(c.id) + '\',\'restart\')" title="Restart">в†»</button>' : '') +
+      '<button class="action-btn danger" onclick="deleteContainer(\'' + esc(c.id) + '\')" title="Delete">вњ•</button>' +
       '</td></tr>').join('') +
     '</tbody></table>';
 }
@@ -1034,7 +1034,7 @@ async function createCustomContainer(e) {
     });
     if (res.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + res.error); toast('Create failed', 'error'); }
     else {
-      ptWrite(output, '✓ Container created and started');
+      ptWrite(output, 'вњ“ Container created and started');
       toast('Container created', 'success');
       setTimeout(() => navigate('containers'), 1500);
     }
@@ -1058,11 +1058,11 @@ async function loadDetailInfo(id) {
   try {
     const c = await apiGet('/api/containers/' + encodeURIComponent(id));
     if (!c || c.error) { el.innerHTML = '<div class="empty-state"><p>Error loading container</p></div>'; return; }
-    const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || '—');
-    const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join(', ') : (c.volumes || '—');
-    const envs = Array.isArray(c.env) ? c.env.join(', ') : (c.env || '—');
+    const cmd = Array.isArray(c.cmd) ? c.cmd.join(' ') : (c.cmd || 'вЂ”');
+    const vols = Array.isArray(c.volumes) ? c.volumes.map(v => (v.source || '') + ':' + (v.target || '')).filter(Boolean).join(', ') : (c.volumes || 'вЂ”');
+    const envs = Array.isArray(c.env) ? c.env.join(', ') : (c.env || 'вЂ”');
     const statusClass = c.status === 'running' ? 'status-running' : (c.status === 'stopped' ? 'status-stopped' : '');
-    const uptime = c.created_at ? fmtUptime(c.created_at) : '—';
+    const uptime = c.created_at ? fmtUptime(c.created_at) : 'вЂ”';
     var netField = '';
     if (c.ip) netField = 'IP';
     el.innerHTML = '<div class="info-grid">' +
@@ -1072,15 +1072,15 @@ async function loadDetailInfo(id) {
         ['Image', esc((c.image_name || '') + (c.image_tag ? ':' + c.image_tag : ''))],
         ['Status', '<span class="' + statusClass + '">' + esc(c.status) + '</span>'],
         ['Uptime', uptime],
-        ['PID', c.pid > 0 ? c.pid : '—'],
-        [netField, c.ip || '—'],
+        ['PID', c.pid > 0 ? c.pid : 'вЂ”'],
+        [netField, c.ip || 'вЂ”'],
         ['Ports', fmtPorts(c.ports)],
-        ['Hostname', esc(c.hostname || '—')],
-        ['Restart', esc(c.restart || '—')],
+        ['Hostname', esc(c.hostname || 'вЂ”')],
+        ['Restart', esc(c.restart || 'вЂ”')],
         ['Command', esc(cmd)],
-        ['Working Dir', esc(c.working_dir || '—')],
-        ['Memory Limit', c.memory_limit ? c.memory_limit + ' bytes' : '—'],
-        ['CPUs', c.cpu_count ? String(c.cpu_count) : '—'],
+        ['Working Dir', esc(c.working_dir || 'вЂ”')],
+        ['Memory Limit', c.memory_limit ? c.memory_limit + ' bytes' : 'вЂ”'],
+        ['CPUs', c.cpu_count ? String(c.cpu_count) : 'вЂ”'],
         ['Volumes', esc(vols)],
         ['Environment', esc(envs)],
         ['Auto Remove', c.remove_on_exit ? 'Yes' : 'No'],
@@ -1185,7 +1185,7 @@ function switchDetailTab(tab) {
   if (tab === 'console') {
     setTimeout(() => { if (termFit) termFit.fit(); connectConsole(); }, 50);
   }
-  // Auto‑refresh info tab; stats come via SSE in real‑time
+  // AutoвЂ‘refresh info tab; stats come via SSE in realвЂ‘time
   if (tab === 'info') {
     infoInterval = setInterval(() => loadDetailInfo(currentDetailId), 4000);
     loadDetailInfo(currentDetailId);
@@ -1298,10 +1298,10 @@ async function loadImages() {
     if (state.images.length === 0) { el.innerHTML = '<div class="empty-state"><p>No images</p></div>'; return; }
     el.innerHTML = '<table><thead><tr><th>Repository</th><th>Tag</th><th>Size</th><th></th></tr></thead><tbody>' +
       state.images.map(img => '<tr>' +
-        '<td>' + esc(img.name || '—') + '</td>' +
+        '<td>' + esc(img.name || 'вЂ”') + '</td>' +
         '<td>' + esc(img.tag || 'latest') + '</td>' +
         '<td>' + esc(img.size || '') + '</td>' +
-        '<td><button class="action-btn danger" onclick="deleteImage(\'' + esc(img.name) + '\',\'' + esc(img.tag || 'latest') + '\')">✕</button></td></tr>').join('') +
+        '<td><button class="action-btn danger" onclick="deleteImage(\'' + esc(img.name) + '\',\'' + esc(img.tag || 'latest') + '\')">вњ•</button></td></tr>').join('') +
       '</tbody></table>';
   } catch(_) { el.innerHTML = '<div class="empty-state"><p>Error</p></div>'; }
 }
@@ -1329,7 +1329,7 @@ async function pullImage() {
   try {
     const r = await apiPost('/api/images/pull', { reference: ref });
     if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
-    else { ptWrite(output, '✓ Image pulled successfully'); toast('Image pulled', 'success'); loadImages(); }
+    else { ptWrite(output, 'вњ“ Image pulled successfully'); toast('Image pulled', 'success'); loadImages(); }
   } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Request failed'); }
 }
 
@@ -1342,7 +1342,7 @@ async function loadConfig() {
     const r = await apiGet('/api/config');
     if (r.error) { el.value = 'Error: ' + r.error; return; }
     state.config = r;
-    path.textContent = r.path || '—';
+    path.textContent = r.path || 'вЂ”';
     el.value = r.content || '';
   } catch(e) { el.value = 'Error loading config'; }
 }
@@ -1355,7 +1355,7 @@ async function saveConfig() {
   try {
     const r = await apiPut('/api/config', { content });
     if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
-    else { ptWrite(output, '✓ Config saved'); toast('Config saved', 'success'); }
+    else { ptWrite(output, 'вњ“ Config saved'); toast('Config saved', 'success'); }
   } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Save failed'); }
 }
 
@@ -1366,7 +1366,7 @@ async function deployConfig() {
   try {
     const r = await apiPost('/api/config/deploy');
     if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
-    else { ptWrite(output, '✓ ' + (r.message || 'Config deployed')); toast('Config deployed', 'success'); }
+    else { ptWrite(output, 'вњ“ ' + (r.message || 'Config deployed')); toast('Config deployed', 'success'); }
   } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Deploy failed'); }
 }
 
@@ -1378,7 +1378,7 @@ async function downConfig() {
   try {
     const r = await apiPost('/api/config/down');
     if (r.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + r.error); }
-    else { ptWrite(output, '✓ ' + (r.message || 'Config down')); toast('Config down', 'success'); }
+    else { ptWrite(output, 'вњ“ ' + (r.message || 'Config down')); toast('Config down', 'success'); }
   } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Down failed'); }
 }
 
@@ -1424,36 +1424,36 @@ async function checkVersion() {
   badge.className = 'version-badge';
   try {
     const r = await apiGet('/api/version');
-    const current = r.current || r.version || '—';
+    const current = r.current || r.version || 'вЂ”';
     const latest = r.latest || r.latestVersion || '';
     badge.textContent = 'v' + current;
     if (currEl) currEl.textContent = 'v' + current;
-    if (latEl) latEl.textContent = latest ? 'v' + latest : '—';
-    if (latest && current !== latest && current !== '—') {
+    if (latEl) latEl.textContent = latest ? 'v' + latest : 'вЂ”';
+    if (latest && current !== latest && current !== 'вЂ”') {
       badge.className = 'version-badge update-available';
       badge.title = 'Update available: v' + latest;
     }
-    const dckVer = r.dck_version || r.dckVersion || '—';
+    const dckVer = r.dck_version || r.dckVersion || 'вЂ”';
     const dckLat = r.dck_latest || r.dckLatest || '';
     if (dckVerEl) dckVerEl.textContent = dckVer;
-    if (dckLatEl) dckLatEl.textContent = dckLat ? 'v' + dckLat : '—';
+    if (dckLatEl) dckLatEl.textContent = dckLat ? 'v' + dckLat : 'вЂ”';
     if (dckUpdateBtn) {
-      dckUpdateBtn.style.display = (dckLat && dckVer !== '—' && dckVer !== dckLat) ? 'inline-flex' : 'none';
+      dckUpdateBtn.style.display = (dckLat && dckVer !== 'вЂ”' && dckVer !== dckLat) ? 'inline-flex' : 'none';
     }
     if (clientUpdateBtn) {
-      clientUpdateBtn.style.display = (latest && current !== '—' && current !== latest) ? 'inline-flex' : 'none';
+      clientUpdateBtn.style.display = (latest && current !== 'вЂ”' && current !== latest) ? 'inline-flex' : 'none';
     }
     state.dckVersion = dckVer;
 
     // Show update banner
     const banner = document.getElementById('update-banner');
-    if (banner && latest && current !== '—' && current !== latest) {
+    if (banner && latest && current !== 'вЂ”' && current !== latest) {
       const dismissed = localStorage.getItem('dck_update_banner_dismissed_' + latest);
       if (!dismissed) {
         banner.style.display = 'block';
       }
     }
-  } catch(_) { badge.textContent = '—'; badge.className = 'version-badge'; }
+  } catch(_) { badge.textContent = 'вЂ”'; badge.className = 'version-badge'; }
 }
 
 async function updateDckClient() {
@@ -1465,7 +1465,7 @@ async function updateDckClient() {
   try {
     const r = await apiPost('/api/dck-client/update');
     if (r.error) { toast('Update failed: ' + r.error, 'error'); }
-    else { toast('dck-client updated to ' + (r.version || 'latest') + ' — please restart the service', 'success'); checkVersion(); }
+    else { toast('dck-client updated to ' + (r.version || 'latest') + ' вЂ” please restart the service', 'success'); checkVersion(); }
   } catch(e) { toast('Update failed', 'error'); }
   finally { btn.textContent = origText; btn.disabled = false; }
 }
@@ -1509,8 +1509,8 @@ async function showUpdateModal() {
 
   try {
     const r = await apiGet('/api/update/check');
-    document.getElementById('um-current').textContent = 'v' + (r.current || '—');
-    document.getElementById('um-latest').textContent = r.release?.tag_name || '—';
+    document.getElementById('um-current').textContent = 'v' + (r.current || 'вЂ”');
+    document.getElementById('um-latest').textContent = r.release?.tag_name || 'вЂ”';
 
     if (r.release?.body) {
       let body = r.release.body
@@ -1570,8 +1570,8 @@ async function applyUpdate() {
     } else {
       progressBar.style.width = '100%';
       progressText.textContent = 'Update complete!';
-      ptWrite(output, '✓ dck-client updated to ' + (r.version || 'latest'));
-      ptWrite(output, '⚠ Please restart the service to apply changes');
+      ptWrite(output, 'вњ“ dck-client updated to ' + (r.version || 'latest'));
+      ptWrite(output, 'вљ  Please restart the service to apply changes');
       actions.style.display = 'none';
       document.getElementById('update-banner').style.display = 'none';
       dismissUpdateBanner();
@@ -1605,7 +1605,7 @@ function ptClear(el) { el.innerHTML = ''; el.className = 'output-box'; el.style.
 /* Resource bar helper */
 function resBar(percent, label, clsName) {
   const p = parseFloat(percent);
-  if (isNaN(p) || p < 0) return '<span class="dash-value" style="color:var(--text2)">—</span>';
+  if (isNaN(p) || p < 0) return '<span class="dash-value" style="color:var(--text2)">вЂ”</span>';
   const w = Math.min(p, 100);
   const cls = p > 80 ? 'high' : (p > 50 ? 'mid' : 'low');
   return '<div class="dash-res-bar-wrap"><div class="dash-res-bar ' + cls + (clsName ? ' ' + clsName : '') + '" style="width:' + w + '%"></div></div><span class="dash-value" style="font-size:11px;font-family:monospace">' + esc(label || '') + '</span>';
@@ -1614,7 +1614,7 @@ function resBar(percent, label, clsName) {
 /* Helpers */
 function fmtUptime(created) {
   var t = new Date(created);
-  if (isNaN(t.getTime())) return '—';
+  if (isNaN(t.getTime())) return 'вЂ”';
   var diff = Math.floor((Date.now() - t.getTime()) / 1000);
   if (diff < 0) return 'just now';
   var d = Math.floor(diff / 86400); diff -= d * 86400;

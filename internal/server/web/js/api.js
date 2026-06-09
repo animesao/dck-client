@@ -27,6 +27,11 @@ async function api(method, path, body) {
   return r.text();
 }
 
+function apiGet(path)    { return api('GET', path); }
+function apiPost(path, body) { return api('POST', path, body); }
+function apiPut(path, body)  { return api('PUT', path, body); }
+function apiDelete(path) { return api('DELETE', path); }
+
 let sseSource = null;
 
 /* Project API */
