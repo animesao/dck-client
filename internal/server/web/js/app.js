@@ -392,12 +392,67 @@ async function openBlueprintModal(id) {
   const hintText = bp.env_tips || bp.hint || '';
   if (hintText) { hint.style.display = 'block'; hint.textContent = hintText; } else { hint.style.display = 'none'; }
 
+  // Smart version→Java sync for Minecraft blueprints
+  initBpVersionSync();
+
   document.getElementById('bp-output').style.display = 'none';
   document.getElementById('bp-output').className = 'output-box';
   document.getElementById('bp-deploy-btn').querySelector('.btn-text').textContent = 'Pull & Deploy';
   document.getElementById('bp-deploy-btn').querySelector('.btn-spinner').style.display = 'none';
   document.getElementById('bp-deploy-btn').disabled = false;
   modal.style.display = 'flex';
+}
+
+function initBpVersionSync() {
+  const versionEl = document.getElementById('bp-env-2');
+  const javaEl = document.getElementById('bp-env-3');
+  const mcBp = ['Minecraft Server (Universal)', 'Minecraft Vanilla', 'Minecraft Modded (Forge/Fabric)'];
+  const bpName = document.getElementById('bp-modal-title').textContent.replace('Deploy: ', '');
+  const isMc = mcBp.includes(bpName);
+
+  // Try to find VERSION and JAVA_VERSION by key in all Minecraft blueprints
+  const envFields = document.getElementById('bp-env-fields');
+  const keys = envFields.querySelectorAll('.env-key');
+  let verIdx = -1, javaIdx = -1;
+  keys.forEach((el, i) => {
+    const k = el.textContent.replace('*', '').trim();
+    if (k === 'VERSION') verIdx = i;
+    if (k === 'JAVA_VERSION') javaIdx = i;
+  });
+  if (verIdx < 0 || javaIdx < 0) return;
+  const verSelect = document.getElementById('bp-env-' + verIdx);
+  const javaSelect = document.getElementById('bp-env-' + javaIdx);
+  if (!verSelect || !javaSelect || verSelect.tagName !== 'SELECT' || javaSelect.tagName !== 'SELECT') return;
+
+  const javaMap = {
+    '1.7.10': 'jdk8-jre', '1.12.2': 'jdk8-jre',
+    '1.14.4': 'jdk11-jre', '1.15.2': 'jdk11-jre',
+    '1.16.5': 'jdk16-jre',
+    '1.17.1': 'jdk17-jre', '1.18.2': 'jdk17-jre', '1.19.4': 'jdk17-jre', '1.20.1': 'jdk17-jre',
+    '1.20.4': 'jdk21-jre', '1.21': 'jdk21-jre', 'LATEST': 'jdk21-jre',
+  };
+
+  function syncJava() {
+    const ver = verSelect.value;
+    const recommended = javaMap[ver];
+    if (recommended && javaSelect.querySelector('option[value="' + recommended + '"]')) {
+      javaSelect.value = recommended;
+      javaSelect.style.borderColor = 'var(--accent2)';
+      setTimeout(() => { javaSelect.style.borderColor = ''; }, 1500);
+    }
+    const hint = document.getElementById('bp-hint');
+    if (isMc && ver) {
+      const line = '• ' + ver + ' → ' + (javaMap[ver] || 'jdk21-jre (по умолчанию)');
+      hint.setAttribute('data-ver-hint', line);
+      // Keep original text + appended version line
+      const base = (hint.getAttribute('data-base') || hint.textContent || '').split('\n✓ Подобрано:')[0];
+      if (!hint.getAttribute('data-base')) hint.setAttribute('data-base', base);
+      hint.textContent = base + '\n\n✓ Smart auto-match: ' + line;
+    }
+  }
+
+  verSelect.addEventListener('change', syncJava);
+  syncJava();
 }
 
 function closeBlueprintModal() { document.getElementById('bp-modal').style.display = 'none'; }
