@@ -116,6 +116,7 @@ fi
 
 # ---- Build Go backend ----
 log "Building Go backend..."
+systemctl stop dck-panel 2>/dev/null || true
 cd server
 echo "[DCK_GO] version: $(/usr/local/go/bin/go version 2>&1)"
 echo "[DCK_GO] GOROOT: ${GOROOT:-unset}"
