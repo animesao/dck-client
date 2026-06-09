@@ -124,6 +124,19 @@ cp dck-panel /usr/local/bin/dck-panel
 cd "$PANEL_DIR"
 log "Go binary built: $(/usr/local/bin/dck-panel --help 2>&1 | head -1 || echo 'ok')"
 
+# ---- TLS certificate ----
+CERT_DIR="$PANEL_DIR/tls"
+if [[ ! -f "$CERT_DIR/cert.pem" || ! -f "$CERT_DIR/key.pem" ]]; then
+  log "Generating self-signed TLS certificate..."
+  mkdir -p "$CERT_DIR"
+  IP=$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
+  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout "$CERT_DIR/key.pem" \
+    -out "$CERT_DIR/cert.pem" \
+    -subj "/CN=$IP" 2>/dev/null
+  log "TLS certificate generated ($IP, 10 years)"
+fi
+
 # ---- Systemd service ----
 log "Creating systemd service..."
 cat > /etc/systemd/system/dck-panel.service << SERVICE
@@ -133,7 +146,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT}
+ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT} --tls-cert ${CERT_DIR}/cert.pem --tls-key ${CERT_DIR}/key.pem
 Restart=always
 RestartSec=5
 Environment=DCK_HOME=/root/.dck
@@ -166,4 +179,3 @@ log "║  Logs:   sudo journalctl -u dck-panel -f     ║"
 log "╚══════════════════════════════════════════════╝"
 log ""
 warn "CHANGE THE DEFAULT PASSWORD IMMEDIATELY!"
-warn "Use a reverse proxy (Caddy/Nginx) for HTTPS termination."

@@ -16,7 +16,9 @@ import (
 )
 
 var (
-	port        = flag.Int("port", 443, "HTTP port")
+	port        = flag.Int("port", 443, "HTTP/HTTPS port")
+	certFile    = flag.String("tls-cert", "", "TLS certificate file (enables HTTPS)")
+	keyFile     = flag.String("tls-key", "", "TLS private key file")
 	dckBin      = flag.String("dck-bin", "dck", "Path to dck binary")
 	dckData     = flag.String("dck-data", "", "dck data directory (default: ~/.dck)")
 	dataDir     = flag.String("data-dir", "", "Panel data directory (default: ~/.dck-panel)")
@@ -67,8 +69,17 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("dck Panel listening on http://0.0.0.0%s", addr)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		scheme := "http"
+		var err error
+		if *certFile != "" && *keyFile != "" {
+			scheme = "https"
+			log.Printf("dck Panel listening on https://0.0.0.0%s", addr)
+			err = httpServer.ListenAndServeTLS(*certFile, *keyFile)
+		} else {
+			log.Printf("dck Panel listening on http://0.0.0.0%s", addr)
+			err = httpServer.ListenAndServe()
+		}
+		if err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}
 	}()

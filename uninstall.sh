@@ -72,6 +72,13 @@ if [[ -f /etc/profile.d/go.sh ]]; then
   log "Go profile removed: /etc/profile.d/go.sh"
 fi
 
+# Remove TLS certificates
+CERT_DIR="$PANEL_DIR/tls"
+if [[ -d "$CERT_DIR" ]]; then
+  rm -rf "$CERT_DIR"
+  log "TLS certificates removed: $CERT_DIR"
+fi
+
 log ""
 log "╔══════════════════════════════════════════════╗"
 log "║     dck Panel has been uninstalled.         ║"
