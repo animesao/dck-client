@@ -98,7 +98,9 @@ fi
 # ---- Build frontend ----
 log "Building frontend..."
 if [[ -f package.json ]]; then
-  npm ci
+  unset NODE_ENV
+  rm -rf node_modules
+  npm install
   npm run build
   rm -rf server/dist
   cp -r dist server/dist
