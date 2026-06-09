@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createContainer } from '@/api/containers'
 import { useUIStore } from '@/store/uiStore'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +11,60 @@ interface CreateContainerModalProps {
   open: boolean
   onClose: () => void
   onSuccess: () => void
+}
+
+interface EnvPair {
+  key: string
+  value: string
+}
+
+interface ImagePreset {
+  env: EnvPair[]
+  ports: string[]
+}
+
+const imagePresets: Record<string, ImagePreset> = {
+  mysql: {
+    env: [
+      { key: 'MYSQL_ROOT_PASSWORD', value: 'rootpass' },
+      { key: 'MYSQL_DATABASE', value: 'app' },
+      { key: 'MYSQL_USER', value: 'user' },
+      { key: 'MYSQL_PASSWORD', value: 'pass' },
+    ],
+    ports: ['3306:3306'],
+  },
+  postgres: {
+    env: [
+      { key: 'POSTGRES_PASSWORD', value: 'postgres' },
+      { key: 'POSTGRES_DB', value: 'app' },
+      { key: 'POSTGRES_USER', value: 'user' },
+    ],
+    ports: ['5432:5432'],
+  },
+  mongo: {
+    env: [
+      { key: 'MONGO_INITDB_ROOT_USERNAME', value: 'admin' },
+      { key: 'MONGO_INITDB_ROOT_PASSWORD', value: 'adminpass' },
+    ],
+    ports: ['27017:27017'],
+  },
+  'minecraft-server': {
+    env: [
+      { key: 'EULA', value: 'TRUE' },
+      { key: 'MEMORY', value: '2G' },
+      { key: 'TYPE', value: 'VANILLA' },
+      { key: 'VERSION', value: 'LATEST' },
+    ],
+    ports: ['25565:25565'],
+  },
+  redis: {
+    env: [],
+    ports: ['6379:6379'],
+  },
+  nginx: {
+    env: [],
+    ports: ['80:80'],
+  },
 }
 
 const imageOptions = [
@@ -46,6 +100,21 @@ const restartOptions = [
   { value: 'unless-stopped', label: 'Unless Stopped' },
 ]
 
+function detectPreset(image: string): string | null {
+  const match = image.toLowerCase()
+  if (match.includes('minecraft-server')) return 'minecraft-server'
+  if (match.includes('mysql')) return 'mysql'
+  if (match.includes('postgres')) return 'postgres'
+  if (match.includes('mongo')) return 'mongo'
+  if (match.includes('redis')) return 'redis'
+  if (match.includes('nginx')) return 'nginx'
+  return null
+}
+
+function generateEnvString(pairs: EnvPair[]): string {
+  return pairs.filter(p => p.key).map(p => `${p.key}=${p.value}`).join(',')
+}
+
 export function CreateContainerModal({ open, onClose, onSuccess }: CreateContainerModalProps) {
   const addToast = useUIStore(s => s.addToast)
   const [loading, setLoading] = useState(false)
@@ -65,7 +134,52 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
   })
   const [portStr, setPortStr] = useState('')
   const [volStr, setVolStr] = useState('')
-  const [envStr, setEnvStr] = useState('')
+  const [envPairs, setEnvPairs] = useState<EnvPair[]>([])
+
+  useEffect(() => {
+    if (!open) return
+    const key = detectPreset(form.image)
+    if (key) {
+      const preset = imagePresets[key]
+      setEnvPairs(preset.env.map(e => ({ ...e })))
+      setPortStr(preset.ports.join(', '))
+    } else {
+      setEnvPairs([])
+      setPortStr('')
+    }
+  }, [open, form.image])
+
+  const resetForm = () => {
+    setForm({
+      image: 'nginx:latest',
+      name: '',
+      command: '',
+      ports: [],
+      volumes: [],
+      env: [],
+      restart: 'no',
+      memory: '',
+      cpus: '',
+      network: 'bridge',
+    })
+    setPortStr('')
+    setVolStr('')
+    setEnvPairs([])
+    setCustomImage(false)
+    setShowAdvanced(false)
+  }
+
+  const addEnvPair = () => {
+    setEnvPairs([...envPairs, { key: '', value: '' }])
+  }
+
+  const removeEnvPair = (idx: number) => {
+    setEnvPairs(envPairs.filter((_, i) => i !== idx))
+  }
+
+  const updateEnvPair = (idx: number, field: 'key' | 'value', val: string) => {
+    setEnvPairs(envPairs.map((p, i) => i === idx ? { ...p, [field]: val } : p))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,27 +187,13 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
     try {
       const ports = portStr ? portStr.split(',').map(p => p.trim()).filter(Boolean) : []
       const volumes = volStr ? volStr.split(',').map(v => v.trim()).filter(Boolean) : []
-      const env = envStr ? envStr.split(',').map(e => e.trim()).filter(Boolean) : []
+      const envArr = generateEnvString(envPairs).split(',').filter(Boolean)
 
-      await createContainer({ ...form, ports, volumes, env })
+      await createContainer({ ...form, ports, volumes, env: envArr })
       addToast('Container created successfully', 'success')
       onSuccess()
       onClose()
-      setForm({
-        image: 'nginx:latest',
-        name: '',
-        command: '',
-        ports: [],
-        volumes: [],
-        env: [],
-        restart: 'no',
-        memory: '',
-        cpus: '',
-        network: 'bridge',
-      })
-      setPortStr('')
-      setVolStr('')
-      setEnvStr('')
+      resetForm()
     } catch (err: any) {
       addToast(err.message || 'Failed to create container', 'error')
     } finally {
@@ -159,12 +259,45 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
           placeholder="/host/path:/container/path"
         />
 
-        <Input
-          label="Environment Variables (comma-separated, e.g. KEY=VAL)"
-          value={envStr}
-          onChange={e => setEnvStr(e.target.value)}
-          placeholder="NODE_ENV=production, PORT=3000"
-        />
+        <div>
+          <label className="block text-sm font-medium text-[#e6edf3] mb-2">Environment Variables</label>
+          <div className="space-y-2">
+            {envPairs.map((pair, idx) => (
+              <div key={idx} className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={pair.key}
+                  onChange={e => updateEnvPair(idx, 'key', e.target.value)}
+                  placeholder="KEY"
+                  className="input flex-1 font-mono text-xs"
+                />
+                <span className="text-[#636d7d]">=</span>
+                <input
+                  type="text"
+                  value={pair.value}
+                  onChange={e => updateEnvPair(idx, 'value', e.target.value)}
+                  placeholder="value"
+                  className="input flex-[2] font-mono text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeEnvPair(idx)}
+                  className="btn-ghost p-1.5 text-red-400 hover:text-red-300 shrink-0"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addEnvPair}
+              className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Add variable
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Select

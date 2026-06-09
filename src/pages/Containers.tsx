@@ -28,7 +28,7 @@ export function ContainersPage() {
   const [containers, setContainers] = useState<Container[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [showAll, setShowAll] = useState(false)
+  const [showAll, setShowAll] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
