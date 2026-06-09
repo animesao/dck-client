@@ -33,7 +33,14 @@ func main() {
 
 	dckHome := *dckData
 	if dckHome == "" {
-		dckHome = filepath.Join(home, ".dck")
+		dckHome = os.Getenv("DCK_HOME")
+	}
+	if dckHome == "" {
+		if home != "" {
+			dckHome = filepath.Join(home, ".dck")
+		} else {
+			dckHome = "/root/.dck"
+		}
 	}
 
 	panelDir := *dataDir

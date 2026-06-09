@@ -3,6 +3,7 @@ package dck
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -95,29 +96,37 @@ func (c *Client) imagesDir() string {
 }
 
 func (c *Client) ListContainers(all bool) ([]Container, error) {
-	entries, err := os.ReadDir(c.containersDir())
+	cd := c.containersDir()
+	log.Printf("DEBUG ListContainers: dir=%s all=%v", cd, all)
+	entries, err := os.ReadDir(cd)
 	if err != nil {
+		log.Printf("DEBUG ListContainers: ReadDir error: %v", err)
 		if os.IsNotExist(err) {
 			return []Container{}, nil
 		}
 		return nil, err
 	}
 
+	log.Printf("DEBUG ListContainers: found %d entries", len(entries))
 	var containers []Container
 	for _, e := range entries {
 		if !strings.HasSuffix(e.Name(), ".json") {
+			log.Printf("DEBUG ListContainers: skip non-json: %s", e.Name())
 			continue
 		}
 		id := strings.TrimSuffix(e.Name(), ".json")
 		ct, err := c.GetContainer(id)
 		if err != nil {
+			log.Printf("DEBUG ListContainers: GetContainer(%s) error: %v", id, err)
 			continue
 		}
+		log.Printf("DEBUG ListContainers: found container id=%s name=%s status=%s", ct.ID, ct.Name, ct.Status)
 		if !all && ct.Status != "running" {
 			continue
 		}
 		containers = append(containers, *ct)
 	}
+	log.Printf("DEBUG ListContainers: returning %d containers", len(containers))
 	return containers, nil
 }
 
