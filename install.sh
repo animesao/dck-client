@@ -112,6 +112,8 @@ fi
 
 # ---- Build Go backend ----
 log "Building Go backend..."
+log "Go version: $(go version 2>&1)"
+log "Go binary: $(which go 2>&1)"
 cd server
 go build -o dck-panel -ldflags="-s -w" .
 cp dck-panel /usr/local/bin/dck-panel
