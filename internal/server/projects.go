@@ -11,8 +11,6 @@ import (
 	"time"
 
 	"dck-client/internal/models"
-
-	"github.com/go-chi/chi"
 )
 
 type ProjectHandler struct {
