@@ -2,6 +2,8 @@ package api
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"dck-panel/db"
 	"dck-panel/dck"
@@ -98,9 +100,15 @@ func (s *Server) frontendOrAPI(api http.Handler) http.Handler {
 }
 
 func getFrontendFS(serveDir string) http.Handler {
-	if serveDir != "" {
-		return http.FileServer(http.Dir(serveDir))
+	dir := serveDir
+	if dir == "" {
+		dir = "dist"
 	}
-	// embedded fallback (handled in main/embed.go, but we just return 404 here)
-	return http.StripPrefix("/", http.FileServer(http.Dir("dist")))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := filepath.Join(dir, r.URL.Path)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			r.URL.Path = "/"
+		}
+		http.FileServer(http.Dir(dir)).ServeHTTP(w, r)
+	})
 }

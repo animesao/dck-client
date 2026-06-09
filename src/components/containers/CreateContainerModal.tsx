@@ -24,8 +24,19 @@ const imageOptions = [
   { value: 'alpine:latest', label: 'alpine:latest' },
   { value: 'ubuntu:latest', label: 'ubuntu:latest' },
   { value: 'itzg/minecraft-server:latest', label: 'Minecraft Server (latest)' },
-  { value: 'itzg/minecraft-server:1.16.5', label: 'Minecraft Server 1.16.5' },
+  { value: 'itzg/minecraft-server:1.21', label: 'Minecraft Server 1.21' },
   { value: 'itzg/minecraft-server:1.20.4', label: 'Minecraft Server 1.20.4' },
+  { value: 'itzg/minecraft-server:1.19.4', label: 'Minecraft Server 1.19.4' },
+  { value: 'itzg/minecraft-server:1.18.2', label: 'Minecraft Server 1.18.2' },
+  { value: 'itzg/minecraft-server:1.17.1', label: 'Minecraft Server 1.17.1' },
+  { value: 'itzg/minecraft-server:1.16.5', label: 'Minecraft Server 1.16.5' },
+  { value: 'itzg/minecraft-server:1.15.2', label: 'Minecraft Server 1.15.2' },
+  { value: 'itzg/minecraft-server:1.14.4', label: 'Minecraft Server 1.14.4' },
+  { value: 'itzg/minecraft-server:1.12.2', label: 'Minecraft Server 1.12.2' },
+  { value: 'itzg/minecraft-server:1.10.2', label: 'Minecraft Server 1.10.2' },
+  { value: 'itzg/minecraft-server:1.8.9', label: 'Minecraft Server 1.8.9' },
+  { value: 'itzg/minecraft-server:1.7.10', label: 'Minecraft Server 1.7.10' },
+  { value: '', label: 'Custom image...' },
 ]
 
 const restartOptions = [
@@ -38,6 +49,7 @@ const restartOptions = [
 export function CreateContainerModal({ open, onClose, onSuccess }: CreateContainerModalProps) {
   const addToast = useUIStore(s => s.addToast)
   const [loading, setLoading] = useState(false)
+  const [customImage, setCustomImage] = useState(false)
   const [form, setForm] = useState<CreateContainerRequest>({
     image: 'nginx:latest',
     name: '',
@@ -90,12 +102,38 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
     <Modal open={open} onClose={onClose} title="Create Container" size="lg">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Select
-            label="Image"
-            value={form.image}
-            onChange={e => setForm({ ...form, image: e.target.value })}
-            options={imageOptions}
-          />
+          {customImage ? (
+            <div className="col-span-2">
+              <Input
+                label="Custom Image"
+                value={form.image}
+                onChange={e => setForm({ ...form, image: e.target.value })}
+                placeholder="user/image:tag"
+              />
+              <button
+                type="button"
+                onClick={() => { setCustomImage(false); setForm({ ...form, image: 'nginx:latest' }) }}
+                className="text-sm text-blue-500 hover:text-blue-700 mt-1"
+              >
+                ← Choose from presets
+              </button>
+            </div>
+          ) : (
+            <Select
+              label="Image"
+              value={form.image}
+              onChange={e => {
+                const val = e.target.value
+                if (val === '') {
+                  setCustomImage(true)
+                  setForm({ ...form, image: '' })
+                } else {
+                  setForm({ ...form, image: val })
+                }
+              }}
+              options={imageOptions}
+            />
+          )}
           <Input
             label="Container Name"
             value={form.name}
