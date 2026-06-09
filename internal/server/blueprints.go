@@ -42,7 +42,7 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 		Restart   string            `json:"restart"`
 		Memory    string            `json:"memory"`
 		CPUs      float64           `json:"cpus"`
-		WorkDir   string            `json:"workdir"`
+		WorkingDir string           `json:"workdir"`
 		Env       map[string]string `json:"env"`
 		Volumes   []string          `json:"volumes"`
 	}
@@ -90,7 +90,7 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 			Volumes: vols,
 			Memory:  req.Memory,
 			CPUs:    req.CPUs,
-			WorkDir: req.WorkDir,
+			WorkingDir: req.WorkingDir,
 		}
 		if _, err := h.dck.PullImage(bp.Image); err != nil {
 			addResult(req.Name, "error", "pull failed: "+err.Error())
@@ -155,7 +155,7 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 			Volumes: vols,
 			Memory:  req.Memory,
 			CPUs:    req.CPUs,
-			WorkDir: req.WorkDir,
+			WorkingDir: req.WorkingDir,
 		}
 		if _, err := h.dck.CreateContainer(&containerReq); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())

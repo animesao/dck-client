@@ -144,9 +144,9 @@ type CreateContainerRequest struct {
 	RemoveOnExit bool    `json:"remove_on_exit"`
 	Hostname    string   `json:"hostname"`
 	Restart     string   `json:"restart"`
-	Memory      int64    `json:"memory,omitempty"`
+	Memory      string   `json:"memory,omitempty"`
 	CPUs        float64  `json:"cpus,omitempty"`
-	WorkingDir  string   `json:"working_dir,omitempty"`
+	WorkingDir  string   `json:"workdir,omitempty"`
 	Ports       []string `json:"ports"`
 	Volumes     []string `json:"volumes"`
 	Env         []string `json:"env"`
