@@ -86,15 +86,15 @@ if [[ "$INSTALL_GO" == true ]]; then
   log "Installing Go $GO_VERSION..."
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
   tar -C /usr/local -xzf /tmp/go.tar.gz
-  export PATH=$PATH:/usr/local/go/bin
-  echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
+  export PATH=/usr/local/go/bin:$PATH
+  echo 'export PATH=/usr/local/go/bin:$PATH' > /etc/profile.d/go.sh
   log "Go ${GO_VERSION} installed"
 else
   log "Go already installed: $(go version | awk '{print $3}')"
 fi
 
-# Ensure /usr/local/go/bin is in PATH
-export PATH=$PATH:/usr/local/go/bin
+# Ensure /usr/local/go/bin is at the front of PATH
+export PATH=/usr/local/go/bin:$PATH
 
 # ---- Build frontend ----
 log "Building frontend..."
