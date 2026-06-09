@@ -150,7 +150,6 @@
           </button>
         </div>
         <form id="bp-form" onsubmit="deployBlueprint(event)">
-          <input type="hidden" id="bp-image">
           <input type="hidden" id="bp-default-port">
           <input type="hidden" id="bp-default-cmd">
           <input type="hidden" id="bp-is-multi">
@@ -159,8 +158,11 @@
           <div class="form-section-label">Container</div>
           <div class="form-group"><label>Container Name</label><input type="text" id="bp-name" placeholder="my-service"></div>
           <div class="form-row">
-            <div class="form-group"><label>Port <span class="field-hint">(host:container)</span></label><input type="text" id="bp-port" placeholder="80:80"></div>
+            <div class="form-group"><label>Image</label><input type="text" id="bp-image" placeholder="nginx:alpine"></div>
             <div class="form-group"><label>Restart Policy</label><select id="bp-restart"><option value="always">Always</option><option value="on-failure">On Failure</option><option value="">None</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Port <span class="field-hint">(host:container)</span></label><input type="text" id="bp-port" placeholder="80:80"></div>
           </div>
 
           <div id="bp-env-section">
@@ -174,9 +176,6 @@
             <div class="form-group"><label>CPUs <span class="field-hint">(e.g. 1.5)</span></label><input type="text" id="bp-cpus" placeholder="1.0"></div>
           </div>
           <div class="form-group"><label>Working Directory <span class="field-hint">(inside container)</span></label><input type="text" id="bp-workdir" placeholder="/app"></div>
-
-          <div class="form-section-label">Storage</div>
-          <div class="form-group"><label>Volumes <span class="field-hint">(src:dst, one per line)</span></label><textarea id="bp-volumes" rows="2" class="mono" placeholder="/data:/data"></textarea></div>
 
           <div class="form-section-label">Command</div>
           <div class="form-group"><label>Command <span class="field-hint">(overrides image CMD)</span></label><textarea id="bp-cmd" rows="2" class="mono"></textarea></div>

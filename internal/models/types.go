@@ -202,6 +202,8 @@ type BlueprintEnv struct {
 	Default     string   `json:"default,omitempty"`
 	Required    bool     `json:"required"`
 	Options     []string `json:"options,omitempty"`
+	Advanced    bool     `json:"advanced,omitempty"`
+	Placeholder string   `json:"placeholder,omitempty"`
 }
 
 type DeploymentConfig struct {

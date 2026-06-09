@@ -358,31 +358,39 @@ async function openBlueprintModal(id) {
   document.getElementById('bp-port').value = bp.defaultPort || '';
   document.getElementById('bp-restart').value = 'always';
   document.getElementById('bp-cmd').value = bp.defaultCmd || '';
-  document.getElementById('bp-volumes').value = (bp.volumes || []).join('\n');
 
+  // Group env vars into essential and advanced
   const envSection = document.getElementById('bp-env-section');
   const envFields = document.getElementById('bp-env-fields');
   const envVars = bp.env || [];
   if (envVars.length > 0) {
     envSection.style.display = 'block';
-    envFields.innerHTML = envVars.map((ev, i) => {
-      const hasOptions = ev.options && ev.options.length > 0;
-      let inputHtml;
-      if (hasOptions) {
-        const opts = ev.options.map(o =>
-          '<option value="' + esc(o) + '"' + (ev.default === o ? ' selected' : '') + '>' + esc(o) + '</option>'
-        ).join('');
-        inputHtml = '<select id="bp-env-' + i + '" class="env-select">' + opts + '</select>';
-      } else {
-        inputHtml = '<input type="text" id="bp-env-' + i + '" value="' + esc(ev.default || '') + '" placeholder="' + esc(ev.description || 'Value') + '">';
-      }
-      return '<div class="env-field-row">' +
-        '<div class="env-key">' + esc(ev.key) + (ev.required ? '<span style="color:var(--red)">*</span>' : '') + '</div>' +
-        '<div style="flex:1">' +
-        inputHtml +
-        '<div class="env-desc">' + esc(ev.description || '') + '</div>' +
-        '</div></div>';
-    }).join('');
+    const essential = envVars.filter(ev => !ev.advanced);
+    const advanced = envVars.filter(ev => ev.advanced);
+
+    let html = '';
+    let idx = 0;
+
+    // Render essential fields
+    essential.forEach((ev) => {
+      html += renderEnvField(ev, idx);
+      idx++;
+    });
+
+    // Render advanced fields with toggle
+    if (advanced.length > 0) {
+      html += '<div class="bp-advanced-toggle">' +
+        '<button type="button" class="btn btn-sm btn-ghost" id="bp-toggle-advanced" onclick="toggleBpAdvanced()">' +
+        'Show advanced (' + advanced.length + ' fields)</button></div>';
+      html += '<div id="bp-advanced-fields" style="display:none">';
+      advanced.forEach((ev) => {
+        html += renderEnvField(ev, idx);
+        idx++;
+      });
+      html += '</div>';
+    }
+
+    envFields.innerHTML = html;
   } else {
     envSection.style.display = 'none';
     envFields.innerHTML = '';
@@ -401,6 +409,36 @@ async function openBlueprintModal(id) {
   document.getElementById('bp-deploy-btn').querySelector('.btn-spinner').style.display = 'none';
   document.getElementById('bp-deploy-btn').disabled = false;
   modal.style.display = 'flex';
+}
+
+function renderEnvField(ev, idx) {
+  const hasOptions = ev.options && ev.options.length > 0;
+  let inputHtml;
+  const placeholder = ev.placeholder || ev.description || '';
+  if (hasOptions) {
+    const opts = ev.options.map(o =>
+      '<option value="' + esc(o) + '"' + (ev.default === o ? ' selected' : '') + '>' + esc(o) + '</option>'
+    ).join('');
+    inputHtml = '<select id="bp-env-' + idx + '" class="env-select">' + opts + '</select>';
+  } else {
+    inputHtml = '<input type="text" id="bp-env-' + idx + '" value="' + esc(ev.default || '') + '" placeholder="' + esc(placeholder) + '">';
+  }
+  return '<div class="env-field-row">' +
+    '<div class="env-key">' + esc(ev.key) + (ev.required ? '<span style="color:var(--red)">*</span>' : '') + '</div>' +
+    '<div style="flex:1">' +
+    inputHtml +
+    '<div class="env-desc">' + esc(ev.description || '') + '</div>' +
+    '</div></div>';
+}
+
+function toggleBpAdvanced() {
+  const el = document.getElementById('bp-advanced-fields');
+  const btn = document.getElementById('bp-toggle-advanced');
+  if (!el || !btn) return;
+  const shown = el.style.display !== 'none';
+  el.style.display = shown ? 'none' : 'block';
+  const count = btn.textContent.match(/\d+/);
+  btn.textContent = shown ? 'Show advanced (' + (count ? count[0] : '') + ' fields)' : 'Hide advanced fields';
 }
 
 function initBpVersionSync() {
@@ -475,7 +513,6 @@ async function deployBlueprint(e) {
     envVars[key] = val;
   });
 
-  const volumes = document.getElementById('bp-volumes').value.split('\n').map(v => v.trim()).filter(Boolean);
   const memory = document.getElementById('bp-memory').value.trim();
   const cpus = parseFloat(document.getElementById('bp-cpus').value.trim()) || 0;
   const workdir = document.getElementById('bp-workdir').value.trim();
@@ -489,7 +526,6 @@ async function deployBlueprint(e) {
     cpus: cpus || undefined,
     workdir: workdir || undefined,
     env: envVars,
-    volumes: volumes,
   };
 
   try {
