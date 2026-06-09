@@ -50,9 +50,11 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
   const addToast = useUIStore(s => s.addToast)
   const [loading, setLoading] = useState(false)
   const [customImage, setCustomImage] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [form, setForm] = useState<CreateContainerRequest>({
     image: 'nginx:latest',
     name: '',
+    command: '',
     ports: [],
     volumes: [],
     env: [],
@@ -80,6 +82,7 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
       setForm({
         image: 'nginx:latest',
         name: '',
+        command: '',
         ports: [],
         volumes: [],
         env: [],
@@ -183,6 +186,25 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
             placeholder="1"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+        >
+          {showAdvanced ? '▼' : '▶'} Advanced options
+        </button>
+
+        {showAdvanced && (
+          <div className="space-y-4 border border-gray-200 rounded-lg p-4">
+            <Input
+              label="Command (overrides image CMD)"
+              value={form.command || ''}
+              onChange={e => setForm({ ...form, command: e.target.value })}
+              placeholder="e.g. java -jar server.jar --nogui"
+            />
+          </div>
+        )}
 
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
