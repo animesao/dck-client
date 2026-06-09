@@ -3,8 +3,10 @@ set -euo pipefail
 
 # dck Panel Uninstaller
 # Usage: curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/uninstall.sh | sudo bash
+#   or: curl -sSL ... | sudo bash -s 8443
 
 PANEL_DIR="/opt/dck-panel"
+PANEL_PORT="${1:-443}"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 log()  { echo -e "${GREEN}[+]${NC} $1"; }
@@ -58,10 +60,16 @@ if [[ -d "$PANEL_DATA" ]]; then
   log "Panel data removed: $PANEL_DATA"
 fi
 
-# Remove firewall rule (port 443)
+# Remove firewall rule
 if command -v ufw &> /dev/null; then
-  ufw delete allow 443/tcp 2>/dev/null || true
-  log "UFW rule removed (443/tcp)"
+  ufw delete allow "${PANEL_PORT}/tcp" 2>/dev/null || true
+  log "UFW rule removed (${PANEL_PORT}/tcp)"
+fi
+
+# Remove Go profile
+if [[ -f /etc/profile.d/go.sh ]]; then
+  rm -f /etc/profile.d/go.sh
+  log "Go profile removed: /etc/profile.d/go.sh"
 fi
 
 log ""
