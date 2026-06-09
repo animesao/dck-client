@@ -147,7 +147,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT} --tls-cert ${CERT_DIR}/cert.pem --tls-key ${CERT_DIR}/key.pem
+ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT} --tls-cert ${CERT_DIR}/cert.pem --tls-key ${CERT_DIR}/key.pem --serve-dir ${PANEL_DIR}/server/dist
 Restart=always
 RestartSec=5
 Environment=DCK_HOME=/root/.dck
