@@ -2,6 +2,7 @@ node_modules/
 dist/
 server/dist/
 server/dck-panel
+server/panel
 server/dck-panel.exe
 *.log
 .DS_Store
