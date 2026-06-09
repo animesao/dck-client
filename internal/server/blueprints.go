@@ -278,6 +278,7 @@ func getBlueprints() []models.Blueprint {
 				{Key: "MYSQL_PASSWORD", Description: "User password", Required: true},
 			},
 			Volumes: []string{"mysql_data:/var/lib/mysql:database files"},
+			EnvTips: "Если контейнер падает с ошибкой '/tmp: Permission denied' — добавь volume:\n  mysql_tmp:/tmp\n\nИли пересоздай контейнер — это бывает при первом запуске.",
 		},
 		{
 			Name:        "Redis",
@@ -479,6 +480,7 @@ func getBlueprints() []models.Blueprint {
 				{Key: "MARIADB_PASSWORD", Description: "User password", Required: true},
 			},
 			Volumes: []string{"mariadb_data:/var/lib/mysql:database files"},
+			EnvTips: "При ошибке '/tmp: Permission denied' добавь volume:\n  mariadb_tmp:/tmp\nИли пересоздай контейнер.",
 		},
 		{
 			Name:        "PHP + Apache",

@@ -296,24 +296,25 @@ function updateDetailStats(s) {
 }
 
 /* Blueprints */
-let bpCategories = ['All', 'Web', 'Database', 'Application', 'Game', 'Multi-container'];
+let bpCategories = ['All'];
 let activeBpCat = 'All';
 let allBlueprints = [];
 
 async function loadBlueprints() {
   try {
     const catsEl = document.getElementById('bp-categories');
-    catsEl.innerHTML = bpCategories.map(c => '<button class="bp-cat-btn' + (c === activeBpCat ? ' active' : '') + '" onclick="setBpCategory(\'' + c + '\')">' + c + '</button>').join('');
-
     const res = await apiGet('/api/blueprints');
     allBlueprints = Array.isArray(res) ? res : (res.blueprints || []);
+    const cats = [...new Set(allBlueprints.map(b => b.category).filter(Boolean))];
+    bpCategories = ['All', ...cats.sort()];
+    catsEl.innerHTML = bpCategories.map(c => '<button class="bp-cat-btn' + (c === activeBpCat ? ' active' : '') + '" data-cat="' + esc(c) + '" onclick="setBpCategory(\'' + esc(c) + '\')">' + esc(c) + '</button>').join('');
     renderBlueprints();
   } catch(_) {}
 }
 
 function setBpCategory(cat) {
   activeBpCat = cat;
-  document.querySelectorAll('.bp-cat-btn').forEach(el => el.classList.toggle('active', el.textContent === cat));
+  document.querySelectorAll('.bp-cat-btn').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
   renderBlueprints();
 }
 
