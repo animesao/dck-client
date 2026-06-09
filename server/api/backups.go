@@ -27,10 +27,10 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, claim
 
 	backups := make([]Backup, 0)
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".tar.gz") {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".zip") {
 			info, _ := e.Info()
 			backups = append(backups, Backup{
-				Name:      strings.TrimSuffix(e.Name(), ".tar.gz"),
+				Name:      strings.TrimSuffix(e.Name(), ".zip"),
 				Size:      info.Size(),
 				CreatedAt: info.ModTime().Format("2006-01-02 15:04:05"),
 			})
@@ -52,10 +52,11 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request, clai
 	backupDir := filepath.Join(s.dck.BackupDir(), id)
 	os.MkdirAll(backupDir, 0755)
 
-	backupName := fmt.Sprintf("%s-%s", id[:12], time.Now().Format("20060102-150405"))
-	backupFile := filepath.Join(backupDir, backupName+".tar.gz")
+	backupName := fmt.Sprintf("backup-%s-%s", id[:12], time.Now().Format("20060102-150405"))
+	backupFile := filepath.Join(backupDir, backupName+".zip")
 
-	cmd := exec.Command("tar", "czf", backupFile, "-C", overlayPath, ".")
+	cmd := exec.Command("zip", "-r", backupFile, ".", "-x", "proc/*", "sys/*", "dev/*")
+	cmd.Dir = overlayPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Backup failed: %s", string(out)))
@@ -74,7 +75,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, cla
 	id := r.PathValue("id")
 	backupName := r.PathValue("backup")
 
-	backupFile := filepath.Join(s.dck.BackupDir(), id, backupName+".tar.gz")
+	backupFile := filepath.Join(s.dck.BackupDir(), id, backupName+".zip")
 	if _, err := os.Stat(backupFile); os.IsNotExist(err) {
 		writeError(w, http.StatusNotFound, "Backup not found")
 		return
@@ -86,13 +87,13 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, cla
 		return
 	}
 
-	// Clear existing files first
 	entries, _ := os.ReadDir(overlayPath)
 	for _, e := range entries {
 		os.RemoveAll(filepath.Join(overlayPath, e.Name()))
 	}
 
-	cmd := exec.Command("tar", "xzf", backupFile, "-C", overlayPath)
+	cmd := exec.Command("unzip", "-o", backupFile, "-d", overlayPath)
+	cmd.Dir = overlayPath
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Restore failed: %s", string(out)))
@@ -106,14 +107,14 @@ func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request, cl
 	id := r.PathValue("id")
 	backupName := r.PathValue("backup")
 
-	backupFile := filepath.Join(s.dck.BackupDir(), id, backupName+".tar.gz")
+	backupFile := filepath.Join(s.dck.BackupDir(), id, backupName+".zip")
 	if _, err := os.Stat(backupFile); os.IsNotExist(err) {
 		writeError(w, http.StatusNotFound, "Backup not found")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/gzip")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.tar.gz"`, backupName))
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s.zip"`, backupName))
 	http.ServeFile(w, r, backupFile)
 }
 
@@ -121,7 +122,7 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request, clai
 	id := r.PathValue("id")
 	backupName := r.PathValue("backup")
 
-	backupFile := filepath.Join(s.dck.BackupDir(), id, backupName+".tar.gz")
+	backupFile := filepath.Join(s.dck.BackupDir(), id, backupName+".zip")
 	if err := os.Remove(backupFile); err != nil {
 		writeError(w, http.StatusNotFound, "Backup not found")
 		return

@@ -42,10 +42,12 @@ export function FileManagerPage() {
 
   useEffect(() => {
     if (!id) return
-    Promise.all([
-      getContainer(id).then(setContainer),
-      loadFiles('/'),
-    ])
+    getContainer(id).then(setContainer)
+    listFiles(id, '/data').then(entries => {
+      setFiles(entries)
+      setCurrentPath('/data')
+    }).catch(() => loadFiles('/'))
+    setLoading(false)
   }, [id])
 
   const navigateToDir = (dirPath: string) => {

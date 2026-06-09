@@ -281,7 +281,9 @@ function ContainerFilesTab({ containerId }: { containerId: string }) {
     }
   }, [containerId, addToast])
 
-  useEffect(() => { loadFiles('/') }, [])
+  useEffect(() => {
+    listFiles(containerId, '/data').then(() => loadFiles('/data')).catch(() => loadFiles('/'))
+  }, [])
 
   const handleEditFile = async (filePath: string) => {
     try {
