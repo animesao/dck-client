@@ -140,7 +140,7 @@ func (c *Client) GetContainer(id string) (*Container, error) {
 func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd string) (string, error) {
 	args := []string{"run", "-d"}
 	if name != "" {
-		args = append(args, "--name", name)
+		args = append(args, "-n", name)
 	}
 	if restart != "" {
 		args = append(args, "--restart", restart)
@@ -154,11 +154,11 @@ func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memo
 	if network != "" {
 		args = append(args, "--network", network)
 	}
-	for _, p := range strings.Fields(ports) {
-		args = append(args, "-p", p)
+	if ports != "" {
+		args = append(args, "-p", strings.Join(strings.Fields(ports), ","))
 	}
-	for _, v := range strings.Fields(volumes) {
-		args = append(args, "-v", v)
+	if volumes != "" {
+		args = append(args, "-v", strings.Join(strings.Fields(volumes), ","))
 	}
 	for _, e := range strings.Fields(env) {
 		args = append(args, "-e", e)
