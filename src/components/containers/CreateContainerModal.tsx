@@ -78,18 +78,6 @@ const imageOptions = [
   { value: 'alpine:latest', label: 'alpine:latest' },
   { value: 'ubuntu:latest', label: 'ubuntu:latest' },
   { value: 'itzg/minecraft-server:latest', label: 'Minecraft Server (latest)' },
-  { value: 'itzg/minecraft-server:1.21', label: 'Minecraft Server 1.21' },
-  { value: 'itzg/minecraft-server:1.20.4', label: 'Minecraft Server 1.20.4' },
-  { value: 'itzg/minecraft-server:1.19.4', label: 'Minecraft Server 1.19.4' },
-  { value: 'itzg/minecraft-server:1.18.2', label: 'Minecraft Server 1.18.2' },
-  { value: 'itzg/minecraft-server:1.17.1', label: 'Minecraft Server 1.17.1' },
-  { value: 'itzg/minecraft-server:1.16.5', label: 'Minecraft Server 1.16.5' },
-  { value: 'itzg/minecraft-server:1.15.2', label: 'Minecraft Server 1.15.2' },
-  { value: 'itzg/minecraft-server:1.14.4', label: 'Minecraft Server 1.14.4' },
-  { value: 'itzg/minecraft-server:1.12.2', label: 'Minecraft Server 1.12.2' },
-  { value: 'itzg/minecraft-server:1.10.2', label: 'Minecraft Server 1.10.2' },
-  { value: 'itzg/minecraft-server:1.8.9', label: 'Minecraft Server 1.8.9' },
-  { value: 'itzg/minecraft-server:1.7.10', label: 'Minecraft Server 1.7.10' },
   { value: '', label: 'Custom image...' },
 ]
 
