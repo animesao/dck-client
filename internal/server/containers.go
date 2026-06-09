@@ -33,7 +33,7 @@ func (h *ContainerHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContainerHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id := 	chi.URLParam(r, "id")
+	id := chi.URLParam(r, "id")
 	container, err := h.dck.GetContainer(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "container not found")
@@ -70,7 +70,7 @@ func (h *ContainerHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContainerHandler) Start(w http.ResponseWriter, r *http.Request) {
-	id := 	chi.URLParam(r, "id")
+	id := chi.URLParam(r, "id")
 	if err := h.dck.StartContainer(id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -81,7 +81,7 @@ func (h *ContainerHandler) Start(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContainerHandler) Stop(w http.ResponseWriter, r *http.Request) {
-	id := 	chi.URLParam(r, "id")
+	id := chi.URLParam(r, "id")
 	if err := h.dck.StopContainer(id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -92,7 +92,7 @@ func (h *ContainerHandler) Stop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContainerHandler) Restart(w http.ResponseWriter, r *http.Request) {
-	id := 	chi.URLParam(r, "id")
+	id := chi.URLParam(r, "id")
 	if err := h.dck.RestartContainer(id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -103,7 +103,7 @@ func (h *ContainerHandler) Restart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContainerHandler) Remove(w http.ResponseWriter, r *http.Request) {
-	id := 	chi.URLParam(r, "id")
+	id := chi.URLParam(r, "id")
 	force := r.URL.Query().Get("force") == "true"
 	if err := h.dck.RemoveContainer(id, force); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -115,7 +115,7 @@ func (h *ContainerHandler) Remove(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContainerHandler) Logs(w http.ResponseWriter, r *http.Request) {
-	id := 	chi.URLParam(r, "id")
+	id := chi.URLParam(r, "id")
 	logs, err := h.dck.GetContainerLogs(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "logs not found")
@@ -125,7 +125,7 @@ func (h *ContainerHandler) Logs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ContainerHandler) State(w http.ResponseWriter, r *http.Request) {
-	id := 	chi.URLParam(r, "id")
+	id := chi.URLParam(r, "id")
 	stateJSON, err := h.dck.GetContainerStateJSON(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "container state not found")
@@ -185,7 +185,7 @@ func (h *ContainerHandler) Templates(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusCreated, t)
 
 	case http.MethodDelete:
-		idStr := 	chi.URLParam(r, "templateID")
+		idStr := chi.URLParam(r, "templateID")
 		id, _ := strconv.ParseInt(idStr, 10, 64)
 		if err := h.db.DeleteTemplate(id); err != nil {
 			writeError(w, http.StatusNotFound, "template not found")
