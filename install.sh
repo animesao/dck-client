@@ -43,34 +43,6 @@ else
   log "dck already installed: $(dck version 2>/dev/null || echo 'ok')"
 fi
 
-# ---- Install Go (need 1.22+ for routing syntax) ----
-INSTALL_GO=false
-GO_VERSION=""
-if ! command -v go &> /dev/null; then
-  INSTALL_GO=true
-else
-  CURRENT_GO=$(go version | grep -oP 'go\K[0-9]+\.[0-9]+')
-  if [[ "$(echo "$CURRENT_GO < 1.22" | bc -l 2>/dev/null || echo 1)" == "1" ]]; then
-    warn "Go $CURRENT_GO is too old (need 1.22+). Installing newer version..."
-    INSTALL_GO=true
-  fi
-fi
-
-if [[ "$INSTALL_GO" == true ]]; then
-  GO_VERSION="1.26.4"
-  log "Installing Go $GO_VERSION..."
-  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
-  tar -C /usr/local -xzf /tmp/go.tar.gz
-  export PATH=$PATH:/usr/local/go/bin
-  echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
-  log "Go ${GO_VERSION} installed"
-else
-  log "Go already installed: $(go version | awk '{print $3}')"
-fi
-
-# Ensure /usr/local/go/bin is in PATH
-export PATH=$PATH:/usr/local/go/bin
-
 # ---- Install Node.js ----
 if ! command -v node &> /dev/null; then
   log "Installing Node.js..."
@@ -94,6 +66,35 @@ else
   git clone --depth 1 -b "$BRANCH" "https://github.com/$REPO.git" "$PANEL_DIR"
   cd "$PANEL_DIR"
 fi
+
+# ---- Install Go (from go.mod) ----
+INSTALL_GO=false
+GO_VERSION=""
+REQUIRED_GO=$(grep -oP '^go \K[0-9.]+' "$PANEL_DIR/server/go.mod" 2>/dev/null || echo "1.26")
+if ! command -v go &> /dev/null; then
+  INSTALL_GO=true
+else
+  CURRENT_GO=$(go version | grep -oP 'go\K[0-9]+\.[0-9]+')
+  if [[ "$(echo "$CURRENT_GO < $REQUIRED_GO" | bc -l 2>/dev/null || echo 1)" == "1" ]]; then
+    warn "Go $CURRENT_GO is too old (need $REQUIRED_GO+). Installing newer version..."
+    INSTALL_GO=true
+  fi
+fi
+
+if [[ "$INSTALL_GO" == true ]]; then
+  GO_VERSION="1.26.4"
+  log "Installing Go $GO_VERSION..."
+  curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
+  tar -C /usr/local -xzf /tmp/go.tar.gz
+  export PATH=$PATH:/usr/local/go/bin
+  echo 'export PATH=$PATH:/usr/local/go/bin' > /etc/profile.d/go.sh
+  log "Go ${GO_VERSION} installed"
+else
+  log "Go already installed: $(go version | awk '{print $3}')"
+fi
+
+# Ensure /usr/local/go/bin is in PATH
+export PATH=$PATH:/usr/local/go/bin
 
 # ---- Build frontend ----
 log "Building frontend..."
