@@ -128,6 +128,23 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 			vols = append(vols, v)
 		}
 	}
+	// Auto-add /tmp volume for MySQL/MariaDB to prevent Permission denied
+	imageLower := strings.ToLower(req.Image)
+	if imageLower == "" {
+		imageLower = strings.ToLower(bp.Image)
+	}
+	if strings.Contains(imageLower, "mysql") || strings.Contains(imageLower, "mariadb") {
+		hasTmp := false
+		for _, v := range vols {
+			if strings.HasSuffix(v, ":/tmp") || strings.Contains(v, ":/tmp:") || strings.HasSuffix(v, ":/tmp:ro") {
+				hasTmp = true
+				break
+			}
+		}
+		if !hasTmp {
+			vols = append(vols, req.Name+"_tmp:/tmp")
+		}
+	}
 	// Mount config file into container
 	if _, err := os.Stat(configPath); err == nil {
 		vols = append(vols, configPath+":/etc/dck-deploy.json:ro")
@@ -310,7 +327,7 @@ func getBlueprints() []models.Blueprint {
 				{Key: "MYSQL_PASSWORD", Description: "User password", Required: true},
 			},
 			Volumes: []string{"mysql_data:/var/lib/mysql:database files"},
-			EnvTips: "Если контейнер падает с ошибкой '/tmp: Permission denied' — добавь volume:\n  mysql_tmp:/tmp\n\nИли пересоздай контейнер — это бывает при первом запуске.",
+			EnvTips: "⚠️ Если всё ещё падает с '/tmp: Permission denied' — добавь volume:\n  mysql_tmp:/tmp\n\nОбычно /tmp монтируется автоматически.",
 		},
 		{
 			Name:        "Redis",
@@ -512,7 +529,7 @@ func getBlueprints() []models.Blueprint {
 				{Key: "MARIADB_PASSWORD", Description: "User password", Required: true},
 			},
 			Volumes: []string{"mariadb_data:/var/lib/mysql:database files"},
-			EnvTips: "При ошибке '/tmp: Permission denied' добавь volume:\n  mariadb_tmp:/tmp\nИли пересоздай контейнер.",
+			EnvTips: "⚠️ Если всё ещё падает с '/tmp: Permission denied' — добавь volume:\n  mariadb_tmp:/tmp\n\nОбычно /tmp монтируется автоматически.",
 		},
 		{
 			Name:        "PHP + Apache",
