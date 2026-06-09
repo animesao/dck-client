@@ -28,8 +28,11 @@ fi
 log "Stopping dck-panel service..."
 systemctl kill dck-panel 2>/dev/null || true
 systemctl stop dck-panel 2>/dev/null || true
-pkill -f dck-panel 2>/dev/null || true
 systemctl disable dck-panel 2>/dev/null || true
+
+# Kill any lingering panel process
+pkill -x dck-panel 2>/dev/null || true
+pkill -f "dck-panel --port" 2>/dev/null || true
 
 # Remove service file
 if [[ -f /etc/systemd/system/dck-panel.service ]]; then
@@ -37,6 +40,30 @@ if [[ -f /etc/systemd/system/dck-panel.service ]]; then
   systemctl daemon-reload
   systemctl reset-failed dck-panel 2>/dev/null || true
   log "Service file removed"
+fi
+
+# Remove TLS certificates (before panel dir)
+if [[ -d "$PANEL_DIR/tls" ]]; then
+  rm -rf "$PANEL_DIR/tls"
+  log "TLS certificates removed"
+fi
+
+# Remove frontend build (dist)
+if [[ -d "$PANEL_DIR/server/dist" ]]; then
+  rm -rf "$PANEL_DIR/server/dist"
+  log "Frontend dist removed"
+fi
+
+# Remove Go build artifacts
+if [[ -d "$PANEL_DIR/server" ]]; then
+  rm -rf "$PANEL_DIR/server"
+  log "Server sources removed"
+fi
+
+# Remove node_modules
+if [[ -d "$PANEL_DIR/node_modules" ]]; then
+  rm -rf "$PANEL_DIR/node_modules"
+  log "Node modules removed"
 fi
 
 # Remove binary
@@ -51,12 +78,21 @@ if [[ -d "$PANEL_DIR" ]]; then
   log "Panel directory removed: $PANEL_DIR"
 fi
 
-# Remove panel data (users, settings)
-PANEL_DATA="$HOME/.dck-panel"
-if [[ -d "$PANEL_DATA" ]]; then
-  rm -rf "$PANEL_DATA"
-  log "Panel data removed: $PANEL_DATA"
-fi
+# Remove panel data (users, settings, SQLite db)
+for d in "/root/.dck-panel" "$HOME/.dck-panel"; do
+  if [[ -d "$d" ]]; then
+    rm -rf "$d"
+    log "Panel data removed: $d"
+  fi
+done
+
+# Remove dck data directory (containers metadata, images layers, etc.)
+for d in "/root/.dck" "$HOME/.dck"; do
+  if [[ -d "$d" ]]; then
+    warn "Removing dck data directory: $d"
+    rm -rf "$d"
+  fi
+done
 
 # Remove firewall rule
 if command -v ufw &> /dev/null; then
@@ -76,19 +112,12 @@ if [[ -f /etc/profile.d/go.sh ]]; then
   log "Go profile removed: /etc/profile.d/go.sh"
 fi
 
-# Remove TLS certificates
-CERT_DIR="$PANEL_DIR/tls"
-if [[ -d "$CERT_DIR" ]]; then
-  rm -rf "$CERT_DIR"
-  log "TLS certificates removed: $CERT_DIR"
-fi
-
 log ""
 log "╔══════════════════════════════════════════════╗"
 log "║     dck Panel has been uninstalled.         ║"
 log "╠══════════════════════════════════════════════╣"
 log "║  dck runtime and containers are untouched.   ║"
 log "║  Go installation has been removed.           ║"
-log "║  To remove dck: sudo dck purge              ║"
+log "║  To remove dck itself: sudo dck purge       ║"
 log "╚══════════════════════════════════════════════╝"
 log ""
