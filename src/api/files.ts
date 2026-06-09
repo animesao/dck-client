@@ -20,7 +20,8 @@ export async function listFiles(id: string, path = '/'): Promise<FileEntry[]> {
 }
 
 export async function readFile(id: string, path: string): Promise<string> {
-  return api<string>('GET', `/containers/${id}/files/read?path=${encodeURIComponent(path)}`)
+  const res = await api<{ content: string; encoding: string }>('GET', `/containers/${id}/files/read?path=${encodeURIComponent(path)}`)
+  return res.content
 }
 
 export async function writeFile(id: string, path: string, content: string): Promise<void> {

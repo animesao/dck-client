@@ -120,33 +120,21 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request, claims *
 		return
 	}
 
-	contentType := "text/plain"
-	ext := strings.ToLower(filepath.Ext(filePath))
-	switch ext {
-	case ".json":
-		contentType = "application/json"
-	case ".html", ".htm":
-		contentType = "text/html"
-	case ".css":
-		contentType = "text/css"
-	case ".js":
-		contentType = "application/javascript"
-	case ".png":
-		contentType = "image/png"
-	case ".jpg", ".jpeg":
-		contentType = "image/jpeg"
-	case ".svg":
-		contentType = "image/svg+xml"
-	case ".yaml", ".yml":
-		contentType = "text/yaml"
-	case ".toml":
-		contentType = "text/toml"
-	case ".sh":
-		contentType = "text/x-shellscript"
+	// Binary files: return as base64
+	if ext := strings.ToLower(filepath.Ext(filePath)); ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".ico" || ext == ".webp" {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"content":  string(b),
+			"encoding": "binary",
+			"path":     filePath,
+		})
+		return
 	}
 
-	w.Header().Set("Content-Type", contentType)
-	w.Write(b)
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"content":  string(b),
+		"encoding": "utf-8",
+		"path":     filePath,
+	})
 }
 
 func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {

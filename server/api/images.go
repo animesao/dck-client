@@ -18,36 +18,24 @@ type ImageInfo struct {
 
 func (s *Server) handleListImages(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	images, err := s.dck.ListImages()
-	if err != nil {
-		// Fall back to scanning image files
+	if err != nil || len(images) == 0 {
 		images = s.scanImageFiles()
-		if images == nil {
-			images = []string{}
-		}
+	}
+	if images == nil {
+		images = []string{}
 	}
 
 	out := make([]ImageInfo, 0)
 	for _, img := range images {
-		parts := strings.Fields(img)
-		if len(parts) >= 2 {
-			nameTag := strings.Split(parts[0], ":")
-			name := nameTag[0]
-			tag := "latest"
-			if len(nameTag) > 1 {
-				tag = nameTag[1]
-			}
-			info := ImageInfo{
-				Name: name,
-				Tag:  tag,
-			}
-			if len(parts) >= 3 {
-				info.ID = parts[2]
-			}
-			if len(parts) >= 4 {
-				info.Created = parts[3]
-			}
-			out = append(out, info)
+		info := ImageInfo{
+			Name: img,
+			Tag:  "latest",
 		}
+		if idx := strings.LastIndex(img, ":"); idx > 0 && idx < len(img)-1 {
+			info.Name = img[:idx]
+			info.Tag = img[idx+1:]
+		}
+		out = append(out, info)
 	}
 	if out == nil {
 		out = []ImageInfo{}

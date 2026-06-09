@@ -1,10 +1,11 @@
 package api
 
 import (
+	"archive/zip"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -44,7 +45,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request, clai
 	id := r.PathValue("id")
 
 	overlayPath := s.dck.OverlayPath(id)
-	if _, err := os.Stat(overlayPath); os.IsNotExist(err) {
+	if _, err := os.Stat(overlayPath); err != nil {
 		writeError(w, http.StatusNotFound, "Container overlay not found")
 		return
 	}
@@ -55,19 +56,67 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request, clai
 	backupName := fmt.Sprintf("backup-%s-%s", id[:12], time.Now().Format("20060102-150405"))
 	backupFile := filepath.Join(backupDir, backupName+".zip")
 
-	cmd := exec.Command("zip", "-r", backupFile, ".", "-x", "proc/*", "sys/*", "dev/*")
-	cmd.Dir = overlayPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Backup failed: %s", string(out)))
+	if err := zipDir(overlayPath, backupFile); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Backup failed: %s", err))
 		return
 	}
 
-	info, _ := os.Stat(backupFile)
+	fi, _ := os.Stat(backupFile)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"name":       backupName,
-		"size":       info.Size(),
-		"created_at": info.ModTime().Format("2006-01-02 15:04:05"),
+		"size":       fi.Size(),
+		"created_at": fi.ModTime().Format("2006-01-02 15:04:05"),
+	})
+}
+
+func zipDir(src, dest string) error {
+	out, err := os.Create(dest)
+	if err != nil {
+		return fmt.Errorf("create: %w", err)
+	}
+	defer out.Close()
+
+	w := zip.NewWriter(out)
+	defer w.Close()
+
+	skipDirs := map[string]bool{"proc": true, "sys": true, "dev": true}
+
+	return filepath.Walk(src, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, path)
+		if rel == "." {
+			return nil
+		}
+		// Skip system directories
+		if fi.IsDir() && skipDirs[rel] {
+			return filepath.SkipDir
+		}
+		header, err := zip.FileInfoHeader(fi)
+		if err != nil {
+			return err
+		}
+		header.Name = filepath.ToSlash(rel)
+		if fi.IsDir() {
+			header.Name += "/"
+		} else {
+			header.Method = zip.Deflate
+		}
+		writer, err := w.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+		if !fi.IsDir() {
+			f, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			_, err = io.Copy(writer, f)
+			return err
+		}
+		return nil
 	})
 }
 
@@ -92,15 +141,55 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, cla
 		os.RemoveAll(filepath.Join(overlayPath, e.Name()))
 	}
 
-	cmd := exec.Command("unzip", "-o", backupFile, "-d", overlayPath)
-	cmd.Dir = overlayPath
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Restore failed: %s", string(out)))
+	if err := unzipFile(backupFile, overlayPath); err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Restore failed: %s", err))
 		return
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func unzipFile(src, dest string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		fpath := filepath.Join(dest, f.Name)
+
+		// ZipSlip protection
+		if !strings.HasPrefix(filepath.Clean(fpath), filepath.Clean(dest)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path: %s", f.Name)
+		}
+
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(fpath, f.Mode())
+			continue
+		}
+
+		os.MkdirAll(filepath.Dir(fpath), 0755)
+
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("open entry %s: %w", f.Name, err)
+		}
+
+		out, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			rc.Close()
+			return fmt.Errorf("create %s: %w", f.Name, err)
+		}
+
+		_, err = io.Copy(out, rc)
+		out.Close()
+		rc.Close()
+		if err != nil {
+			return fmt.Errorf("write %s: %w", f.Name, err)
+		}
+	}
+	return nil
 }
 
 func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
