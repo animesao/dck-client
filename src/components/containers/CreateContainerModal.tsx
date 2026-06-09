@@ -23,6 +23,9 @@ const imageOptions = [
   { value: 'node:latest', label: 'node:latest' },
   { value: 'alpine:latest', label: 'alpine:latest' },
   { value: 'ubuntu:latest', label: 'ubuntu:latest' },
+  { value: 'itzg/minecraft-server:latest', label: 'Minecraft Server (latest)' },
+  { value: 'itzg/minecraft-server:1.16.5', label: 'Minecraft Server 1.16.5' },
+  { value: 'itzg/minecraft-server:1.20.4', label: 'Minecraft Server 1.20.4' },
 ]
 
 const restartOptions = [
