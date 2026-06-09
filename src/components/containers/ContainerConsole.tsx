@@ -62,6 +62,7 @@ export function ContainerConsole({ containerId }: ContainerConsoleProps) {
 
     const url = wsUrl(`/containers/${containerId}/console`)
     const ws = new WebSocket(url)
+    ws.binaryType = 'arraybuffer'
     wsRef.current = ws
 
     ws.onopen = () => {
@@ -70,7 +71,15 @@ export function ContainerConsole({ containerId }: ContainerConsoleProps) {
     }
 
     ws.onmessage = (event) => {
-      terminal.write(event.data)
+      if (typeof event.data === 'string') {
+        terminal.write(event.data)
+      } else {
+        terminal.write(new Uint8Array(event.data))
+      }
+    }
+
+    ws.onerror = () => {
+      terminal.write('\r\n[Console connection error]\r\n')
     }
 
     ws.onclose = () => {
