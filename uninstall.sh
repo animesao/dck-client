@@ -25,15 +25,14 @@ warn "Containers managed by dck will NOT be affected."
 warn "Go installed by the panel will also be removed."
 
 if [[ "$FORCE" != "true" ]]; then
-  if [[ -t 0 ]]; then
-    read -rp "Continue? [y/N] " confirm
+  if read -rp "Continue? [y/N] " confirm </dev/tty; then
     if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
       log "Cancelled."
       exit 0
     fi
   else
-    log "Non-interactive mode (piped). Proceeding in 5s... Ctrl+C to abort."
-    sleep 5
+    log "Cannot read from terminal. Proceeding in 3s... Ctrl+C to abort."
+    sleep 3
   fi
 fi
 
