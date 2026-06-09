@@ -113,7 +113,7 @@ fi
 # ---- Build Go backend ----
 log "Building Go backend..."
 cd server
-/usr/local/go/bin/go version
+echo "DCK_GO: $(/usr/local/go/bin/go version 2>&1)" >&2
 /usr/local/go/bin/go build -o dck-panel -ldflags="-s -w" .
 cp dck-panel /usr/local/bin/dck-panel
 cd "$PANEL_DIR"
