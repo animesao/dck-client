@@ -150,6 +150,11 @@
 
           <div class="form-group"><label>Command <span class="field-hint">(edit if needed)</span></label><textarea id="bp-cmd" rows="2" class="mono"></textarea></div>
 
+          <div class="form-row">
+            <div class="form-group"><label>Memory <span class="field-hint">(e.g. 512m, 1g)</span></label><input type="text" id="bp-memory" placeholder="512m"></div>
+            <div class="form-group"><label>CPUs <span class="field-hint">(e.g. 1.5)</span></label><input type="text" id="bp-cpus" placeholder="1.0"></div>
+          </div>
+          <div class="form-group"><label>Working Directory <span class="field-hint">(inside container)</span></label><input type="text" id="bp-workdir" placeholder="/app"></div>
           <div class="form-group"><label>Volumes <span class="field-hint">(src:dst, one per line)</span></label><textarea id="bp-volumes" rows="2" class="mono" placeholder="/data:/data"></textarea></div>
 
           <div id="bp-hint" class="env-hint" style="display:none"></div>
@@ -166,13 +171,49 @@
       </div>
     </div>
 
+    <!-- Create Container -->
+    <div id="page-create" class="page">
+      <div class="section-header">
+        <div class="header-left">
+          <button onclick="navigate('containers')" class="btn btn-sm btn-ghost">← Back</button>
+          <h2>Create Container</h2>
+        </div>
+      </div>
+      <div class="card glass">
+        <form onsubmit="createCustomContainer(event)">
+          <div class="form-group"><label>Image <span class="field-hint">(name:tag)</span></label><input type="text" id="cr-image" placeholder="nginx:alpine" required></div>
+          <div class="form-row">
+            <div class="form-group"><label>Container Name</label><input type="text" id="cr-name" placeholder="my-container"></div>
+            <div class="form-group"><label>Restart Policy</label><select id="cr-restart"><option value="">None</option><option value="always" selected>Always</option><option value="on-failure">On Failure</option><option value="unless-stopped">Unless Stopped</option></select></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Memory <span class="field-hint">(e.g. 512m, 1g)</span></label><input type="text" id="cr-memory" placeholder="512m"></div>
+            <div class="form-group"><label>CPUs <span class="field-hint">(e.g. 1.5)</span></label><input type="text" id="cr-cpus" placeholder="1.0"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Host Port</label><input type="text" id="cr-port" placeholder="80:80"></div>
+            <div class="form-group"><label>Hostname</label><input type="text" id="cr-hostname" placeholder="myhost"></div>
+          </div>
+          <div class="form-group"><label>Working Directory <span class="field-hint">(inside container, e.g. /app)</span></label><input type="text" id="cr-workdir" placeholder="/app"></div>
+          <div class="form-group"><label>Command <span class="field-hint">(override image CMD)</span></label><input type="text" id="cr-cmd" placeholder="python main.py"></div>
+          <div class="form-group"><label>Environment Variables <span class="field-hint">(KEY=VAL, one per line)</span></label><textarea id="cr-env" rows="3" class="mono" placeholder="NODE_ENV=production"></textarea></div>
+          <div class="form-group"><label>Volumes <span class="field-hint">(src:dst, one per line)</span></label><textarea id="cr-volumes" rows="3" class="mono" placeholder="/host/path:/container/path"></textarea></div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-glow" id="cr-btn">Create & Start</button>
+            <button type="button" class="btn" onclick="navigate('containers')">Cancel</button>
+          </div>
+        </form>
+        <div id="cr-output" class="output-box" style="display:none"></div>
+      </div>
+    </div>
+
     <!-- Containers -->
     <div id="page-containers" class="page">
       <div class="section-header">
         <h2>Containers</h2>
         <div class="header-actions">
           <button onclick="navigate('blueprints')" class="btn btn-glow">+ Blueprint</button>
-          <button onclick="showCreateContainer()" class="btn btn-primary">+ Create</button>
+          <button onclick="navigate('create')" class="btn btn-primary">+ Create</button>
         </div>
       </div>
       <div class="controls">

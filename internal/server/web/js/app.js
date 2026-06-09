@@ -88,7 +88,7 @@ function navigate(page, data) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
 
-  const titles = { dashboard: 'Dashboard', blueprints: 'Blueprints', containers: 'Containers', images: 'Images', config: 'Config', settings: 'Settings', 'container-detail': 'Container' };
+  const titles = { dashboard: 'Dashboard', blueprints: 'Blueprints', containers: 'Containers', images: 'Images', config: 'Config', settings: 'Settings', 'container-detail': 'Container', create: 'Create Container' };
   document.getElementById('page-title').textContent = titles[page] || page;
 
   const el = document.getElementById('page-' + page);
@@ -99,6 +99,7 @@ function navigate(page, data) {
   else if (page === 'containers') loadContainers();
   else if (page === 'images') loadImages();
   else if (page === 'config') loadConfig();
+  else if (page === 'create') loadCreateForm();
   else if (page === 'settings') loadSettings();
   else if (page === 'container-detail' && data) { currentDetailId = data; loadContainerDetail(data); }
 }
@@ -357,12 +358,18 @@ async function deployBlueprint(e) {
   });
 
   const volumes = document.getElementById('bp-volumes').value.split('\n').map(v => v.trim()).filter(Boolean);
+  const memory = document.getElementById('bp-memory').value.trim();
+  const cpus = parseFloat(document.getElementById('bp-cpus').value.trim()) || 0;
+  const workdir = document.getElementById('bp-workdir').value.trim();
   const payload = {
     name: document.getElementById('bp-name').value.trim(),
     image: document.getElementById('bp-image').value.trim(),
     port: document.getElementById('bp-port').value.trim(),
     command: document.getElementById('bp-cmd').value.trim() || undefined,
     restart: document.getElementById('bp-restart').value || undefined,
+    memory: memory || undefined,
+    cpus: cpus || undefined,
+    workdir: workdir || undefined,
     env: envVars,
     volumes: volumes,
   };
@@ -438,7 +445,74 @@ async function deleteContainer(id) {
   } catch(e) { toast('Delete failed', 'error'); }
 }
 
-function showCreateContainer() { navigate('blueprints'); }
+function showCreateContainer() { navigate('create'); }
+
+function loadCreateForm() {
+  document.getElementById('cr-image').value = '';
+  document.getElementById('cr-name').value = '';
+  document.getElementById('cr-restart').value = 'always';
+  document.getElementById('cr-memory').value = '';
+  document.getElementById('cr-cpus').value = '';
+  document.getElementById('cr-port').value = '';
+  document.getElementById('cr-hostname').value = '';
+  document.getElementById('cr-workdir').value = '';
+  document.getElementById('cr-cmd').value = '';
+  document.getElementById('cr-env').value = '';
+  document.getElementById('cr-volumes').value = '';
+  document.getElementById('cr-output').style.display = 'none';
+  document.getElementById('cr-btn').disabled = false;
+  document.getElementById('cr-btn').querySelector('.btn-text').textContent = 'Create & Start';
+  document.getElementById('cr-btn').querySelector('.btn-spinner').style.display = 'none';
+}
+
+async function createCustomContainer(e) {
+  e.preventDefault();
+  const btn = document.getElementById('cr-btn');
+  const output = document.getElementById('cr-output');
+  ptClear(output);
+  btn.querySelector('.btn-text').textContent = 'Creating...';
+  btn.querySelector('.btn-spinner').style.display = 'inline-block';
+  btn.disabled = true;
+  output.style.display = 'none';
+
+  const image = document.getElementById('cr-image').value.trim();
+  if (!image) { toast('Image is required', 'error'); btn.disabled = false; btn.querySelector('.btn-text').textContent = 'Create & Start'; btn.querySelector('.btn-spinner').style.display = 'none'; return; }
+
+  const envRaw = document.getElementById('cr-env').value.trim();
+  const envList = envRaw ? envRaw.split('\n').map(s => s.trim()).filter(Boolean) : [];
+  const vols = document.getElementById('cr-volumes').value.split('\n').map(v => v.trim()).filter(Boolean);
+  const memory = document.getElementById('cr-memory').value.trim();
+  const cpus = parseFloat(document.getElementById('cr-cpus').value.trim()) || 0;
+  const workdir = document.getElementById('cr-workdir').value.trim();
+
+  try {
+    ptWrite(output, 'Pulling image...');
+    output.style.display = 'block';
+    await apiPost('/api/images/pull', { image: image });
+    ptWrite(output, 'Creating container...');
+    const res = await apiPost('/api/containers', {
+      image: image,
+      name: document.getElementById('cr-name').value.trim() || undefined,
+      restart: document.getElementById('cr-restart').value || undefined,
+      ports: splitCSV(document.getElementById('cr-port').value.trim()),
+      hostname: document.getElementById('cr-hostname').value.trim() || undefined,
+      command: document.getElementById('cr-cmd').value.trim() || undefined,
+      memory: memory || undefined,
+      cpus: cpus || undefined,
+      workdir: workdir || undefined,
+      env: envList,
+      volumes: vols,
+      detach: true,
+    });
+    if (res.error) { output.className = 'output-box error'; ptWrite(output, 'Error: ' + res.error); toast('Create failed', 'error'); }
+    else {
+      ptWrite(output, '✓ Container created and started');
+      toast('Container created', 'success');
+      setTimeout(() => navigate('containers'), 1500);
+    }
+  } catch(e) { output.className = 'output-box error'; ptWrite(output, 'Request failed: ' + e.message); toast('Create failed', 'error'); }
+  finally { btn.querySelector('.btn-text').textContent = 'Create & Start'; btn.querySelector('.btn-spinner').style.display = 'none'; btn.disabled = false; }
+}
 
 /* Container Detail */
 async function loadContainerDetail(id) {
@@ -475,6 +549,9 @@ async function loadDetailInfo(id) {
         ['Hostname', esc(c.hostname || '—')],
         ['Restart', esc(c.restart || '—')],
         ['Command', esc(cmd)],
+        ['Working Dir', esc(c.working_dir || '—')],
+        ['Memory Limit', c.memory_limit ? c.memory_limit + ' bytes' : '—'],
+        ['CPUs', c.cpu_count ? String(c.cpu_count) : '—'],
         ['Volumes', esc(vols)],
         ['Environment', esc(envs)],
         ['Auto Remove', c.remove_on_exit ? 'Yes' : 'No'],
@@ -862,3 +939,4 @@ function esc(s) { if (s == null) return ''; return String(s).replace(/&/g,'&amp;
 function statusBadge(s) { if (!s) return ''; const cls = s === 'running' ? 'running' : (s === 'stopped' ? 'stopped' : 'exited'); return '<span class="status-badge-sm ' + cls + '"><span class="status-dot"></span>' + esc(s) + '</span>'; }
 function fmtPorts(ports) { if (!ports) return ''; if (typeof ports === 'string') return ports; if (Array.isArray(ports)) return ports.map(p => (p.host_port || p.hostPort || '') + ':' + (p.container_port || p.containerPort || '') + (p.protocol && p.protocol !== 'tcp' ? '/' + p.protocol : '')).join(', '); return String(ports); }
 function randStr(n) { const c='abcdefghijklmnopqrstuvwxyz0123456789'; let r=''; for(let i=0;i<n;i++) r+=c[Math.floor(Math.random()*c.length)]; return r; }
+function splitCSV(s) { if (!s) return []; return s.split(',').map(x => x.trim()).filter(Boolean); }

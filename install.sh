@@ -11,14 +11,22 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 err()   { echo -e "${RED}[ERR]${NC} $1"; exit 1; }
 section()  { echo -e "${CYAN}━━━ $1 ━━━${NC}"; }
 
+# ── Parse args ──
+MODE="auto"
+UPDATE=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --update|-y) UPDATE=true; shift ;;
+        direct|container) MODE="$1"; shift ;;
+        *) shift ;;
+    esac
+done
+
 # ── Check root ──
 [ "$EUID" -eq 0 ] || err "Please run as root"
 
-# ── Args ──
-MODE="${1:-auto}"  # auto, direct, container
-
-# ── Check dck ──
-if ! command -v dck >/dev/null 2>&1; then
+# ── Check dck (only on fresh install) ──
+if ! $UPDATE && ! command -v dck >/dev/null 2>&1; then
     warn "dck is not installed. Install it first:"
     warn "  curl -sSL https://raw.githubusercontent.com/animesao/dck/main/install.sh | sudo bash"
     echo ""
@@ -55,6 +63,16 @@ fi
 
 # ── Ensure Go 1.22+ ──
 install_go22() {
+    if command -v go >/dev/null 2>&1; then
+        go_ver=$(go version | grep -oP 'go\S+' | tr -d 'go')
+        major=$(echo "$go_ver" | cut -d. -f1)
+        minor=$(echo "$go_ver" | cut -d. -f2)
+        if [ "$major" -gt 1 ] || { [ "$major" -eq 1 ] && [ "$minor" -ge 22 ]; }; then
+            info "Go $(go version | grep -oP 'go\S+') already installed"
+            return
+        fi
+        info "Upgrading Go (found $(go version | grep -oP 'go\S+'))..."
+    fi
     info "Installing Go 1.22..."
     OS="linux"; ARCH="amd64"
     case "$(uname -m)" in aarch64|arm64) ARCH="arm64"; ;; esac
@@ -69,7 +87,12 @@ install_go22() {
 # ── Build binary ──
 section "Building dck-client"
 install_go22
-VERSION="${VERSION:-$(date +%Y%m%d)}"
+if [ -f VERSION ]; then
+    VERSION="$(cat VERSION)"
+else
+    VERSION="${VERSION:-$(date +%Y%m%d)}"
+fi
+info "Version: $VERSION"
 go build -ldflags="-s -w -X main.Version=$VERSION" -o /tmp/dck-client-bin ./cmd/server
 chmod 755 /tmp/dck-client-bin
 
@@ -79,8 +102,10 @@ if [ ! -x /tmp/dck-client-bin ]; then
 fi
 info "Binary built successfully ($(file /tmp/dck-client-bin | grep -oP '(ELF|Mach-O|PE32)'))"
 
-# ── Mode selection ──
-if [ "$MODE" = "auto" ]; then
+# ── Mode selection (skip on update) ──
+if $UPDATE; then
+    : "${MODE:=direct}"
+elif [ "$MODE" = "auto" ]; then
     section "Select installation mode"
     echo "  1) Direct (systemd service) — full host access"
     echo "  2) Container (dck run) — dogfood, managed via dck"

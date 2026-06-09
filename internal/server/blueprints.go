@@ -35,13 +35,16 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Name    string            `json:"name"`
-		Image   string            `json:"image"`
-		Port    string            `json:"port"`
-		Command string            `json:"command"`
-		Restart string            `json:"restart"`
-		Env     map[string]string `json:"env"`
-		Volumes []string          `json:"volumes"`
+		Name      string            `json:"name"`
+		Image     string            `json:"image"`
+		Port      string            `json:"port"`
+		Command   string            `json:"command"`
+		Restart   string            `json:"restart"`
+		Memory    string            `json:"memory"`
+		CPUs      float64           `json:"cpus"`
+		WorkDir   string            `json:"workdir"`
+		Env       map[string]string `json:"env"`
+		Volumes   []string          `json:"volumes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
@@ -85,6 +88,9 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 			Ports:   splitCSV(req.Port),
 			Env:     envVars,
 			Volumes: vols,
+			Memory:  req.Memory,
+			CPUs:    req.CPUs,
+			WorkDir: req.WorkDir,
 		}
 		if _, err := h.dck.PullImage(bp.Image); err != nil {
 			addResult(req.Name, "error", "pull failed: "+err.Error())
@@ -147,6 +153,9 @@ func (h *BlueprintHandler) Launch(w http.ResponseWriter, r *http.Request) {
 			Ports:   splitCSV(req.Port),
 			Env:     envVars,
 			Volumes: vols,
+			Memory:  req.Memory,
+			CPUs:    req.CPUs,
+			WorkDir: req.WorkDir,
 		}
 		if _, err := h.dck.CreateContainer(&containerReq); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())

@@ -147,6 +147,9 @@ func (e *Executor) CreateContainer(req *models.CreateContainerRequest) (string, 
 	if req.CPUs > 0 {
 		args = append(args, "--cpus", strconv.FormatFloat(req.CPUs, 'f', -1, 64))
 	}
+	if req.WorkingDir != "" {
+		args = append(args, "--workdir", req.WorkingDir)
+	}
 	for _, p := range req.Ports {
 		args = append(args, "-p", p)
 	}

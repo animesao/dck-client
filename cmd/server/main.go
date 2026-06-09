@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -9,13 +10,17 @@ import (
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -24,10 +29,25 @@ import (
 	"dck-client/internal/server"
 )
 
-var Version = "dev"
+var Version = "0.1.0"
+var repoURL = "https://raw.githubusercontent.com/animesao/dck-client"
 
 func main() {
 	server.BuildVersion = Version
+
+	// Handle CLI commands: update, version
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "update":
+			doUpdate(os.Args[2:])
+			return
+		case "version", "--version", "-v":
+			fmt.Println("dck-client version", Version)
+			fmt.Println("Run 'dck-client update --check' to check for updates.")
+			return
+		}
+	}
+
 	port := flag.String("port", "443", "HTTPS server port")
 	httpPort := flag.String("http-port", "8080", "HTTP redirect port (set empty to disable)")
 	dataDir := flag.String("data", "/root/.dck-client", "Data directory")
@@ -111,6 +131,147 @@ func main() {
 	if err := httpsServer.ListenAndServeTLS(certFile, keyFile); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Server error: %v", err)
 	}
+}
+
+func doUpdate(args []string) {
+	checkOnly := false
+	for _, a := range args {
+		if a == "--check" || a == "-c" {
+			checkOnly = true
+		}
+	}
+
+	fmt.Printf("Current version: %s\n", Version)
+
+	latest, err := fetchLatestVersion()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error checking for updates: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Latest version:  %s\n", latest)
+
+	if compareVersions(latest, Version) <= 0 {
+		fmt.Println("You are already up to date.")
+		return
+	}
+
+	fmt.Printf("Update available: %s -> %s\n", Version, latest)
+
+	if checkOnly {
+		return
+	}
+
+	fmt.Print("Download and install? [y/N] ")
+	var confirm string
+	fmt.Scanln(&confirm)
+	if confirm != "y" && confirm != "Y" {
+		fmt.Println("Update cancelled.")
+		return
+	}
+
+	fmt.Println("Downloading update...")
+	body, err := fetchURL(repoURL + "/main/install.sh")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to fetch installer: %v\n", err)
+		os.Exit(1)
+	}
+
+	tmpFile, err := os.CreateTemp("", "dck-client-install-*.sh")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create temp file: %v\n", err)
+		os.Exit(1)
+	}
+	tmpPath := tmpFile.Name()
+	if _, err := tmpFile.WriteString(body); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		fmt.Fprintf(os.Stderr, "Failed to write temp file: %v\n", err)
+		os.Exit(1)
+	}
+	tmpFile.Close()
+	if err := os.Chmod(tmpPath, 0755); err != nil {
+		os.Remove(tmpPath)
+		fmt.Fprintf(os.Stderr, "Failed to chmod temp file: %v\n", err)
+		os.Exit(1)
+	}
+
+	cmd := exec.Command("sudo", tmpPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		os.Remove(tmpPath)
+		fmt.Fprintf(os.Stderr, "Update failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	os.Remove(tmpPath)
+	fmt.Println("Update complete!")
+}
+
+func fetchURL(url string) (string, error) {
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 3 {
+				return fmt.Errorf("too many redirects")
+			}
+			return nil
+		},
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	return strings.TrimSpace(string(body)), err
+}
+
+func fetchLatestVersion() (string, error) {
+	url := repoURL + "/main/VERSION"
+	return fetchURL(url)
+}
+
+func compareVersions(a, b string) int {
+	if a == "" && b == "" {
+		return 0
+	}
+	if a == "" {
+		return -1
+	}
+	if b == "" {
+		return 1
+	}
+
+	ap := strings.Split(strings.TrimLeft(a, "v"), ".")
+	bp := strings.Split(strings.TrimLeft(b, "v"), ".")
+	max := len(ap)
+	if len(bp) > max {
+		max = len(bp)
+	}
+	for i := 0; i < max; i++ {
+		var ai, bi int
+		if i < len(ap) {
+			ai, _ = strconv.Atoi(ap[i])
+		}
+		if i < len(bp) {
+			bi, _ = strconv.Atoi(bp[i])
+		}
+		if ai < bi {
+			return -1
+		}
+		if ai > bi {
+			return 1
+		}
+	}
+	return 0
 }
 
 func getJWTSecret(dataDir string) []byte {
