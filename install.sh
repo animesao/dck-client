@@ -44,8 +44,8 @@ else
 fi
 
 # ---- Install Go (need 1.22+ for routing syntax) ----
-GO_VERSION="1.22.5"
 INSTALL_GO=false
+GO_VERSION=""
 if ! command -v go &> /dev/null; then
   INSTALL_GO=true
 else
@@ -57,8 +57,8 @@ else
 fi
 
 if [[ "$INSTALL_GO" == true ]]; then
+  GO_VERSION="1.26.4"
   log "Installing Go $GO_VERSION..."
-  GO_VERSION="1.22.5"
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
   tar -C /usr/local -xzf /tmp/go.tar.gz
   export PATH=$PATH:/usr/local/go/bin
