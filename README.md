@@ -1,8 +1,13 @@
 # dck Panel
 
-Modern web management panel for [dck](https://github.com/anomalyco/dck) container runtime. Full-featured Pterodactyl-like interface for managing containers, files, backups, and system resources.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/animesao/dck-client/main/public/logo.png" alt="dck Panel" width="120">
+</p>
 
-![Dashboard](https://raw.githubusercontent.com/animesao/dck-client/main/screenshots/dashboard.png)
+<p align="center">
+  <b>Modern web management panel for <a href="https://github.com/anomalyco/dck">dck</a> container runtime</b><br>
+  Full-featured Pterodactyl-like interface for managing containers, files, backups, and system resources.
+</p>
 
 ## Features
 
