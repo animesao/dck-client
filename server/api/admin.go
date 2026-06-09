@@ -117,3 +117,11 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request, claims *U
 		"update_available":    false,
 	})
 }
+
+func (s *Server) handleAdminUserStats(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	total, users := s.store.GetUserStats()
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"total_users": total,
+		"users":       users,
+	})
+}

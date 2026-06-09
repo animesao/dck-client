@@ -9,7 +9,7 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
 import { formatBytes } from '@/utils'
 import type { DashboardStats, Container as ContainerType } from '@/types'
-import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield } from 'lucide-react'
+import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield, Clock } from 'lucide-react'
 
 export function AdminDashboardPage() {
   const { isAdmin } = useAuth()
@@ -35,7 +35,7 @@ export function AdminDashboardPage() {
         <p className="text-[#636d7d] text-sm mt-1">System-wide overview and management</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="card-gradient">
           <div className="p-5">
             <div className="flex items-center gap-4">
@@ -43,7 +43,7 @@ export function AdminDashboardPage() {
                 <Users size={22} className="text-indigo-400" />
               </div>
               <div>
-                <p className="stat-value text-indigo-400">-</p>
+                <p className="stat-value text-indigo-400">{stats?.users ?? '-'}</p>
                 <p className="text-xs text-[#636d7d] font-medium">Users</p>
               </div>
             </div>
@@ -88,6 +88,19 @@ export function AdminDashboardPage() {
             </div>
           </div>
         </Card>
+        <Card className="card-gradient">
+          <div className="p-5">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center border border-amber-500/10">
+                <Shield size={22} className="text-amber-400" />
+              </div>
+              <div>
+                <p className="stat-value text-amber-400">{stats?.images ?? '-'}</p>
+                <p className="text-xs text-[#636d7d] font-medium">Images</p>
+              </div>
+            </div>
+          </div>
+        </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -111,6 +124,41 @@ export function AdminDashboardPage() {
           </div>
         </Card>
       </div>
+
+      <Card>
+        <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#e6edf3]">Users</h3>
+        </div>
+        {!stats?.user_stats || stats.user_stats.length === 0 ? (
+          <div className="p-8 text-center text-sm text-[#636d7d]">No users</div>
+        ) : (
+          <div className="divide-y divide-white/[0.04]">
+            <div className="flex items-center gap-3 px-5 py-2 text-xs text-[#636d7d] font-medium">
+              <span className="w-8" />
+              <span className="flex-1">Username</span>
+              <span className="w-16 text-center">Role</span>
+              <span className="w-20 text-center">Containers</span>
+              <span className="w-28 text-right">Last Login</span>
+            </div>
+            {stats.user_stats.map(u => (
+              <div key={u.id} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02] transition-colors">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10">
+                  <Users size={14} className="text-indigo-400" />
+                </div>
+                <span className="text-sm text-[#e6edf3] font-medium flex-1">{u.username}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-16 text-center ${u.role === 'admin' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10'}`}>
+                  {u.role}
+                </span>
+                <span className="text-xs text-[#e6edf3] w-20 text-center">{u.container_count}</span>
+                <span className="text-xs text-[#636d7d] w-28 text-right flex items-center justify-end gap-1">
+                  <Clock size={11} />
+                  {u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
       <Card>
         <div className="px-5 py-4 border-b border-white/[0.05]">

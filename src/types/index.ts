@@ -77,6 +77,17 @@ export interface DashboardStats {
   memory_total: number
   disk_used: number
   disk_total: number
+  users: number
+  user_stats: UserStats[]
+}
+
+export interface UserStats {
+  id: string
+  username: string
+  role: string
+  created_at: string
+  container_count: number
+  last_login?: string
 }
 
 export interface SystemInfo {

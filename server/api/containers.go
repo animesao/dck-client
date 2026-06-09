@@ -61,6 +61,8 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		writeJSON(w, http.StatusOK, map[string]string{"id": id, "status": "created"})
 		return
 	}
+
+	s.store.RecordContainer(claims.Sub, id, req.Name, req.Image)
 	writeJSON(w, http.StatusCreated, c)
 }
 

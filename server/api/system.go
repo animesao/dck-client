@@ -50,6 +50,7 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 	}
 
 	images, _ := s.dck.ListImages()
+	userCount, users := s.store.GetUserStats()
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"system":          info,
@@ -62,6 +63,8 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 		"memory_total":    info.MemoryTotal,
 		"disk_used":       info.DiskUsed,
 		"disk_total":      info.DiskTotal,
+		"users":           userCount,
+		"user_stats":      users,
 	})
 }
 

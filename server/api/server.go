@@ -73,6 +73,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("POST /api/admin/users", s.auth(s.admin(s.handleAdminCreateUser)))
 	mux.HandleFunc("PUT /api/admin/users/{id}", s.auth(s.admin(s.handleAdminUpdateUser)))
 	mux.HandleFunc("DELETE /api/admin/users/{id}", s.auth(s.admin(s.handleAdminDeleteUser)))
+	mux.HandleFunc("GET /api/admin/user-stats", s.auth(s.admin(s.handleAdminUserStats)))
 	mux.HandleFunc("GET /api/admin/settings", s.auth(s.admin(s.handleAdminGetSettings)))
 	mux.HandleFunc("PUT /api/admin/settings", s.auth(s.admin(s.handleAdminUpdateSettings)))
 

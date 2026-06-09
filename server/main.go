@@ -42,7 +42,7 @@ func main() {
 	}
 	os.MkdirAll(panelDir, 0755)
 
-	store, err := db.NewStore(filepath.Join(panelDir, "data.json"))
+	store, err := db.NewStore(filepath.Join(panelDir, "data.db"))
 	if err != nil {
 		log.Fatalf("Failed to init store: %v", err)
 	}
@@ -87,4 +87,5 @@ func main() {
 	<-quit
 	log.Println("Shutting down...")
 	httpServer.Close()
+	store.Close()
 }

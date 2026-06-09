@@ -2,22 +2,23 @@ package db
 
 import (
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"os"
-	"sync"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
+
+	_ "modernc.org/sqlite"
 )
 
 type User struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Password  string    `json:"password"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
+	ID        string     `json:"id"`
+	Username  string     `json:"username"`
+	Password  string     `json:"password"`
+	Role      string     `json:"role"`
+	CreatedAt time.Time  `json:"created_at"`
+	LastLogin *time.Time `json:"last_login,omitempty"`
 }
 
 type Settings struct {
@@ -26,172 +27,295 @@ type Settings struct {
 	DckData      string `json:"dck_data"`
 }
 
-type dataFile struct {
-	Users    []User   `json:"users"`
-	Settings Settings `json:"settings"`
-}
-
 type Store struct {
-	mu   sync.RWMutex
-	path string
-	data dataFile
+	db *sql.DB
 }
 
 func NewStore(path string) (*Store, error) {
-	s := &Store{path: path}
-	if _, err := os.Stat(path); err == nil {
-		b, err := os.ReadFile(path)
-		if err != nil {
-			return nil, err
-		}
-		if err := json.Unmarshal(b, &s.data); err != nil {
-			return nil, err
-		}
-	} else {
-		s.data.Settings = Settings{
-			Registration: true,
-		}
-		s.save()
+	db, err := sql.Open("sqlite", path+"?_journal_mode=WAL&_busy_timeout=5000")
+	if err != nil {
+		return nil, fmt.Errorf("open db: %w", err)
+	}
+	db.SetMaxOpenConns(1)
+
+	s := &Store{db: db}
+	if err := s.migrate(); err != nil {
+		return nil, fmt.Errorf("migrate: %w", err)
 	}
 	return s, nil
 }
 
-func (s *Store) save() {
-	b, _ := json.MarshalIndent(s.data, "", "  ")
-	os.WriteFile(s.path, b, 0644)
+func (s *Store) Close() error {
+	return s.db.Close()
+}
+
+func (s *Store) migrate() error {
+	queries := []string{
+		`CREATE TABLE IF NOT EXISTS users (
+			id TEXT PRIMARY KEY,
+			username TEXT UNIQUE NOT NULL,
+			password TEXT NOT NULL,
+			role TEXT NOT NULL DEFAULT 'user',
+			created_at TEXT NOT NULL,
+			last_login TEXT
+		)`,
+		`CREATE TABLE IF NOT EXISTS settings (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS user_containers (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id TEXT NOT NULL,
+			container_id TEXT NOT NULL,
+			container_name TEXT NOT NULL,
+			image TEXT NOT NULL,
+			created_at TEXT NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+	}
+	for _, q := range queries {
+		if _, err := s.db.Exec(q); err != nil {
+			return err
+		}
+	}
+	var count int
+	s.db.QueryRow("SELECT COUNT(*) FROM settings").Scan(&count)
+	if count == 0 {
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('registration', 'true')")
+	}
+	return nil
+}
+
+func scanUser(scanner interface {
+	Scan(dest ...interface{}) error
+}) (User, error) {
+	var u User
+	var createdAt, lastLogin string
+	err := scanner.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &createdAt, &lastLogin)
+	if err != nil {
+		return u, err
+	}
+	u.CreatedAt, _ = time.Parse(time.RFC3339, createdAt)
+	if lastLogin != "" {
+		t, err := time.Parse(time.RFC3339, lastLogin)
+		if err == nil {
+			u.LastLogin = &t
+		}
+	}
+	return u, nil
 }
 
 func (s *Store) ListUsers() []User {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	out := make([]User, len(s.data.Users))
-	copy(out, s.data.Users)
-	return out
+	rows, err := s.db.Query("SELECT id, username, password, role, created_at, COALESCE(last_login, '') FROM users ORDER BY created_at ASC")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			continue
+		}
+		users = append(users, u)
+	}
+	return users
 }
 
 func (s *Store) GetUser(id string) *User {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for i := range s.data.Users {
-		if s.data.Users[i].ID == id {
-			u := s.data.Users[i]
-			u.Password = ""
-			return &u
-		}
+	row := s.db.QueryRow("SELECT id, username, password, role, created_at, COALESCE(last_login, '') FROM users WHERE id = ?", id)
+	u, err := scanUser(row)
+	if err != nil {
+		return nil
 	}
-	return nil
+	u.Password = ""
+	return &u
 }
 
 func (s *Store) GetUserByUsername(username string) *User {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for i := range s.data.Users {
-		if s.data.Users[i].Username == username {
-			return &s.data.Users[i]
-		}
+	row := s.db.QueryRow("SELECT id, username, password, role, created_at, COALESCE(last_login, '') FROM users WHERE username = ?", username)
+	u, err := scanUser(row)
+	if err != nil {
+		return nil
 	}
-	return nil
+	return &u
 }
 
 func (s *Store) CheckPassword(username, password string) *User {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	for i := range s.data.Users {
-		if s.data.Users[i].Username == username {
-			err := bcrypt.CompareHashAndPassword([]byte(s.data.Users[i].Password), []byte(password))
-			if err == nil {
-				u := s.data.Users[i]
-				u.Password = ""
-				return &u
-			}
-			return nil
-		}
+	u := s.GetUserByUsername(username)
+	if u == nil {
+		return nil
 	}
-	return nil
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))
+	if err != nil {
+		return nil
+	}
+	u.Password = ""
+	return u
 }
 
 func (s *Store) CreateUser(username, password, role string) (*User, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.data.Users {
-		if s.data.Users[i].Username == username {
-			return nil, fmt.Errorf("username already exists")
-		}
+	existing := s.GetUserByUsername(username)
+	if existing != nil {
+		return nil, fmt.Errorf("username already exists")
 	}
+
+	id := generateID()
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
-	u := User{
-		ID:        generateID(),
-		Username:  username,
-		Password:  string(hash),
-		Role:      role,
-		CreatedAt: time.Now(),
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err = s.db.Exec("INSERT INTO users (id, username, password, role, created_at) VALUES (?, ?, ?, ?, ?)",
+		id, username, string(hash), role, now)
+	if err != nil {
+		return nil, fmt.Errorf("create user: %w", err)
 	}
-	s.data.Users = append(s.data.Users, u)
-	s.save()
-	u.Password = ""
-	return &u, nil
+
+	u := &User{
+		ID:        id,
+		Username:  username,
+		Role:      role,
+		CreatedAt: time.Now().UTC(),
+	}
+	return u, nil
 }
 
 func (s *Store) UpdateUser(id string, updates map[string]string) *User {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.data.Users {
-		if s.data.Users[i].ID == id {
-			if u, ok := updates["username"]; ok {
-				s.data.Users[i].Username = u
-			}
-			if p, ok := updates["password"]; ok && p != "" {
-				hash, _ := bcrypt.GenerateFromPassword([]byte(p), bcrypt.DefaultCost)
-				s.data.Users[i].Password = string(hash)
-			}
-			if r, ok := updates["role"]; ok {
-				s.data.Users[i].Role = r
-			}
-			s.save()
-			u := s.data.Users[i]
-			u.Password = ""
-			return &u
-		}
+	u := s.GetUser(id)
+	if u == nil {
+		return nil
 	}
-	return nil
+
+	if uname, ok := updates["username"]; ok && uname != "" {
+		s.db.Exec("UPDATE users SET username = ? WHERE id = ?", uname, id)
+	}
+	if pwd, ok := updates["password"]; ok && pwd != "" {
+		hash, _ := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.DefaultCost)
+		s.db.Exec("UPDATE users SET password = ? WHERE id = ?", string(hash), id)
+	}
+	if role, ok := updates["role"]; ok && role != "" {
+		s.db.Exec("UPDATE users SET role = ? WHERE id = ?", role, id)
+	}
+
+	return s.GetUser(id)
 }
 
 func (s *Store) DeleteUser(id string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for i := range s.data.Users {
-		if s.data.Users[i].ID == id {
-			s.data.Users = append(s.data.Users[:i], s.data.Users[i+1:]...)
-			s.save()
-			return true
-		}
+	res, err := s.db.Exec("DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return false
 	}
-	return false
+	n, _ := res.RowsAffected()
+	return n > 0
 }
 
 func (s *Store) GetSettings() Settings {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.data.Settings
+	settings := Settings{Registration: true}
+
+	rows, err := s.db.Query("SELECT key, value FROM settings")
+	if err != nil {
+		return settings
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var key, value string
+		rows.Scan(&key, &value)
+		switch key {
+		case "registration":
+			settings.Registration = value == "true"
+		case "dck_bin":
+			settings.DckBin = value
+		case "dck_data":
+			settings.DckData = value
+		}
+	}
+	return settings
 }
 
 func (s *Store) UpdateSettings(updates map[string]interface{}) Settings {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if v, ok := updates["registration"]; ok {
-		s.data.Settings.Registration = v.(bool)
+	for key, value := range updates {
+		var strVal string
+		switch v := value.(type) {
+		case bool:
+			strVal = fmt.Sprintf("%t", v)
+		case string:
+			strVal = v
+		default:
+			continue
+		}
+		s.db.Exec("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", key, strVal)
 	}
-	if v, ok := updates["dck_bin"]; ok {
-		s.data.Settings.DckBin = v.(string)
+	return s.GetSettings()
+}
+
+func (s *Store) CountUsers() int {
+	var count int
+	s.db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+	return count
+}
+
+func (s *Store) UpdateLastLogin(id string) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	s.db.Exec("UPDATE users SET last_login = ? WHERE id = ?", now, id)
+}
+
+func (s *Store) RecordContainer(userID, containerID, containerName, image string) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	s.db.Exec("INSERT INTO user_containers (user_id, container_id, container_name, image, created_at) VALUES (?, ?, ?, ?, ?)",
+		userID, containerID, containerName, image, now)
+}
+
+func (s *Store) GetUserContainerCount(userID string) int {
+	var count int
+	s.db.QueryRow("SELECT COUNT(*) FROM user_containers WHERE user_id = ?", userID).Scan(&count)
+	return count
+}
+
+func (s *Store) GetAllUserContainerCounts() map[string]int {
+	rows, err := s.db.Query("SELECT user_id, COUNT(*) as cnt FROM user_containers GROUP BY user_id")
+	if err != nil {
+		return nil
 	}
-	if v, ok := updates["dck_data"]; ok {
-		s.data.Settings.DckData = v.(string)
+	defer rows.Close()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var userID string
+		var count int
+		rows.Scan(&userID, &count)
+		counts[userID] = count
 	}
-	s.save()
-	return s.data.Settings
+	return counts
+}
+
+type UserWithStats struct {
+	User
+	ContainerCount int    `json:"container_count"`
+	LastLoginStr   string `json:"last_login,omitempty"`
+}
+
+func (s *Store) GetUserStats() (int, []UserWithStats) {
+	users := s.ListUsers()
+	counts := s.GetAllUserContainerCounts()
+
+	out := make([]UserWithStats, 0, len(users))
+	for _, u := range users {
+		u.Password = ""
+		lastLogin := ""
+		if u.LastLogin != nil {
+			lastLogin = u.LastLogin.Format(time.RFC3339)
+		}
+		out = append(out, UserWithStats{
+			User:           u,
+			ContainerCount: counts[u.ID],
+			LastLoginStr:   lastLogin,
+		})
+	}
+	return len(users), out
 }
 
 func generateID() string {

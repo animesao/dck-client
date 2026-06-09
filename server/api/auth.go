@@ -24,6 +24,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 		return
 	}
 
+	s.store.UpdateLastLogin(user.ID)
+
 	token, err := s.generateToken(user.ID, user.Username, user.Role)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to generate token")
@@ -68,6 +70,8 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ *UserC
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+
+	s.store.UpdateLastLogin(user.ID)
 
 	token, err := s.generateToken(user.ID, user.Username, user.Role)
 	if err != nil {
