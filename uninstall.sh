@@ -17,27 +17,25 @@ if [[ $EUID -ne 0 ]]; then err "Must run as root: sudo bash uninstall.sh"; fi
 
 warn "This will remove dck Panel completely."
 warn "Containers managed by dck will NOT be affected."
+warn "Go installed by the panel will also be removed."
 read -rp "Continue? [y/N] " confirm
 if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
   log "Cancelled."
   exit 0
 fi
 
-# Stop and disable service
-if systemctl is-active --quiet dck-panel 2>/dev/null; then
-  log "Stopping dck-panel service..."
-  systemctl stop dck-panel
-fi
-
-if systemctl is-enabled --quiet dck-panel 2>/dev/null; then
-  log "Disabling dck-panel service..."
-  systemctl disable dck-panel
-fi
+# Stop, kill and disable service
+log "Stopping dck-panel service..."
+systemctl kill dck-panel 2>/dev/null || true
+systemctl stop dck-panel 2>/dev/null || true
+pkill -f dck-panel 2>/dev/null || true
+systemctl disable dck-panel 2>/dev/null || true
 
 # Remove service file
 if [[ -f /etc/systemd/system/dck-panel.service ]]; then
   rm -f /etc/systemd/system/dck-panel.service
   systemctl daemon-reload
+  systemctl reset-failed dck-panel 2>/dev/null || true
   log "Service file removed"
 fi
 
@@ -66,6 +64,12 @@ if command -v ufw &> /dev/null; then
   log "UFW rule removed (${PANEL_PORT}/tcp)"
 fi
 
+# Remove Go installation (installed by panel)
+if [[ -d /usr/local/go ]]; then
+  rm -rf /usr/local/go
+  log "Go installation removed: /usr/local/go"
+fi
+
 # Remove Go profile
 if [[ -f /etc/profile.d/go.sh ]]; then
   rm -f /etc/profile.d/go.sh
@@ -84,6 +88,7 @@ log "╔════════════════════════
 log "║     dck Panel has been uninstalled.         ║"
 log "╠══════════════════════════════════════════════╣"
 log "║  dck runtime and containers are untouched.   ║"
+log "║  Go installation has been removed.           ║"
 log "║  To remove dck: sudo dck purge              ║"
 log "╚══════════════════════════════════════════════╝"
 log ""
