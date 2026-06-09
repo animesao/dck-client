@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"dck-panel/dck"
 )
@@ -34,23 +35,23 @@ func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, clai
 
 func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	var req struct {
-		Image   string `json:"image"`
-		Name    string `json:"name"`
-		Ports   string `json:"ports"`
-		Volumes string `json:"volumes"`
-		Env     string `json:"env"`
-		Restart string `json:"restart"`
-		Memory  string `json:"memory"`
-		CPUs    string `json:"cpus"`
-		Network string `json:"network"`
-		Command string `json:"command"`
+		Image   string   `json:"image"`
+		Name    string   `json:"name"`
+		Ports   []string `json:"ports"`
+		Volumes []string `json:"volumes"`
+		Env     []string `json:"env"`
+		Restart string   `json:"restart"`
+		Memory  string   `json:"memory"`
+		CPUs    string   `json:"cpus"`
+		Network string   `json:"network"`
+		Command string   `json:"command"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
 
-	id, err := s.dck.CreateContainer(req.Image, req.Name, req.Ports, req.Volumes, req.Env, req.Restart, req.Memory, req.CPUs, req.Network, req.Command)
+	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(req.Ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
