@@ -84,17 +84,21 @@ fi
 if [[ "$INSTALL_GO" == true ]]; then
   GO_VERSION="1.26.4"
   log "Installing Go $GO_VERSION..."
+  rm -rf /usr/local/go
   curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" -o /tmp/go.tar.gz
   tar -C /usr/local -xzf /tmp/go.tar.gz
-  export PATH=/usr/local/go/bin:$PATH
-  echo 'export PATH=/usr/local/go/bin:$PATH' > /etc/profile.d/go.sh
-  log "Go ${GO_VERSION} installed"
+  export GOROOT=/usr/local/go
+  export PATH=$GOROOT/bin:$PATH
+  echo 'export GOROOT=/usr/local/go' > /etc/profile.d/go.sh
+  echo 'export PATH=$GOROOT/bin:$PATH' >> /etc/profile.d/go.sh
+  log "Go ${GO_VERSION} installed ($(/usr/local/go/bin/go version))"
 else
   log "Go already installed: $(go version | awk '{print $3}')"
 fi
 
-# Ensure /usr/local/go/bin is at the front of PATH
-export PATH=/usr/local/go/bin:$PATH
+# Ensure Go environment
+export GOROOT=/usr/local/go
+export PATH=$GOROOT/bin:$PATH
 
 # ---- Build frontend ----
 log "Building frontend..."
@@ -113,7 +117,8 @@ fi
 # ---- Build Go backend ----
 log "Building Go backend..."
 cd server
-echo "DCK_GO: $(/usr/local/go/bin/go version 2>&1)" >&2
+echo "[DCK_GO] version: $(/usr/local/go/bin/go version 2>&1)"
+echo "[DCK_GO] GOROOT: ${GOROOT:-unset}"
 /usr/local/go/bin/go build -o dck-panel -ldflags="-s -w" .
 cp dck-panel /usr/local/bin/dck-panel
 cd "$PANEL_DIR"
