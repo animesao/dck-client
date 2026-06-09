@@ -98,10 +98,13 @@ fi
 # ---- Build frontend ----
 log "Building frontend..."
 if [[ -f package.json ]]; then
-  unset NODE_ENV
+  unset NODE_ENV CI
   rm -rf node_modules
-  npm install
-  npm run build
+  npm install --include=dev
+  npm run build 2>/dev/null || {
+    log "npm build failed, trying npx fallback..."
+    npx --yes tsc -b && npx --yes vite build
+  }
   rm -rf server/dist
   cp -r dist server/dist
   log "Frontend built"
