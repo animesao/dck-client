@@ -81,6 +81,10 @@
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
         <span>Config</span>
       </a>
+      <a href="#" class="nav-item" data-page="guide" onclick="navigate('guide')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <span>Guide</span>
+      </a>
       <a href="#" class="nav-item" data-page="settings" onclick="navigate('settings')">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
         <span>Settings</span>
@@ -289,6 +293,210 @@
       <div id="config-path" class="config-path"></div>
       <textarea id="config-editor" class="config-editor" spellcheck="false"></textarea>
       <div id="config-output" class="output-box" style="display:none"></div>
+    </div>
+
+    <!-- Guide -->
+    <div id="page-guide" class="page guide-page">
+      <div class="section-header"><h2>Guide</h2></div>
+      <p class="page-desc">Everything you need to know about dck — installation, configuration, commands, and best practices.</p>
+
+      <div class="guide-section">
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+            <h3>What is dck?</h3>
+          </div>
+          <p>dck is a lightweight container runtime written in Go. It provides Docker-compatible commands for managing containers with minimal overhead. dck-client is the web management UI that connects to dck.</p>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/></svg></div>
+            <h3>Installation</h3>
+          </div>
+          <div class="guide-code-header">Install dck runtime:</div>
+          <pre class="guide-code"><code>curl -sSL https://raw.githubusercontent.com/animesao/dck/main/install.sh | sudo bash</code></pre>
+          <div class="guide-code-header">Install dck-client (web UI):</div>
+          <pre class="guide-code"><code>curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash</code></pre>
+          <div class="guide-code-header">Update dck-client:</div>
+          <pre class="guide-code"><code>dck-client update</code></pre>
+          <p class="guide-note">The install script builds from source, so it requires Go to be installed on your system.</p>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
+            <h3>Configuration</h3>
+          </div>
+          <p>dck-client can be configured through the web UI or by editing the settings file directly.</p>
+          <div class="guide-code-header">dck-client config file location:</div>
+          <pre class="guide-code"><code>/etc/dck-client/config.toml</code></pre>
+          <div class="guide-code-header">Key settings:</div>
+          <table class="guide-table">
+            <tr><td><code>dck_binary_path</code></td><td>Path to the dck binary (default: <code>dck</code>)</td></tr>
+            <tr><td><code>dck_data_dir</code></td><td>dck data directory (default: <code>/var/lib/dck</code>)</td></tr>
+            <tr><td><code>registration_open</code></td><td>Allow new user registration via the web UI</td></tr>
+          </table>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 13 14 20 7"/><polyline points="14 7 20 7 20 13"/></svg></div>
+            <h3>dck.toml — Stack Config</h3>
+          </div>
+          <p>Define multi-container stacks using <code>dck.toml</code>. Similar to Docker Compose but native to dck.</p>
+          <pre class="guide-code"><code># /etc/dck/dck.toml
+[containers.web]
+  image = "nginx:alpine"
+  ports = ["80:80"]
+  restart = "always"
+
+[containers.db]
+  image = "postgres:16-alpine"
+  ports = ["5432:5432"]
+  env = ["POSTGRES_PASSWORD=secret"]
+  volumes = ["pg_data:/var/lib/postgresql/data"]</code></pre>
+          <p>Use the <strong>Config</strong> tab in the web UI to edit, deploy, and stop stacks defined in dck.toml.</p>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h20v14H2z"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></div>
+            <h3>Containers — Basic Commands</h3>
+          </div>
+          <table class="guide-table">
+            <tr><td><code>dck run nginx:alpine</code></td><td>Run a container</td></tr>
+            <tr><td><code>dck ps</code></td><td>List running containers</td></tr>
+            <tr><td><code>dck ps -a</code></td><td>List all containers</td></tr>
+            <tr><td><code>dck stop &lt;name&gt;</code></td><td>Stop a container</td></tr>
+            <tr><td><code>dck start &lt;name&gt;</code></td><td>Start a stopped container</td></tr>
+            <tr><td><code>dck rm &lt;name&gt;</code></td><td>Remove a container</td></tr>
+            <tr><td><code>dck logs &lt;name&gt;</code></td><td>View container logs</td></tr>
+            <tr><td><code>dck exec &lt;name&gt; sh</code></td><td>Enter a running container</td></tr>
+          </table>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+            <h3>Images</h3>
+          </div>
+          <table class="guide-table">
+            <tr><td><code>dck pull nginx:alpine</code></td><td>Pull an image from registry</td></tr>
+            <tr><td><code>dck images</code></td><td>List downloaded images</td></tr>
+            <tr><td><code>dck rmi nginx:alpine</code></td><td>Remove an image</td></tr>
+          </table>
+          <p>Images are pulled automatically when you create a container. You can also pre-pull images from the Images tab.</p>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+            <h3>Port Mapping</h3>
+          </div>
+          <p>Expose container ports to the host. Format: <code>host_port:container_port</code>.</p>
+          <pre class="guide-code"><code># Map host port 8080 to container port 80
+dck run -p 8080:80 nginx:alpine
+
+# Map multiple ports
+dck run -p 80:80 -p 443:443 nginx:alpine
+
+# Random host port
+dck run -p 80 nginx:alpine</code></pre>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+            <h3>Volumes</h3>
+          </div>
+          <p>Persist data and share files between host and container. Format: <code>host_path:container_path</code>.</p>
+          <pre class="guide-code"><code># Bind mount a host directory
+dck run -v /data/mysql:/var/lib/mysql mysql:8
+
+# Named volume (managed by dck)
+dck run -v mydata:/data alpine
+
+# Multiple volumes
+dck run -v /config:/etc/config -v /data:/var/data app</code></pre>
+          <div class="guide-tip">Named volumes persist even after container removal. Bind mounts depend on the host path existing.</div>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg></div>
+            <h3>Environment Variables</h3>
+          </div>
+          <p>Pass environment variables to containers for configuration.</p>
+          <pre class="guide-code"><code># Single variable
+dck run -e NODE_ENV=production node:22-alpine
+
+# Multiple variables
+dck run -e DB_HOST=db -e DB_PORT=5432 -e DB_NAME=myapp postgres:16-alpine
+
+# From file
+dck run --env-file .env app</code></pre>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></div>
+            <h3>Resource Limits</h3>
+          </div>
+          <p>Control how much CPU and memory a container can use.</p>
+          <table class="guide-table">
+            <tr><td><code>--memory 512m</code></td><td>Limit memory to 512 megabytes</td></tr>
+            <tr><td><code>--memory 2g</code></td><td>Limit memory to 2 gigabytes</td></tr>
+            <tr><td><code>--cpus 1.5</code></td><td>Limit to 1.5 CPU cores</td></tr>
+            <tr><td><code>--cpus 0.5</code></td><td>Limit to half a CPU core</td></tr>
+          </table>
+          <pre class="guide-code"><code>dck run --memory 512m --cpus 1.0 nginx:alpine</code></pre>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg></div>
+            <h3>Restart Policies</h3>
+          </div>
+          <table class="guide-table">
+            <tr><td><code>no</code></td><td>Do not automatically restart (default)</td></tr>
+            <tr><td><code>always</code></td><td>Always restart if stopped</td></tr>
+            <tr><td><code>on-failure</code></td><td>Restart only if container exits with error</td></tr>
+            <tr><td><code>unless-stopped</code></td><td>Always restart unless explicitly stopped</td></tr>
+          </table>
+          <pre class="guide-code"><code>dck run --restart always nginx:alpine</code></pre>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
+            <h3>Blueprints</h3>
+          </div>
+          <p>Blueprints are pre-configured templates for popular applications. They provide sensible defaults for image, ports, environment variables, and volumes.</p>
+          <p>To use a blueprint:</p>
+          <ol class="guide-list">
+            <li>Go to the <strong>Blueprints</strong> tab</li>
+            <li>Select a template (Nginx, PostgreSQL, Redis, etc.)</li>
+            <li>Customize the name, ports, env vars, and other settings</li>
+            <li>Click <strong>Pull & Deploy</strong> to launch</li>
+          </ol>
+        </div>
+
+        <div class="guide-card glass">
+          <div class="guide-card-header">
+            <div class="guide-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+            <h3>Best Practices</h3>
+          </div>
+          <ul class="guide-list">
+            <li><strong>Use specific tags</strong> — avoid <code>latest</code>, pin versions like <code>nginx:1.25</code></li>
+            <li><strong>Set resource limits</strong> — always set <code>--memory</code> and <code>--cpus</code> for production</li>
+            <li><strong>Use named volumes</strong> — for persistent data instead of bind mounts</li>
+            <li><strong>Least privilege</strong> — run containers as non-root user when possible</li>
+            <li><strong>Health checks</strong> — define healthcheck commands for your containers</li>
+            <li><strong>Use dck.toml</strong> — for multi-container stacks and repeatable deployments</li>
+          </ul>
+        </div>
+      </div>
     </div>
 
     <!-- Settings -->

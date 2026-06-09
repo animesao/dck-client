@@ -89,7 +89,7 @@ function navigate(page, data) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.page === page));
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
 
-  const titles = { dashboard: 'Dashboard', blueprints: 'Blueprints', containers: 'Containers', images: 'Images', config: 'Config', settings: 'Settings', 'container-detail': 'Container', create: 'Create Container' };
+  const titles = { dashboard: 'Dashboard', blueprints: 'Blueprints', containers: 'Containers', images: 'Images', config: 'Config', guide: 'Guide', settings: 'Settings', 'container-detail': 'Container', create: 'Create Container' };
   document.getElementById('page-title').textContent = titles[page] || page;
 
   const el = document.getElementById('page-' + page);
