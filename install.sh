@@ -112,10 +112,9 @@ fi
 
 # ---- Build Go backend ----
 log "Building Go backend..."
-log "Go version: $(go version 2>&1)"
-log "Go binary: $(which go 2>&1)"
 cd server
-go build -o dck-panel -ldflags="-s -w" .
+/usr/local/go/bin/go version
+/usr/local/go/bin/go build -o dck-panel -ldflags="-s -w" .
 cp dck-panel /usr/local/bin/dck-panel
 cd "$PANEL_DIR"
 log "Go binary built: $(/usr/local/bin/dck-panel --help 2>&1 | head -1 || echo 'ok')"
