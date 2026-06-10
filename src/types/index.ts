@@ -23,8 +23,8 @@ export interface Container {
 }
 
 export interface PortMap {
-  host_port: number
-  container_port: number
+  host: string
+  container: string
   protocol: string
 }
 

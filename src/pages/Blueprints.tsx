@@ -60,7 +60,10 @@ export function BlueprintsPage() {
     const containers = await listContainers(true)
     const usedHostPorts = new Set<number>()
     for (const c of containers) {
-      for (const p of (c.ports || [])) usedHostPorts.add(p.host_port)
+      for (const p of (c.ports || [])) {
+        const port = parseInt(p.host, 10)
+        if (!isNaN(port)) usedHostPorts.add(port)
+      }
     }
     return templatePorts.map(p => {
       const parts = p.split(':')
