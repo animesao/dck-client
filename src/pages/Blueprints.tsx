@@ -199,6 +199,7 @@ export function BlueprintsPage() {
       setDeployVolSrc([])
       setDeployEnv([])
     } catch (err: any) {
+      console.error('Deploy error:', err)
       addToast(err.message || 'Failed to deploy', 'error')
     } finally {
       setSubmitting(false)
@@ -328,6 +329,7 @@ export function BlueprintsPage() {
                       })
                       addToast('Container created from template!', 'success')
                     } catch (err: any) {
+                      console.error('Deploy error:', err)
                       addToast(err.message || 'Failed to deploy', 'error')
                     }
                   }}>

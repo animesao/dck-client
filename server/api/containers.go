@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -170,6 +171,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 
 	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(req.Ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command)
 	if err != nil {
+		log.Printf("ERROR handleCreateContainer: %v", err)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
