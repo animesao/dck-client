@@ -55,6 +55,10 @@ func (s *Server) getContainerDataDir(c *dck.Container) string {
 	if c.WorkingDir != "" {
 		return c.WorkingDir
 	}
+	wd := s.dck.ReadImageWorkingDir(c.ImageName, c.ImageTag)
+	if wd != "" {
+		return wd
+	}
 	return "/home/container"
 }
 

@@ -134,6 +134,8 @@ func serveSFTPForContainer(channel ssh.Channel, dckClient *dck.Client, container
 	root, err := containerDataRoot(dckClient, containerID)
 	if err != nil {
 		log.Printf("[sftp] container %s filesystem not available: %v", containerID[:12], err)
+		channel.Write([]byte("Container filesystem not available\r\n"))
+		channel.Close()
 		return
 	}
 
@@ -282,6 +284,9 @@ func containerDataRoot(dckClient *dck.Client, containerID string) (string, error
 	}
 
 	dataDir := c.WorkingDir
+	if dataDir == "" {
+		dataDir = dckClient.ReadImageWorkingDir(c.ImageName, c.ImageTag)
+	}
 	if dataDir == "" {
 		dataDir = "/home/container"
 	}

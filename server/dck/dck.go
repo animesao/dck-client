@@ -324,3 +324,22 @@ func (c *Client) ContainersDir() string {
 func (c *Client) BackupDir() string {
 	return filepath.Join(c.DataDir, "backups")
 }
+
+type ImageConfig struct {
+	Config struct {
+		WorkingDir string `json:"WorkingDir"`
+	} `json:"config"`
+}
+
+func (c *Client) ReadImageWorkingDir(imageName, imageTag string) string {
+	cfgPath := filepath.Join(c.imagesDir(), imageName, imageTag, "config.json")
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		return ""
+	}
+	var cfg ImageConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return ""
+	}
+	return cfg.Config.WorkingDir
+}
