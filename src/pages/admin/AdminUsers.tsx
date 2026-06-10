@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { PageLoading } from '@/components/ui/Spinner'
 import type { User } from '@/types'
-import { Users as UsersIcon, Plus, Trash2, Shield, UserCog } from 'lucide-react'
+import { Plus, Trash2, Shield } from 'lucide-react'
 
 export function AdminUsersPage() {
   const { isAdmin, user: currentUser } = useAuth()

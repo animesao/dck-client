@@ -106,8 +106,8 @@ function detectPreset(image: string): string | null {
   return null
 }
 
-function generateEnvString(pairs: EnvPair[]): string {
-  return pairs.filter(p => p.key).map(p => `${p.key}=${p.value}`).join(',')
+function generateEnvArray(pairs: EnvPair[]): string[] {
+  return pairs.filter(p => p.key).map(p => `${p.key}=${p.value}`)
 }
 
 export function CreateContainerModal({ open, onClose, onSuccess }: CreateContainerModalProps) {
@@ -183,7 +183,7 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
     try {
       const ports = portStr ? portStr.split(',').map(p => p.trim()).filter(Boolean) : []
       const volumes = volStr ? volStr.split(',').map(v => v.trim()).filter(Boolean) : []
-      const envArr = generateEnvString(envPairs).split(',').filter(Boolean)
+      const envArr = generateEnvArray(envPairs)
 
       await createContainer({ ...form, ports, volumes, env: envArr })
       addToast('Container created successfully', 'success')
@@ -319,13 +319,13 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
         <button
           type="button"
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+          className="text-sm text-[#636d7d] hover:text-[#e6edf3] flex items-center gap-1"
         >
           {showAdvanced ? '▼' : '▶'} Advanced options
         </button>
 
         {showAdvanced && (
-          <div className="space-y-4 border border-gray-200 rounded-lg p-4">
+          <div className="space-y-4 border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
             <Input
               label="Command (overrides image CMD)"
               value={form.command || ''}

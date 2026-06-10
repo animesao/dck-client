@@ -47,8 +47,16 @@ func safePath(root, requested string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// Ensure the path is still within the container root
-	if !strings.HasPrefix(abs, filepath.Clean(root)) {
+	rootAbs, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	// Ensure the path is still within the container root (with trailing separator)
+	rootPrefix := rootAbs
+	if !strings.HasSuffix(rootPrefix, string(filepath.Separator)) {
+		rootPrefix += string(filepath.Separator)
+	}
+	if !strings.HasPrefix(abs, rootPrefix) {
 		return "", fmt.Errorf("path traversal denied")
 	}
 	return abs, nil

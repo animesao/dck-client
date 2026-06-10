@@ -96,7 +96,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("PUT /api/admin/settings", s.auth(s.admin(s.handleAdminUpdateSettings)))
 
 	mux.HandleFunc("GET /api/settings", s.auth(s.handleGetSettings))
-	mux.HandleFunc("PUT /api/settings", s.auth(s.handleUpdateSettings))
+	mux.HandleFunc("PUT /api/settings", s.auth(s.admin(s.handleUpdateSettings)))
 
 	mux.HandleFunc("GET /api/projects/scan", s.auth(s.handleScanProjects))
 	mux.HandleFunc("DELETE /api/projects/delete", s.auth(s.handleDeleteProject))

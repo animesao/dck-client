@@ -38,7 +38,7 @@ export function useSSE<T>(
     es.onerror = () => {
       setConnected(false)
       setError('Connection lost')
-      es.close()
+      // Don't close EventSource — it auto-reconnects
     }
   }, [path])
 

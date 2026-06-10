@@ -282,13 +282,24 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 	}
 
 	cpuPct := 0.0
-	// CPU usage from cgroup
+	// CPU usage — try cgroup v1 first, then v2
 	cpuPath := fmt.Sprintf("/sys/fs/cgroup/cpu/dck/%s/cpuacct.usage", id)
-	if b, err := os.ReadFile(cpuPath); err == nil {
+	cpuV2Path := fmt.Sprintf("/sys/fs/cgroup/dck/%s/cpu.stat", id)
+	b, err := os.ReadFile(cpuPath)
+	if err == nil {
 		var usage uint64
-		_, err := fmt.Sscanf(string(b), "%d", &usage)
-		if err == nil {
-			cpuPct = float64(usage) / 1e9 * 100 // rough estimate
+		if _, err := fmt.Sscanf(string(b), "%d", &usage); err == nil {
+			cpuPct = float64(usage) / 1e9 * 100
+		}
+	} else if b, err := os.ReadFile(cpuV2Path); err == nil {
+		// cgroup v2: parse "usage_usec 123456" from cpu.stat
+		for _, line := range strings.Split(string(b), "\n") {
+			if strings.HasPrefix(line, "usage_usec") {
+				var usec uint64
+				fmt.Sscanf(line, "usage_usec %d", &usec)
+				cpuPct = float64(usec) / 1e6 * 100
+				break
+			}
 		}
 	}
 

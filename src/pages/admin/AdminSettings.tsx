@@ -19,7 +19,7 @@ export function AdminSettingsPage() {
 
   useEffect(() => {
     if (!isAdmin) return
-    getSettings().then(setSettings).catch(() => {}).finally(() => setLoading(false))
+    getSettings().then(setSettings).catch(() => addToast('Failed to load settings', 'error')).finally(() => setLoading(false))
   }, [])
 
   const handleSave = async () => {

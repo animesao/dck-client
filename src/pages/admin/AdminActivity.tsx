@@ -7,7 +7,7 @@ import { PageLoading } from '@/components/ui/Spinner'
 import { formatDate } from '@/utils'
 import { api } from '@/api/client'
 import type { ActivityLog } from '@/types'
-import { Activity, Search, RotateCw, Filter } from 'lucide-react'
+import { Search, RotateCw } from 'lucide-react'
 
 function formatAction(action: string): string {
   const map: Record<string, string> = {

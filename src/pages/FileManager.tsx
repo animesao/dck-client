@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl } from '@/api/files'
 import { getContainer } from '@/api/containers'
+import { getAuthToken } from '@/api/client'
 import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -166,7 +167,7 @@ export function FileManagerPage() {
                 formData.append('file', file)
                 formData.append('path', currentPath)
                 try {
-                  const token = localStorage.getItem('dck_token')
+                  const token = getAuthToken()
                   const url = getUploadUrl(id, currentPath)
                   await fetch(url, {
                     method: 'POST',

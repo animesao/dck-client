@@ -43,7 +43,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 				return
 			}
 		} else {
-			partialToken, _ := s.generateToken(user.ID, user.Username, user.Role)
+			partialToken, err := s.generateToken(user.ID, user.Username, user.Role)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "Failed to generate 2FA challenge")
+				return
+			}
 			writeJSON(w, http.StatusOK, map[string]interface{}{
 				"twofa_required": true,
 				"twofa_token":    partialToken,

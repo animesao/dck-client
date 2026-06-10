@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/Card'
 import { Textarea } from '@/components/ui/Textarea'
 import { Button } from '@/components/ui/Button'
 import { PageLoading } from '@/components/ui/Spinner'
-import { Save, Play, Square, FileCode2 } from 'lucide-react'
+import { Save, Play, Square } from 'lucide-react'
 
 export function ConfigPage() {
   const addToast = useUIStore(s => s.addToast)

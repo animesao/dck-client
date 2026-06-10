@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { PageLoading } from '@/components/ui/Spinner'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
 import type { Container } from '@/types'
-import { Container as ContainerIcon, Play, Square, RotateCcw, Trash2, Search, ExternalLink, Users } from 'lucide-react'
+import { Play, Square, RotateCcw, Trash2, Search, ExternalLink } from 'lucide-react'
 
 export function AdminContainersPage() {
   const { isAdmin } = useAuth()

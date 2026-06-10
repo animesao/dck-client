@@ -11,6 +11,7 @@ import {
   listBackups, createBackup, restoreBackup, deleteBackup, getBackupDownloadUrl,
 } from '@/api/files'
 import { useUIStore } from '@/store/uiStore'
+import { getAuthToken } from '@/api/client'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Tabs } from '@/components/ui/Tabs'
 import { Button } from '@/components/ui/Button'
@@ -469,7 +470,7 @@ function ContainerFilesTab({ containerId }: { containerId: string }) {
                   formData.append('file', file)
                   formData.append('path', currentPath)
                   try {
-                    const token = localStorage.getItem('dck_token')
+                    const token = getAuthToken()
                     const url = getUploadUrl(containerId, currentPath)
                     await fetch(url, {
                       method: 'POST',
