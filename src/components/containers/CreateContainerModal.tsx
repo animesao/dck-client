@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { createContainer } from '@/api/containers'
 import { useUIStore } from '@/store/uiStore'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
+import { imageConfigs, imageCategories } from '@/data/imageConfigs'
 import type { CreateContainerRequest } from '@/types'
+import { Search, ChevronRight, Server, Globe, Database, Code, Gamepad2, Bot, Cpu } from 'lucide-react'
 
 interface CreateContainerModalProps {
   open: boolean
@@ -13,110 +14,39 @@ interface CreateContainerModalProps {
   onSuccess: () => void
 }
 
+const catIcons: Record<string, any> = {
+  Games: Gamepad2,
+  Development: Code,
+  'Operating Systems': MonitorIcon,
+  'Web Servers': Globe,
+  Databases: Database,
+  Bots: Bot,
+}
+
+// Helper — no lazy import needed
+function MonitorIcon(props: { className?: string; size?: number }) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width={props.size || 16} height={props.size || 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={props.className}>
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+    </svg>
+  )
+}
+
 interface EnvPair {
   key: string
   value: string
 }
 
-interface ImagePreset {
-  env: EnvPair[]
-  ports: string[]
-  command?: string
-}
-
-const imagePresets: Record<string, ImagePreset> = {
-  mysql: {
-    env: [
-      { key: 'MYSQL_ROOT_PASSWORD', value: 'rootpass' },
-      { key: 'MYSQL_DATABASE', value: 'app' },
-      { key: 'MYSQL_USER', value: 'user' },
-      { key: 'MYSQL_PASSWORD', value: 'pass' },
-    ],
-    ports: ['3306:3306'],
-    command: 'mysqld',
-  },
-  postgres: {
-    env: [
-      { key: 'POSTGRES_PASSWORD', value: 'postgres' },
-      { key: 'POSTGRES_DB', value: 'app' },
-      { key: 'POSTGRES_USER', value: 'user' },
-    ],
-    ports: ['5432:5432'],
-    command: 'postgres -D /var/lib/postgresql/data',
-  },
-  mongo: {
-    env: [
-      { key: 'MONGO_INITDB_ROOT_USERNAME', value: 'admin' },
-      { key: 'MONGO_INITDB_ROOT_PASSWORD', value: 'adminpass' },
-    ],
-    ports: ['27017:27017'],
-    command: 'mongod',
-  },
-  'minecraft-server': {
-    env: [
-      { key: 'EULA', value: 'TRUE' },
-      { key: 'MEMORY', value: '2G' },
-      { key: 'TYPE', value: 'VANILLA' },
-      { key: 'VERSION', value: 'LATEST' },
-    ],
-    ports: ['25565:25565'],
-    command: 'java -Xmx$MEMORY -Xms$MEMORY -jar server.jar --nogui',
-  },
-  redis: {
-    env: [],
-    ports: ['6379:6379'],
-    command: 'redis-server',
-  },
-  nginx: {
-    env: [],
-    ports: ['80:80'],
-    command: 'nginx -g daemon off;',
-  },
-}
-
-const imageOptions = [
-  { value: 'nginx:latest', label: 'nginx:latest' },
-  { value: 'redis:latest', label: 'redis:latest' },
-  { value: 'postgres:latest', label: 'postgres:latest' },
-  { value: 'mysql:latest', label: 'mysql:latest' },
-  { value: 'mongo:latest', label: 'mongo:latest' },
-  { value: 'python:latest', label: 'python:latest' },
-  { value: 'node:latest', label: 'node:latest' },
-  { value: 'alpine:latest', label: 'alpine:latest' },
-  { value: 'ubuntu:latest', label: 'ubuntu:latest' },
-  { value: 'itzg/minecraft-server:latest', label: 'Minecraft Server (latest)' },
-  { value: '', label: 'Custom image...' },
-]
-
-const restartOptions = [
-  { value: 'no', label: 'No' },
-  { value: 'always', label: 'Always' },
-  { value: 'on-failure', label: 'On Failure' },
-  { value: 'unless-stopped', label: 'Unless Stopped' },
-]
-
-function detectPreset(image: string): string | null {
-  const match = image.toLowerCase()
-  if (match.includes('minecraft-server')) return 'minecraft-server'
-  if (match.includes('mysql')) return 'mysql'
-  if (match.includes('postgres')) return 'postgres'
-  if (match.includes('mongo')) return 'mongo'
-  if (match.includes('redis')) return 'redis'
-  if (match.includes('nginx')) return 'nginx'
-  return null
-}
-
-function generateEnvArray(pairs: EnvPair[]): string[] {
-  return pairs.filter(p => p.key).map(p => `${p.key}=${p.value}`)
-}
-
 export function CreateContainerModal({ open, onClose, onSuccess }: CreateContainerModalProps) {
   const addToast = useUIStore(s => s.addToast)
   const [loading, setLoading] = useState(false)
-  const [customImage, setCustomImage] = useState(false)
+  const [step, setStep] = useState<'category' | 'image' | 'config'>('category')
+  const [selectedCat, setSelectedCat] = useState('')
+  const [selectedId, setSelectedId] = useState('')
+  const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [form, setForm] = useState<CreateContainerRequest>({
-    image: 'nginx:latest',
+    image: '',
     name: '',
     command: '',
     ports: [],
@@ -128,53 +58,35 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
     network: 'bridge',
   })
   const [portStr, setPortStr] = useState('')
-  const [volStr, setVolStr] = useState('')
   const [envPairs, setEnvPairs] = useState<EnvPair[]>([])
+  const [selectedTag, setSelectedTag] = useState('')
 
-  useEffect(() => {
-    if (!open) return
-    const key = detectPreset(form.image)
-    if (key) {
-      const preset = imagePresets[key]
-      setEnvPairs(preset.env.map(e => ({ ...e })))
-      setPortStr(preset.ports.join(', '))
-      setForm(f => ({ ...f, command: preset.command || '' }))
-    } else {
-      setEnvPairs([])
-      setPortStr('')
-    }
-  }, [open, form.image])
+  const config = useMemo(() => imageConfigs.find(c => c.id === selectedId), [selectedId])
 
-  const resetForm = () => {
-    setForm({
-      image: 'nginx:latest',
-      name: '',
-      command: '',
-      ports: [],
-      volumes: [],
-      env: [],
-      restart: 'no',
-      memory: '',
-      cpus: '',
-      network: 'bridge',
-    })
-    setPortStr('')
-    setVolStr('')
-    setEnvPairs([])
-    setCustomImage(false)
-    setShowAdvanced(false)
-  }
+  const filtered = useMemo(() => {
+    if (!search) return imageConfigs
+    return imageConfigs.filter(c =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.category.toLowerCase().includes(search.toLowerCase()) ||
+      c.image.toLowerCase().includes(search.toLowerCase())
+    )
+  }, [search])
 
-  const addEnvPair = () => {
-    setEnvPairs([...envPairs, { key: '', value: '' }])
-  }
-
-  const removeEnvPair = (idx: number) => {
-    setEnvPairs(envPairs.filter((_, i) => i !== idx))
-  }
-
-  const updateEnvPair = (idx: number, field: 'key' | 'value', val: string) => {
-    setEnvPairs(envPairs.map((p, i) => i === idx ? { ...p, [field]: val } : p))
+  const selectImage = (id: string) => {
+    const cfg = imageConfigs.find(c => c.id === id)
+    if (!cfg) return
+    setSelectedId(id)
+    setSelectedTag(cfg.defaultTag)
+    setEnvPairs(cfg.env.map(e => ({ key: e.key, value: e.defaultValue })))
+    setPortStr(cfg.ports.join(', '))
+    setForm(f => ({
+      ...f,
+      image: cfg.image + ':' + cfg.defaultTag,
+      command: cfg.command,
+      memory: cfg.memory || '',
+      cpus: cfg.cpus || '',
+    }))
+    setStep('config')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -182,11 +94,11 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
     setLoading(true)
     try {
       const ports = portStr ? portStr.split(',').map(p => p.trim()).filter(Boolean) : []
-      const volumes = volStr ? volStr.split(',').map(v => v.trim()).filter(Boolean) : []
-      const envArr = generateEnvArray(envPairs)
-
-      await createContainer({ ...form, ports, volumes, env: envArr })
-      addToast('Container created successfully', 'success')
+      const envArr = envPairs.filter(p => p.key).map(p => `${p.key}=${p.value}`)
+      // Build full image with tag
+      const image = config ? `${config.image}:${selectedTag}` : form.image
+      await createContainer({ ...form, image, ports, volumes: [] as string[], env: envArr })
+      addToast('Container created', 'success')
       onSuccess()
       onClose()
       resetForm()
@@ -197,149 +109,287 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
     }
   }
 
+  const resetForm = () => {
+    setStep('category')
+    setSelectedCat('')
+    setSelectedId('')
+    setSearch('')
+    setShowAdvanced(false)
+    setForm({
+      image: '', name: '', command: '', ports: [], volumes: [],
+      env: [], restart: 'no', memory: '', cpus: '', network: 'bridge',
+    })
+    setPortStr('')
+    setEnvPairs([])
+    setSelectedTag('')
+  }
+
   return (
     <Modal open={open} onClose={onClose} title="Create Container" size="lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {customImage ? (
-            <div className="col-span-2">
-              <Input
-                label="Custom Image"
-                value={form.image}
-                onChange={e => setForm({ ...form, image: e.target.value })}
-                placeholder="user/image:tag"
-              />
-              <button
-                type="button"
-                onClick={() => { setCustomImage(false); setForm({ ...form, image: 'nginx:latest' }) }}
-                className="text-sm text-blue-500 hover:text-blue-700 mt-1"
-              >
-                ← Choose from presets
-              </button>
-            </div>
-          ) : (
-            <Select
-              label="Image"
-              value={form.image}
-              onChange={e => {
-                const val = e.target.value
-                if (val === '') {
-                  setCustomImage(true)
-                  setForm({ ...form, image: '' })
-                } else {
-                  setForm({ ...form, image: val })
-                }
-              }}
-              options={imageOptions}
-            />
-          )}
-          <Input
-            label="Container Name"
-            value={form.name}
-            onChange={e => setForm({ ...form, name: e.target.value })}
-            placeholder="my-container"
-          />
-        </div>
-
-        <Input
-          label="Ports (comma-separated, e.g. 8080:80, 443:443)"
-          value={portStr}
-          onChange={e => setPortStr(e.target.value)}
-          placeholder="8080:80, 3000:3000"
-        />
-
-        <Input
-          label="Volumes (comma-separated, e.g. /data:/var/lib/data)"
-          value={volStr}
-          onChange={e => setVolStr(e.target.value)}
-          placeholder="/host/path:/container/path"
-        />
-
+      {step === 'category' && (
         <div>
-          <label className="block text-sm font-medium text-[#e6edf3] mb-2">Environment Variables</label>
-          <div className="space-y-2">
-            {envPairs.map((pair, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={pair.key}
-                  onChange={e => updateEnvPair(idx, 'key', e.target.value)}
-                  placeholder="KEY"
-                  className="input flex-1 font-mono text-xs"
-                />
-                <span className="text-[#636d7d]">=</span>
-                <input
-                  type="text"
-                  value={pair.value}
-                  onChange={e => updateEnvPair(idx, 'value', e.target.value)}
-                  placeholder="value"
-                  className="input flex-[2] font-mono text-xs"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeEnvPair(idx)}
-                  className="btn-ghost p-1.5 text-red-400 hover:text-red-300 shrink-0"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addEnvPair}
-              className="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-1"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add variable
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Select
-            label="Restart Policy"
-            value={form.restart}
-            onChange={e => setForm({ ...form, restart: e.target.value })}
-            options={restartOptions}
-          />
-          <Input
-            label="Memory (e.g. 512m, 1g)"
-            value={form.memory || ''}
-            onChange={e => setForm({ ...form, memory: e.target.value })}
-            placeholder="512m"
-          />
-          <Input
-            label="CPUs (e.g. 1, 1.5)"
-            value={form.cpus || ''}
-            onChange={e => setForm({ ...form, cpus: e.target.value })}
-            placeholder="1"
-          />
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-sm text-[#636d7d] hover:text-[#e6edf3] flex items-center gap-1"
-        >
-          {showAdvanced ? '▼' : '▶'} Advanced options
-        </button>
-
-        {showAdvanced && (
-          <div className="space-y-4 border border-white/[0.08] rounded-lg p-4 bg-white/[0.02]">
-            <Input
-              label="Command (overrides image CMD)"
-              value={form.command || ''}
-              onChange={e => setForm({ ...form, command: e.target.value })}
-              placeholder="e.g. java -jar server.jar --nogui"
+          <div className="relative mb-4">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#636d7d]" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search images..."
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#1c1f26] border border-white/[0.08] text-sm text-[#e6edf3] placeholder:text-[#636d7d] focus:outline-none focus:border-indigo-500/50"
+              autoFocus
             />
           </div>
-        )}
 
-        <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button type="submit" loading={loading}>Create Container</Button>
+          {!search ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
+                {imageCategories.map(cat => {
+                  const Icon = catIcons[cat] || Server
+                  const count = imageConfigs.filter(c => c.category === cat).length
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => { setSelectedCat(cat); setStep('image') }}
+                      className="flex items-center gap-3 p-3 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] border border-white/[0.06] hover:border-indigo-500/30 transition-all text-left"
+                    >
+                      <Icon className="text-indigo-400 shrink-0" size={16} />
+                      <div className="min-w-0">
+                        <p className="text-xs text-[#e6edf3] font-medium truncate">{cat}</p>
+                        <p className="text-[10px] text-[#636d7d]">{count} images</p>
+                      </div>
+                      <ChevronRight size={12} className="text-[#636d7d] ml-auto shrink-0" />
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="border-t border-white/[0.06] pt-3">
+                <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium mb-2">Quick Select</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {imageConfigs.filter(c => ['minecraft-vanilla', 'node', 'python', 'nginx', 'mysql', 'postgres'].includes(c.id)).map(cfg => (
+                    <button
+                      key={cfg.id}
+                      onClick={() => selectImage(cfg.id)}
+                      className="text-left px-2.5 py-2 rounded-lg text-xs text-[#8b949e] hover:text-[#e6edf3] hover:bg-white/[0.04] transition-colors truncate"
+                    >
+                      {cfg.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+              {filtered.map(cfg => (
+                <button
+                  key={cfg.id}
+                  onClick={() => selectImage(cfg.id)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors"
+                >
+                  <p className="text-xs text-[#e6edf3] font-medium">{cfg.name}</p>
+                  <p className="text-[10px] text-[#636d7d]">{cfg.image}:{cfg.defaultTag} — {cfg.description}</p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      </form>
+      )}
+
+      {step === 'image' && (
+        <div>
+          <button onClick={() => setStep('category')} className="text-xs text-[#636d7d] hover:text-[#e6edf3] mb-3 flex items-center gap-1">
+            ← All categories
+          </button>
+          <p className="text-sm font-medium text-[#e6edf3] mb-3">{selectedCat}</p>
+          <div className="space-y-1 max-h-[55vh] overflow-y-auto">
+            {imageConfigs.filter(c => c.category === selectedCat).map(cfg => (
+              <button
+                key={cfg.id}
+                onClick={() => selectImage(cfg.id)}
+                className="w-full text-left px-3 py-3 rounded-lg hover:bg-white/[0.04] border border-transparent hover:border-white/[0.06] transition-all"
+              >
+                <p className="text-xs text-[#e6edf3] font-medium">{cfg.name}</p>
+                <p className="text-[10px] text-[#636d7d] mt-0.5">{cfg.image}:{cfg.defaultTag}</p>
+                <p className="text-[10px] text-[#636d7d]">{cfg.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {step === 'config' && config && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <button onClick={() => { setStep('image'); setSelectedId('') }} className="text-xs text-[#636d7d] hover:text-[#e6edf3] flex items-center gap-1">
+            ← Change image
+          </button>
+
+          <div className="bg-white/[0.04] rounded-lg p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+              <Cpu size={14} className="text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-[#e6edf3]">{config.name}</p>
+              <p className="text-[10px] text-[#636d7d] font-mono">{config.image}:{selectedTag}</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#e6edf3] mb-1.5">Version</label>
+            <div className="flex flex-wrap gap-1.5">
+              {config.versions.map(v => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => {
+                    setSelectedTag(v)
+                    setForm(f => ({ ...f, image: config.image + ':' + v }))
+                  }}
+                  className={`px-2.5 py-1 rounded-md text-xs border transition-all ${
+                    selectedTag === v
+                      ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                      : 'bg-white/[0.04] border-white/[0.08] text-[#8b949e] hover:border-white/[0.15]'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#e6edf3] mb-1">Startup Command</label>
+            <div className="bg-[#0d1117] rounded-lg p-2.5">
+              <code className="text-xs text-[#e6edf3] font-mono">{config.command}</code>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Container Name"
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              placeholder="my-server"
+            />
+            <Input
+              label="Ports (comma-separated)"
+              value={portStr}
+              onChange={e => setPortStr(e.target.value)}
+              placeholder={config.ports.join(', ')}
+            />
+          </div>
+
+          {config.env.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-[#e6edf3] mb-2">Environment Variables</label>
+              <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
+                {config.env.map((envDef, idx) => {
+                  const pair = envPairs[idx] || { key: envDef.key, value: envDef.defaultValue }
+                  return (
+                    <div key={envDef.key} className="bg-white/[0.02] rounded-lg p-2.5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-mono text-indigo-400 font-medium">{envDef.key}</span>
+                        {envDef.label && <span className="text-[10px] text-[#636d7d]">— {envDef.label}</span>}
+                      </div>
+                      {envDef.options ? (
+                        <div className="flex flex-wrap gap-1">
+                          {envDef.options.map(opt => (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => {
+                                const newPairs = [...envPairs]
+                                newPairs[idx] = { ...pair, value: opt }
+                                setEnvPairs(newPairs)
+                              }}
+                              className={`px-2 py-0.5 rounded text-[10px] border transition-colors ${
+                                pair.value === opt
+                                  ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                                  : 'bg-white/[0.04] border-white/[0.08] text-[#8b949e]'
+                              }`}
+                            >
+                              {opt}
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <input
+                          type="text"
+                          value={pair.value}
+                          onChange={e => {
+                            const newPairs = [...envPairs]
+                            newPairs[idx] = { ...pair, value: e.target.value }
+                            setEnvPairs(newPairs)
+                          }}
+                          placeholder={envDef.description || envDef.defaultValue}
+                          className="w-full mt-1 px-2 py-1 rounded bg-[#0d1117] border border-white/[0.08] text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-indigo-500/50"
+                        />
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-[#e6edf3] mb-1">Restart</label>
+              <select
+                value={form.restart}
+                onChange={e => setForm({ ...form, restart: e.target.value })}
+                className="w-full px-2 py-1.5 rounded-lg bg-[#1c1f26] border border-white/[0.08] text-xs text-[#e6edf3] focus:outline-none focus:border-indigo-500/50"
+              >
+                <option value="no">No</option>
+                <option value="always">Always</option>
+                <option value="on-failure">On Failure</option>
+                <option value="unless-stopped">Unless Stopped</option>
+              </select>
+            </div>
+            <Input
+              label="Memory"
+              value={form.memory || ''}
+              onChange={e => setForm({ ...form, memory: e.target.value })}
+              placeholder={config.memory || '512m'}
+            />
+            <Input
+              label="CPUs"
+              value={form.cpus || ''}
+              onChange={e => setForm({ ...form, cpus: e.target.value })}
+              placeholder={config.cpus || '1'}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="text-xs text-[#636d7d] hover:text-[#e6edf3] flex items-center gap-1"
+          >
+            {showAdvanced ? '▼' : '▶'} Advanced
+          </button>
+
+          {showAdvanced && (
+            <div className="space-y-3 border border-white/[0.08] rounded-lg p-3 bg-white/[0.02]">
+              <Input
+                label="Custom Command (overrides default)"
+                value={form.command || ''}
+                onChange={e => setForm({ ...form, command: e.target.value })}
+                placeholder={config.command}
+              />
+              <Input
+                label="Volumes"
+                value={form.volumes?.join(', ') || ''}
+                onChange={e => setForm({ ...form, volumes: e.target.value.split(',').map(v => v.trim()).filter(Boolean) })}
+                placeholder="/host:/container"
+              />
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button type="submit" loading={loading}>Create</Button>
+          </div>
+        </form>
+      )}
     </Modal>
   )
 }
