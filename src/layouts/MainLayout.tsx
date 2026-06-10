@@ -176,7 +176,10 @@ export function MainLayout() {
             <button onClick={toggleSidebar} className="btn-ghost p-2 rounded-xl hover:bg-white/[0.04]">
               {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
-            <span className={`text-sm font-semibold text-[#e6edf3] truncate max-w-[160px] ${sidebarOpen && 'hidden lg:inline'}`}>
+            <span
+              onClick={toggleSidebar}
+              className={`text-sm font-semibold text-[#e6edf3] truncate max-w-[160px] cursor-pointer ${sidebarOpen && 'hidden lg:inline'}`}
+            >
               {navItems.find(i => location.pathname === i.to || (i.to !== '/' && location.pathname.startsWith(i.to)))?.label || 'dck'}
             </span>
           </div>
