@@ -124,6 +124,20 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
+	settings := s.store.GetSettings()
+
+	// Permission check: only admins can create containers if disabled for users
+	if claims.Role != "admin" && !settings.AllowUserContainers {
+		writeError(w, http.StatusForbidden, "Container creation is restricted to admins")
+		return
+	}
+
+	// Permission check: only admins can expose ports if disabled for users
+	if claims.Role != "admin" && !settings.AllowUserPorts && len(req.Ports) > 0 {
+		writeError(w, http.StatusForbidden, "Port mapping is restricted to admins")
+		return
+	}
+
 	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(req.Ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

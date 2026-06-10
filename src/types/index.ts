@@ -185,6 +185,8 @@ export interface AppSettings {
   dck_bin: string
   dck_data: string
   registration: boolean
+  allow_user_containers: boolean
+  allow_user_ports: boolean
 }
 
 export interface VersionInfo {

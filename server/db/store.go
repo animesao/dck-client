@@ -22,9 +22,11 @@ type User struct {
 }
 
 type Settings struct {
-	Registration bool   `json:"registration"`
-	DckBin       string `json:"dck_bin"`
-	DckData      string `json:"dck_data"`
+	Registration        bool   `json:"registration"`
+	DckBin              string `json:"dck_bin"`
+	DckData             string `json:"dck_data"`
+	AllowUserContainers bool   `json:"allow_user_containers"`
+	AllowUserPorts      bool   `json:"allow_user_ports"`
 }
 
 type Store struct {
@@ -82,6 +84,8 @@ func (s *Store) migrate() error {
 	s.db.QueryRow("SELECT COUNT(*) FROM settings").Scan(&count)
 	if count == 0 {
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('registration', 'true')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('allow_user_containers', 'true')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('allow_user_ports', 'true')")
 	}
 	return nil
 }
@@ -213,7 +217,7 @@ func (s *Store) DeleteUser(id string) bool {
 }
 
 func (s *Store) GetSettings() Settings {
-	settings := Settings{Registration: true}
+	settings := Settings{Registration: true, AllowUserContainers: true, AllowUserPorts: true}
 
 	rows, err := s.db.Query("SELECT key, value FROM settings")
 	if err != nil {
@@ -231,6 +235,10 @@ func (s *Store) GetSettings() Settings {
 			settings.DckBin = value
 		case "dck_data":
 			settings.DckData = value
+		case "allow_user_containers":
+			settings.AllowUserContainers = value == "true"
+		case "allow_user_ports":
+			settings.AllowUserPorts = value == "true"
 		}
 	}
 	return settings

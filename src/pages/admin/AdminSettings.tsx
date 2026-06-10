@@ -63,6 +63,41 @@ export function AdminSettingsPage() {
             </div>
           </div>
 
+          <div className="pb-4 border-b border-white/[0.05]">
+            <div className="flex items-center gap-2.5 pt-4">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center border border-amber-500/10">
+                <Shield size={18} className="text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-[#e6edf3]">Permissions</h3>
+                <p className="text-xs text-[#636d7d]">Control what regular users can do</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-[#e6edf3]">Allow users to create containers</p>
+                <p className="text-[11px] text-[#636d7d]">When disabled, only admins can create new containers</p>
+              </div>
+              <Switch
+                checked={settings?.allow_user_containers ?? true}
+                onChange={checked => setSettings(s => s ? { ...s, allow_user_containers: checked } : s)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-[#e6edf3]">Allow users to map ports</p>
+                <p className="text-[11px] text-[#636d7d]">When disabled, only admins can expose container ports</p>
+              </div>
+              <Switch
+                checked={settings?.allow_user_ports ?? true}
+                onChange={checked => setSettings(s => s ? { ...s, allow_user_ports: checked } : s)}
+              />
+            </div>
+          </div>
+
           <div className="pt-2">
             <Button onClick={handleSave} loading={saving}>Save Settings</Button>
           </div>

@@ -30,6 +30,8 @@ let settings = {
   dck_bin: '/usr/local/bin/dck',
   dck_data: '/root/.dck',
   registration: true,
+  allow_user_containers: true,
+  allow_user_ports: true,
 }
 
 function generateToken(user) {
@@ -161,6 +163,15 @@ app.get('/api/containers/:id', authMiddleware, (req, res) => {
 
 app.post('/api/containers', authMiddleware, (req, res) => {
   const { image, name, ports, volumes, env, restart, memory, cpus, network, command } = req.body
+
+  // Permission checks
+  if (req.user.role !== 'admin' && !settings.allow_user_containers) {
+    return res.status(403).json({ error: 'Container creation is restricted to admins' })
+  }
+  if (req.user.role !== 'admin' && !settings.allow_user_ports && ports && ports.length > 0) {
+    return res.status(403).json({ error: 'Port mapping is restricted to admins' })
+  }
+
   containerIdCounter++
   const id = crypto.randomBytes(16).toString('hex')
   const container = {
@@ -441,6 +452,14 @@ app.get('/api/blueprints/category/:category', (req, res) => {
 app.post('/api/blueprints/:name/launch', authMiddleware, (req, res) => {
   const bp = blueprints.find(b => b.name === req.params.name)
   if (!bp) return res.status(404).json({ error: 'Blueprint not found' })
+
+  if (req.user.role !== 'admin' && !settings.allow_user_containers) {
+    return res.status(403).json({ error: 'Container creation is restricted to admins' })
+  }
+  if (req.user.role !== 'admin' && !settings.allow_user_ports && bp.ports && bp.ports.length > 0) {
+    return res.status(403).json({ error: 'Port mapping is restricted to admins' })
+  }
+
   containerIdCounter++
   const id = crypto.randomBytes(16).toString('hex')
   const container = {
