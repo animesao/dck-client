@@ -72,8 +72,10 @@ export function MainLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-40 flex flex-col transition-all duration-300 ease-out ${
-          sidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full lg:w-16 lg:translate-x-0'
+        className={`fixed lg:static inset-y-0 left-0 z-40 flex flex-col transition-all duration-300 ease-out w-64 ${
+          sidebarOpen
+            ? 'translate-x-0'
+            : '-translate-x-full lg:translate-x-0 lg:w-16'
         }`}
       >
         <div className={`h-full flex flex-col bg-[#0c1219]/90 backdrop-blur-2xl border-r border-white/[0.05] ${!sidebarOpen && 'lg:border-r-0'}`}>
