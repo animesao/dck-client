@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { createContainer } from '@/api/containers'
+import { listImages, pullImage } from '@/api/images'
 import { useUIStore } from '@/store/uiStore'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { imageConfigs, imageCategories } from '@/data/imageConfigs'
-import type { CreateContainerRequest } from '@/types'
-import { Search, ChevronRight, Server, Globe, Database, Code, Gamepad2, Bot, Cpu } from 'lucide-react'
+import type { CreateContainerRequest, Image } from '@/types'
+import { Search, ChevronRight, Server, Globe, Database, Code, Gamepad2, Bot, Cpu, Download } from 'lucide-react'
 
 interface CreateContainerModalProps {
   open: boolean
@@ -61,6 +62,38 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
   const [envPairs, setEnvPairs] = useState<EnvPair[]>([])
   const [selectedTag, setSelectedTag] = useState('')
 
+  const [availableImages, setAvailableImages] = useState<Image[]>([])
+  const [pullingTag, setPullingTag] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    listImages().then(setAvailableImages).catch(() => {})
+  }, [open])
+
+  const availableTags = useMemo(() => {
+    if (!config || availableImages.length === 0) return []
+    return availableImages
+      .filter(i => i.name === config.image)
+      .map(i => i.tag)
+  }, [config, availableImages])
+
+  const handlePull = async (tag: string) => {
+    if (!config) return
+    setPullingTag(tag)
+    try {
+      await pullImage(`${config.image}:${tag}`)
+      const imgs = await listImages()
+      setAvailableImages(imgs)
+      setSelectedTag(tag)
+      setForm(f => ({ ...f, image: config.image + ':' + tag }))
+      addToast(`Pulled ${config.image}:${tag}`, 'success')
+    } catch (err: any) {
+      addToast(err.message || 'Failed to pull image', 'error')
+    } finally {
+      setPullingTag('')
+    }
+  }
+
   const config = useMemo(() => imageConfigs.find(c => c.id === selectedId), [selectedId])
 
   const filtered = useMemo(() => {
@@ -75,13 +108,15 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
   const selectImage = (id: string) => {
     const cfg = imageConfigs.find(c => c.id === id)
     if (!cfg) return
+    const tags = availableImages.filter(i => i.name === cfg.image).map(i => i.tag)
+    const firstTag = tags.includes('latest') ? 'latest' : tags[0] || ''
     setSelectedId(id)
-    setSelectedTag(cfg.defaultTag)
+    setSelectedTag(firstTag)
     setEnvPairs(cfg.env.map(e => ({ key: e.key, value: e.defaultValue })))
     setPortStr(cfg.ports.join(', '))
     setForm(f => ({
       ...f,
-      image: cfg.image + ':' + cfg.defaultTag,
+      image: firstTag ? cfg.image + ':' + firstTag : cfg.image,
       command: cfg.command,
       memory: cfg.memory || '',
       cpus: cfg.cpus || '',
@@ -96,7 +131,7 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
       const ports = portStr ? portStr.split(',').map(p => p.trim()).filter(Boolean) : []
       const envArr = envPairs.filter(p => p.key).map(p => `${p.key}=${p.value}`)
       // Build full image with tag
-      const image = config ? `${config.image}:${selectedTag}` : form.image
+      const image = config ? (selectedTag ? `${config.image}:${selectedTag}` : config.image) : form.image
       await createContainer({ ...form, image, ports, volumes: [] as string[], env: envArr })
       addToast('Container created', 'success')
       onSuccess()
@@ -187,7 +222,7 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
                   className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors"
                 >
                   <p className="text-xs text-[#e6edf3] font-medium">{cfg.name}</p>
-                  <p className="text-[10px] text-[#636d7d]">{cfg.image}:{cfg.defaultTag} — {cfg.description}</p>
+                  <p className="text-[10px] text-[#636d7d]">{cfg.image} — {cfg.description}</p>
                 </button>
               ))}
             </div>
@@ -209,7 +244,7 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
                 className="w-full text-left px-3 py-3 rounded-lg hover:bg-white/[0.04] border border-transparent hover:border-white/[0.06] transition-all"
               >
                 <p className="text-xs text-[#e6edf3] font-medium">{cfg.name}</p>
-                <p className="text-[10px] text-[#636d7d] mt-0.5">{cfg.image}:{cfg.defaultTag}</p>
+                <p className="text-[10px] text-[#636d7d] mt-0.5">{cfg.image}</p>
                 <p className="text-[10px] text-[#636d7d]">{cfg.description}</p>
               </button>
             ))}
@@ -229,31 +264,52 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
             </div>
             <div>
               <p className="text-sm font-medium text-[#e6edf3]">{config.name}</p>
-              <p className="text-[10px] text-[#636d7d] font-mono">{config.image}:{selectedTag}</p>
+              <p className="text-[10px] text-[#636d7d] font-mono">{config.image}{selectedTag ? ':' + selectedTag : ''}</p>
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-medium text-[#e6edf3] mb-1.5">Version</label>
-            <div className="flex flex-wrap gap-1.5">
-              {config.versions.map(v => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => {
-                    setSelectedTag(v)
-                    setForm(f => ({ ...f, image: config.image + ':' + v }))
-                  }}
-                  className={`px-2.5 py-1 rounded-md text-xs border transition-all ${
-                    selectedTag === v
-                      ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
-                      : 'bg-white/[0.04] border-white/[0.08] text-[#8b949e] hover:border-white/[0.15]'
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
+            {availableTags.length > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {availableTags.map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTag(v)
+                      setForm(f => ({ ...f, image: config.image + ':' + v }))
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs border transition-all ${
+                      selectedTag === v
+                        ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300'
+                        : 'bg-white/[0.04] border-white/[0.08] text-[#8b949e] hover:border-white/[0.15]'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {['latest', ...(config.image.includes('minecraft') ? ['java8', 'java17', 'java21'] : [])].map(v => (
+                  <button
+                    key={v}
+                    type="button"
+                    disabled={pullingTag === v}
+                    onClick={() => handlePull(v)}
+                    className={`px-2.5 py-1 rounded-md text-xs border transition-all flex items-center gap-1 ${
+                      pullingTag === v
+                        ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-300 animate-pulse'
+                        : 'bg-white/[0.04] border-dashed border-white/[0.15] text-[#8b949e] hover:border-indigo-500/50 hover:text-indigo-300'
+                    }`}
+                  >
+                    <Download size={10} />
+                    {pullingTag === v ? `Pulling ${v}...` : `Pull ${v}`}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

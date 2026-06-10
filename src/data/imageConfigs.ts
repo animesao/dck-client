@@ -4,8 +4,6 @@ export interface ImageConfig {
   category: string
   description: string
   image: string
-  defaultTag: string
-  versions: string[]
   command: string
   env: EnvDef[]
   ports: string[]
@@ -28,8 +26,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Games',
     description: 'Official Minecraft Server from Mojang',
     image: 'itzg/minecraft-server',
-    defaultTag: 'latest',
-    versions: ['latest', 'java8', 'java8-multiarch', 'java17', 'java17-alpine', 'java21', 'java21-alpine'],
     command: '',
     env: [
       { key: 'EULA', label: 'EULA', defaultValue: 'TRUE', description: 'Must be TRUE to accept Mojang EULA', options: ['TRUE'] },
@@ -50,8 +46,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Games',
     description: 'Minecraft Forge modded server',
     image: 'itzg/minecraft-server',
-    defaultTag: 'latest',
-    versions: ['latest', 'java17', 'java17-alpine', 'java21', 'java21-alpine'],
     command: '',
     env: [
       { key: 'EULA', label: 'EULA', defaultValue: 'TRUE', description: 'Must be TRUE' },
@@ -69,8 +63,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Games',
     description: 'High-performance PaperMC server',
     image: 'itzg/minecraft-server',
-    defaultTag: 'latest',
-    versions: ['latest', 'java17', 'java17-alpine', 'java21', 'java21-alpine'],
     command: '',
     env: [
       { key: 'EULA', label: 'EULA', defaultValue: 'TRUE', description: '' },
@@ -88,8 +80,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Development',
     description: 'Node.js runtime for JavaScript applications',
     image: 'node',
-    defaultTag: 'latest',
-    versions: ['latest', '20-slim', '20-alpine', '18-slim', '18-alpine', '22-slim', '22-alpine', 'alpine'],
     command: 'node index.js',
     env: [
       { key: 'NODE_ENV', label: 'Node Environment', defaultValue: 'production', description: '', options: ['development', 'production', 'test'] },
@@ -102,8 +92,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Development',
     description: 'Python runtime',
     image: 'python',
-    defaultTag: 'latest',
-    versions: ['latest', '3.12-slim', '3.12-alpine', '3.11-slim', '3.11-alpine', '3.10-slim', '3.10-alpine', 'slim', 'alpine'],
     command: 'python main.py',
     env: [
       { key: 'PYTHONUNBUFFERED', label: 'Unbuffered Output', defaultValue: '1', description: '', options: ['0', '1'] },
@@ -116,8 +104,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Development',
     description: 'Rust programming language',
     image: 'rust',
-    defaultTag: 'latest',
-    versions: ['latest', 'slim', 'alpine', 'bookworm', 'bullseye'],
     command: 'cargo run --release',
     env: [],
     ports: ['8080:8080'],
@@ -128,8 +114,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Development',
     description: 'Go programming language',
     image: 'golang',
-    defaultTag: 'latest',
-    versions: ['latest', 'alpine', '1.22', '1.22-alpine', '1.23', '1.23-alpine'],
     command: 'go run main.go',
     env: [],
     ports: ['8080:8080'],
@@ -140,8 +124,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Operating Systems',
     description: 'Base Ubuntu system',
     image: 'ubuntu',
-    defaultTag: 'latest',
-    versions: ['latest', '24.04', '22.04', '20.04'],
     command: 'bash',
     env: [],
     ports: [],
@@ -152,8 +134,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Operating Systems',
     description: 'Lightweight Alpine Linux',
     image: 'alpine',
-    defaultTag: 'latest',
-    versions: ['latest', '3.19', '3.18', '3.17'],
     command: 'sh',
     env: [],
     ports: [],
@@ -164,8 +144,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Web Servers',
     description: 'High-performance web server',
     image: 'nginx',
-    defaultTag: 'latest',
-    versions: ['latest', 'alpine', 'alpine-slim', 'stable', 'stable-alpine'],
     command: 'nginx -g "daemon off;"',
     env: [],
     ports: ['80:80', '443:443'],
@@ -176,8 +154,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Web Servers',
     description: 'Apache HTTP Server',
     image: 'httpd',
-    defaultTag: 'latest',
-    versions: ['latest', 'alpine', 'bookworm', 'bullseye'],
     command: 'httpd-foreground',
     env: [],
     ports: ['80:80'],
@@ -188,8 +164,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Databases',
     description: 'MySQL database server',
     image: 'mysql',
-    defaultTag: 'latest',
-    versions: ['latest', '8.0', '8.0-oracle', '8.4', '8.4-oracle'],
     command: 'mysqld',
     env: [
       { key: 'MYSQL_ROOT_PASSWORD', label: 'Root Password', defaultValue: 'rootpass', description: '' },
@@ -206,8 +180,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Databases',
     description: 'PostgreSQL database server',
     image: 'postgres',
-    defaultTag: 'latest',
-    versions: ['latest', '16-alpine', '16', '15-alpine', '15', '14-alpine', '14'],
     command: 'postgres -D /var/lib/postgresql/data',
     env: [
       { key: 'POSTGRES_PASSWORD', label: 'Password', defaultValue: 'postgres', description: '' },
@@ -223,8 +195,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Databases',
     description: 'MongoDB database server',
     image: 'mongo',
-    defaultTag: 'latest',
-    versions: ['latest', '7.0', '7.0-jammy', '6.0', '6.0-jammy'],
     command: 'mongod',
     env: [
       { key: 'MONGO_INITDB_ROOT_USERNAME', label: 'Root Username', defaultValue: 'admin', description: '' },
@@ -239,8 +209,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Databases',
     description: 'In-memory data store',
     image: 'redis',
-    defaultTag: 'latest',
-    versions: ['latest', 'alpine', '7.2', '7.2-alpine', '7.0', '7.0-alpine'],
     command: 'redis-server',
     env: [
       { key: 'REDIS_PASSWORD', label: 'Password', defaultValue: '', description: 'Leave empty for no auth' },
@@ -254,8 +222,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Databases',
     description: 'MariaDB database server',
     image: 'mariadb',
-    defaultTag: 'latest',
-    versions: ['latest', '11.4', '11.4-ubi', '10.11', '10.11-ubi'],
     command: 'mariadbd',
     env: [
       { key: 'MARIADB_ROOT_PASSWORD', label: 'Root Password', defaultValue: 'rootpass', description: '' },
@@ -272,8 +238,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Bots',
     description: 'Discord bot using discord.py library',
     image: 'python',
-    defaultTag: '3.12-slim',
-    versions: ['3.12-slim', '3.12-alpine', '3.11-slim', '3.11-alpine'],
     command: 'python bot.py',
     env: [
       { key: 'DISCORD_TOKEN', label: 'Bot Token', defaultValue: '', description: 'Discord bot token (required)' },
@@ -287,8 +251,6 @@ export const imageConfigs: ImageConfig[] = [
     category: 'Bots',
     description: 'Discord bot using discord.js',
     image: 'node',
-    defaultTag: '20-slim',
-    versions: ['20-slim', '20-alpine', '18-slim', '18-alpine', '22-slim', '22-alpine'],
     command: 'node index.js',
     env: [
       { key: 'DISCORD_TOKEN', label: 'Bot Token', defaultValue: '', description: '' },
