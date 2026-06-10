@@ -160,7 +160,7 @@ app.get('/api/containers/:id', authMiddleware, (req, res) => {
 })
 
 app.post('/api/containers', authMiddleware, (req, res) => {
-  const { image, name, ports, volumes, env, restart, memory, cpus, network } = req.body
+  const { image, name, ports, volumes, env, restart, memory, cpus, network, command } = req.body
   containerIdCounter++
   const id = crypto.randomBytes(16).toString('hex')
   const container = {
@@ -178,6 +178,7 @@ app.post('/api/containers', authMiddleware, (req, res) => {
     user_id: req.user.sub,
     memory: memory || '',
     cpus: cpus || '',
+    cmd: command || '',
   }
   containers.push(container)
   res.status(201).json(container)
@@ -255,7 +256,132 @@ app.get('/api/containers/:id/config', authMiddleware, (req, res) => {
   })
 })
 
+// In-memory container files (simulates overlay)
+const containerFiles = new Map()
+
+function getFilesForContainer(id) {
+  if (!containerFiles.has(id)) {
+    containerFiles.set(id, [{ name: 'data', path: '/data', is_dir: true, size: 0, mode: 'drwxr-xr-x', mod_time: new Date().toISOString() }])
+  }
+  return containerFiles.get(id)
+}
+
+function mockFileRoot(id) {
+  if (!containerFiles.has(id)) {
+    containerFiles.set(id, [{ name: 'data', path: '/data', is_dir: true, size: 0, mode: 'drwxr-xr-x', mod_time: new Date().toISOString() }])
+  }
+  return containerFiles.get(id)
+}
+
+app.get('/api/containers/:id/files', authMiddleware, (req, res) => {
+  const path = req.query.path || '/'
+  const id = req.params.id
+  if (!containers.find(c => c.id === id)) {
+    return res.status(404).json({ error: 'Container not found' })
+  }
+  const files = mockFileRoot(id)
+  // If at root, show all files; otherwise filter by prefix
+  if (path === '/') {
+    return res.json(files)
+  }
+  const filtered = files.filter(f => f.path.startsWith(path + '/') || f.path === path)
+  res.json(filtered)
+})
+
+app.get('/api/containers/:id/files/read', authMiddleware, (req, res) => {
+  const filePath = req.query.path
+  if (!filePath) return res.status(400).json({ error: 'path required' })
+  res.json({ content: `// Mock content of ${filePath}\nconsole.log('hello');\n`, encoding: 'utf-8' })
+})
+
+app.post('/api/containers/:id/files/write', authMiddleware, (req, res) => {
+  const { path, content } = req.body
+  const id = req.params.id
+  const files = mockFileRoot(id)
+  const exists = files.find(f => f.path === path)
+  if (exists) {
+    exists.size = (content || '').length
+    exists.mod_time = new Date().toISOString()
+  } else {
+    const name = path.split('/').pop()
+    files.push({ name, path, is_dir: false, size: (content || '').length, mode: '-rw-r--r--', mod_time: new Date().toISOString() })
+  }
+  res.json({ status: 'ok' })
+})
+
+app.post('/api/containers/:id/files/mkdir', authMiddleware, (req, res) => {
+  const { path } = req.body
+  if (!path) return res.status(400).json({ error: 'path required' })
+  const id = req.params.id
+  const files = mockFileRoot(id)
+  const name = path.split('/').pop()
+  files.push({ name, path, is_dir: true, size: 0, mode: 'drwxr-xr-x', mod_time: new Date().toISOString() })
+  res.json({ status: 'ok' })
+})
+
+app.delete('/api/containers/:id/files', authMiddleware, (req, res) => {
+  const filePath = req.query.path
+  const id = req.params.id
+  if (!filePath) return res.status(400).json({ error: 'path required' })
+  const files = mockFileRoot(id)
+  const idx = files.findIndex(f => f.path === filePath)
+  if (idx !== -1) files.splice(idx, 1)
+  res.status(204).send()
+})
+
+app.put('/api/containers/:id/files/rename', authMiddleware, (req, res) => {
+  const { old_path, new_path } = req.body
+  const id = req.params.id
+  if (!old_path || !new_path) return res.status(400).json({ error: 'old_path and new_path required' })
+  const files = mockFileRoot(id)
+  const idx = files.findIndex(f => f.path === old_path)
+  if (idx !== -1) {
+    const newName = new_path.split('/').pop()
+    files[idx].name = newName
+    files[idx].path = new_path
+    files[idx].mod_time = new Date().toISOString()
+  }
+  res.json({ status: 'ok' })
+})
+
+// Backups
+const backups = new Map()
+
+app.get('/api/containers/:id/backups', authMiddleware, (req, res) => {
+  res.json(backups.get(req.params.id) || [])
+})
+
+app.post('/api/containers/:id/backups', authMiddleware, (req, res) => {
+  const id = req.params.id
+  if (!backups.has(id)) backups.set(id, [])
+  const name = `backup-${id.slice(0, 12)}-${new Date().toISOString().replace(/[:.]/g, '-')}`
+  const entry = { name, size: Math.floor(Math.random() * 100000) + 1000, created_at: new Date().toISOString() }
+  backups.get(id).push(entry)
+  res.status(201).json(entry)
+})
+
+app.post('/api/containers/:id/backups/:backup/restore', authMiddleware, (req, res) => {
+  res.json({ status: 'ok' })
+})
+
+app.get('/api/containers/:id/backups/:backup/download', authMiddleware, (req, res) => {
+  res.json({ status: 'ok' })
+})
+
+app.delete('/api/containers/:id/backups/:backup', authMiddleware, (req, res) => {
+  const id = req.params.id
+  const name = req.params.backup
+  if (backups.has(id)) {
+    backups.set(id, backups.get(id).filter(b => b.name !== name))
+  }
+  res.status(204).send()
+})
+
 app.put('/api/containers/:id/config', authMiddleware, (req, res) => {
+  const c = containers.find(ct => ct.id === req.params.id)
+  if (c && req.body.cmd !== undefined) {
+    c.cmd = req.body.cmd
+  }
   res.json({ status: 'ok' })
 })
 

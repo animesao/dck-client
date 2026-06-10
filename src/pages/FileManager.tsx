@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { listFiles, readFile, writeFile, deleteFile, mkdir, getUploadUrl } from '@/api/files'
+import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl } from '@/api/files'
 import { getContainer } from '@/api/containers'
 import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
@@ -10,7 +10,7 @@ import { Modal } from '@/components/ui/Modal'
 import { PageLoading } from '@/components/ui/Spinner'
 import type { Container } from '@/types'
 import type { FileEntry } from '@/api/files'
-import { ArrowLeft, Folder, File, Upload, Download, Plus, Trash2, Edit3, Save, X, ChevronRight, Home } from 'lucide-react'
+import { ArrowLeft, Folder, File, Upload, Download, Plus, Trash2, Edit3, Save, X, ChevronRight, Home, Pencil } from 'lucide-react'
 
 export function FileManagerPage() {
   const { id } = useParams<{ id: string }>()
@@ -26,6 +26,8 @@ export function FileManagerPage() {
   const [newFileName, setNewFileName] = useState('')
   const [showNewDir, setShowNewDir] = useState(false)
   const [newDirName, setNewDirName] = useState('')
+  const [renamingFile, setRenamingFile] = useState<string | null>(null)
+  const [renameName, setRenameName] = useState('')
 
   const loadFiles = useCallback(async (path: string) => {
     if (!id) return
@@ -42,12 +44,9 @@ export function FileManagerPage() {
 
   useEffect(() => {
     if (!id) return
+    setLoading(true)
     getContainer(id).then(setContainer)
-    listFiles(id, '/data').then(entries => {
-      setFiles(entries)
-      setCurrentPath('/data')
-    }).catch(() => loadFiles('/'))
-    setLoading(false)
+    loadFiles('/')
   }, [id])
 
   const navigateToDir = (dirPath: string) => {
@@ -85,6 +84,21 @@ export function FileManagerPage() {
       loadFiles(currentPath)
     } catch (err: any) {
       addToast(err.message || 'Failed to delete', 'error')
+    }
+  }
+
+  const handleRename = async () => {
+    if (!id || !renamingFile || !renameName) return
+    const parent = renamingFile.substring(0, renamingFile.lastIndexOf('/'))
+    const newPath = (parent || '') + '/' + renameName
+    try {
+      await renameFile(id, renamingFile, newPath)
+      addToast('Renamed', 'success')
+      setRenamingFile(null)
+      setRenameName('')
+      loadFiles(currentPath)
+    } catch (err: any) {
+      addToast(err.message || 'Failed to rename', 'error')
     }
   }
 
@@ -222,6 +236,9 @@ export function FileManagerPage() {
                   <span className="text-[10px] text-[#636d7d] shrink-0 ml-auto">{file.mod_time}</span>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                  <button onClick={() => { setRenamingFile(file.path); setRenameName(file.name) }} className="p-1 rounded hover:bg-white/10 text-[#8b949e] hover:text-indigo-400">
+                    <Pencil size={12} />
+                  </button>
                   {!file.is_dir && (
                     <button onClick={() => handleEditFile(file.path)} className="p-1 rounded hover:bg-white/10 text-[#8b949e] hover:text-[#e6edf3]">
                       <Edit3 size={12} />
@@ -284,6 +301,21 @@ export function FileManagerPage() {
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={() => setShowNewDir(false)}>Cancel</Button>
           <Button onClick={handleCreateDir}>Create</Button>
+        </div>
+      </Modal>
+
+      {/* Rename modal */}
+      <Modal open={!!renamingFile} onClose={() => setRenamingFile(null)} title={renamingFile || 'Rename'}>
+        <Input
+          value={renameName}
+          onChange={e => setRenameName(e.target.value)}
+          placeholder="new name"
+          onKeyDown={e => e.key === 'Enter' && handleRename()}
+          autoFocus
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="secondary" onClick={() => setRenamingFile(null)}>Cancel</Button>
+          <Button onClick={handleRename}>Rename</Button>
         </div>
       </Modal>
     </div>

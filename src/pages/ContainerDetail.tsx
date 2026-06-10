@@ -7,7 +7,7 @@ import {
   updateContainerConfig,
 } from '@/api/containers'
 import {
-  listFiles, readFile, writeFile, deleteFile, mkdir, getUploadUrl,
+  listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl,
   listBackups, createBackup, restoreBackup, deleteBackup, getBackupDownloadUrl,
 } from '@/api/files'
 import { useUIStore } from '@/store/uiStore'
@@ -23,7 +23,7 @@ import { ResourceBar } from '@/components/containers/ResourceBar'
 import { formatDate } from '@/utils'
 import type { Container, ContainerStats } from '@/types'
 import type { FileEntry, BackupEntry } from '@/api/files'
-import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Wrench, Folder, Archive, File, Home, ChevronRight, Edit3, Save, X, Plus, Upload, Download, RotateCw, AlertTriangle } from 'lucide-react'
+import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Wrench, Folder, Archive, File, Home, ChevronRight, Edit3, Save, X, Plus, Upload, Download, RotateCw, AlertTriangle, Pencil } from 'lucide-react'
 
 export function ContainerDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -330,6 +330,8 @@ function ContainerFilesTab({ containerId }: { containerId: string }) {
   const [newFileName, setNewFileName] = useState('')
   const [showNewDir, setShowNewDir] = useState(false)
   const [newDirName, setNewDirName] = useState('')
+  const [renamingFile, setRenamingFile] = useState<string | null>(null)
+  const [renameName, setRenameName] = useState('')
 
   const loadFiles = useCallback(async (path: string) => {
     if (!containerId) return
@@ -346,7 +348,7 @@ function ContainerFilesTab({ containerId }: { containerId: string }) {
   }, [containerId, addToast])
 
   useEffect(() => {
-    listFiles(containerId, '/data').then(() => loadFiles('/data')).catch(() => loadFiles('/'))
+    loadFiles('/')
   }, [])
 
   const handleEditFile = async (filePath: string) => {
@@ -378,6 +380,21 @@ function ContainerFilesTab({ containerId }: { containerId: string }) {
       loadFiles(currentPath)
     } catch (err: any) {
       addToast(err.message || 'Failed to delete', 'error')
+    }
+  }
+
+  const handleRename = async () => {
+    if (!containerId || !renamingFile || !renameName) return
+    const parent = renamingFile.substring(0, renamingFile.lastIndexOf('/'))
+    const newPath = (parent || '') + '/' + renameName
+    try {
+      await renameFile(containerId, renamingFile, newPath)
+      addToast('Renamed', 'success')
+      setRenamingFile(null)
+      setRenameName('')
+      loadFiles(currentPath)
+    } catch (err: any) {
+      addToast(err.message || 'Failed to rename', 'error')
     }
   }
 
@@ -503,6 +520,9 @@ function ContainerFilesTab({ containerId }: { containerId: string }) {
                 </span>
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-2">
+                <button onClick={() => { setRenamingFile(file.path); setRenameName(file.name) }} className="p-1 rounded hover:bg-white/10 text-[#8b949e] hover:text-indigo-400">
+                  <Pencil size={12} />
+                </button>
                 {!file.is_dir && (
                   <button onClick={() => handleEditFile(file.path)} className="p-1 rounded hover:bg-white/10 text-[#8b949e] hover:text-[#e6edf3]">
                     <Edit3 size={12} />
@@ -561,6 +581,20 @@ function ContainerFilesTab({ containerId }: { containerId: string }) {
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={() => setShowNewDir(false)}>Cancel</Button>
           <Button onClick={handleCreateDir}>Create</Button>
+        </div>
+      </Modal>
+
+      <Modal open={!!renamingFile} onClose={() => setRenamingFile(null)} title={renamingFile || 'Rename'}>
+        <Input
+          value={renameName}
+          onChange={e => setRenameName(e.target.value)}
+          placeholder="new name"
+          onKeyDown={e => e.key === 'Enter' && handleRename()}
+          autoFocus
+        />
+        <div className="flex justify-end gap-2 mt-4">
+          <Button variant="secondary" onClick={() => setRenamingFile(null)}>Cancel</Button>
+          <Button onClick={handleRename}>Rename</Button>
         </div>
       </Modal>
     </Card>

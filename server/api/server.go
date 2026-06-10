@@ -52,6 +52,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("POST /api/containers/{id}/files/upload", s.auth(s.handleUploadFile))
 	mux.HandleFunc("DELETE /api/containers/{id}/files", s.auth(s.handleDeleteFile))
 	mux.HandleFunc("POST /api/containers/{id}/files/mkdir", s.auth(s.handleMkdir))
+	mux.HandleFunc("PUT /api/containers/{id}/files/rename", s.auth(s.handleRenameFile))
 
 	mux.HandleFunc("GET /api/containers/{id}/backups", s.auth(s.handleListBackups))
 	mux.HandleFunc("POST /api/containers/{id}/backups", s.auth(s.handleCreateBackup))

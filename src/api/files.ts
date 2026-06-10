@@ -40,6 +40,10 @@ export async function mkdir(id: string, path: string): Promise<void> {
   return api('POST', `/containers/${id}/files/mkdir`, { path })
 }
 
+export async function renameFile(id: string, oldPath: string, newPath: string): Promise<void> {
+  return api('PUT', `/containers/${id}/files/rename`, { old_path: oldPath, new_path: newPath })
+}
+
 export async function listBackups(id: string): Promise<BackupEntry[]> {
   return api<BackupEntry[]>('GET', `/containers/${id}/backups`)
 }

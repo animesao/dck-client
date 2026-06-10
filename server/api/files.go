@@ -278,3 +278,42 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request, claims *Use
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
+
+func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+	root, err := s.getContainerRoot(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	var req struct {
+		OldPath string `json:"old_path"`
+		NewPath string `json:"new_path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	oldFull, err := safePath(root, req.OldPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	newFull, err := safePath(root, req.NewPath)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	os.MkdirAll(filepath.Dir(newFull), 0755)
+
+	if err := os.Rename(oldFull, newFull); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
