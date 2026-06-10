@@ -1,64 +1,171 @@
-import { useEffect, useState } from 'react'
-import { listBlueprints, launchBlueprint } from '@/api/blueprints'
-import { getCategories } from '@/api/settings'
+import { useEffect, useState, useRef } from 'react'
+import { listTemplates, listCategories, createTemplate, deleteTemplate, addCategory, deleteCategory } from '@/api/blueprints'
+import type { Template } from '@/api/blueprints'
+import { createContainer } from '@/api/containers'
 import { useUIStore } from '@/store/uiStore'
-import { Card, CardContent } from '@/components/ui/Card'
+import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
-import { Select } from '@/components/ui/Select'
 import { PageLoading } from '@/components/ui/Spinner'
-import { CategoryIcon, CategoryIconBox, CategoryBadge } from '@/components/ui/CategoryIcon'
-import type { Blueprint, CategoryPreset } from '@/types'
-import { Search, Rocket, ArrowUpRight } from 'lucide-react'
+import { Search, Rocket, Upload, Plus, X, Tag, Trash2, FileJson } from 'lucide-react'
+
+function parseEnv(envStr: string): Record<string, string> {
+  try {
+    const arr = JSON.parse(envStr)
+    if (Array.isArray(arr)) {
+      const obj: Record<string, string> = {}
+      arr.forEach((e: { key: string; value: string }) => { obj[e.key] = e.value })
+      return obj
+    }
+  } catch {}
+  return {}
+}
 
 export function BlueprintsPage() {
   const addToast = useUIStore(s => s.addToast)
-  const [blueprints, setBlueprints] = useState<Blueprint[]>([])
-  const [categories, setCategories] = useState<CategoryPreset[]>([])
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
-  const [selectedBp, setSelectedBp] = useState<Blueprint | null>(null)
-  const [envValues, setEnvValues] = useState<Record<string, string>>({})
-  const [deploying, setDeploying] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [importData, setImportData] = useState('')
+  const [importName, setImportName] = useState('')
+  const [importCategory, setImportCategory] = useState('')
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
+  const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null)
+  const [deleteTpl, setDeleteTpl] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    Promise.all([
-      listBlueprints(),
-      getCategories(),
-    ]).then(([bps, cats]) => {
-      setBlueprints(bps)
-      setCategories(cats)
-    }).catch(() => {}).finally(() => setLoading(false))
-  }, [])
+  const load = () => {
+    setLoading(true)
+    Promise.all([listTemplates(), listCategories()])
+      .then(([tpls, cats]) => { setTemplates(tpls); setCategories(cats) })
+      .catch(() => addToast('Failed to load templates', 'error'))
+      .finally(() => setLoading(false))
+  }
 
-  const filtered = blueprints.filter(bp => {
-    if (activeCategory !== 'all' && bp.category !== activeCategory) return false
-    if (search && !bp.name.toLowerCase().includes(search.toLowerCase()) && !bp.description.toLowerCase().includes(search.toLowerCase())) return false
+  useEffect(load, [])
+
+  const filtered = templates.filter(t => {
+    if (activeCategory !== 'all' && t.category !== activeCategory) return false
+    if (search && !t.name.toLowerCase().includes(search.toLowerCase()) && !t.description.toLowerCase().includes(search.toLowerCase())) return false
     return true
   })
 
-  const openBp = (bp: Blueprint) => {
-    setSelectedBp(bp)
-    const defaults: Record<string, string> = {}
-    bp.env.forEach(e => {
-      if (e.default) defaults[e.key] = e.default
-    })
-    setEnvValues(defaults)
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result as string)
+        setImportData(JSON.stringify(data, null, 2))
+        setImportName(data.name || file.name.replace(/\.template\.json$/i, '').replace(/\.json$/i, ''))
+        setImportCategory(data.category || 'uncategorized')
+        setImportOpen(true)
+      } catch {
+        addToast('Invalid JSON file', 'error')
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
   }
 
-  const handleLaunch = async () => {
-    if (!selectedBp) return
-    setDeploying(true)
+  const handleImport = async () => {
+    if (!importName || !importCategory) return
+    setSubmitting(true)
     try {
-      await launchBlueprint(selectedBp.name, envValues)
-      addToast('Blueprint deployed successfully!', 'success')
-      setSelectedBp(null)
+      let parsed: any
+      try { parsed = JSON.parse(importData) } catch { addToast('Invalid JSON', 'error'); setSubmitting(false); return }
+      await createTemplate({
+        name: importName,
+        category: importCategory,
+        description: parsed.description || '',
+        image: parsed.image || '',
+        tag: parsed.tag,
+        command: parsed.command || '',
+        env: parsed.env || '[]',
+        ports: parsed.ports || '',
+        memory: parsed.memory,
+        cpus: parsed.cpus,
+        restart: parsed.restart,
+        network: parsed.network,
+        volumes: parsed.volumes,
+      })
+      addToast('Template imported', 'success')
+      setImportOpen(false)
+      setImportData('')
+      load()
     } catch (err: any) {
-      addToast(err.message || 'Failed to deploy blueprint', 'error')
+      addToast(err.message || 'Import failed', 'error')
     } finally {
-      setDeploying(false)
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteTemplate = async (id: string) => {
+    try { await deleteTemplate(id); load(); addToast('Template deleted', 'success') }
+    catch (err: any) { addToast(err.message || 'Delete failed', 'error') }
+    setDeleteTpl(null)
+  }
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return
+    setSubmitting(true)
+    try {
+      await addCategory(newCategoryName.trim())
+      addToast('Category created', 'success')
+      setNewCategoryOpen(false)
+      setNewCategoryName('')
+      load()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to create category', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDeleteCategory = async () => {
+    if (!categoryToDelete) return
+    try {
+      await deleteCategory(categoryToDelete)
+      addToast('Category deleted', 'success')
+      if (activeCategory === categoryToDelete) setActiveCategory('all')
+      load()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to delete category', 'error')
+    }
+    setCategoryToDelete(null)
+  }
+
+  const handleDeploy = async (tpl: Template) => {
+    setSubmitting(true)
+    try {
+      const envArr = (() => { try { return JSON.parse(tpl.env) } catch { return [] } })()
+      const env: string[] = []
+      if (Array.isArray(envArr)) envArr.forEach((e: { key: string; value: string }) => { if (e.key) env.push(`${e.key}=${e.value}`) })
+
+      const image = tpl.tag && tpl.tag !== 'latest' ? `${tpl.image}:${tpl.tag}` : tpl.image
+
+      await createContainer({
+        image,
+        name: tpl.name,
+        command: tpl.command || undefined,
+        env,
+        ports: tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : undefined,
+        volumes: tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : undefined,
+        memory: tpl.memory || undefined,
+        cpus: tpl.cpus || undefined,
+      })
+      addToast('Container created from template!', 'success')
+    } catch (err: any) {
+      addToast(err.message || 'Failed to deploy', 'error')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -69,7 +176,13 @@ export function BlueprintsPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-2xl font-bold text-[#e6edf3]">Blueprints</h1>
-          <p className="text-[#8b949e] text-sm mt-1">Pre-configured application templates — deploy in one click</p>
+          <p className="text-[#8b949e] text-sm mt-1">Container templates — deploy in one click</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
+            <Upload size={14} /> Import
+          </Button>
+          <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
         </div>
       </div>
 
@@ -87,19 +200,33 @@ export function BlueprintsPage() {
             All
           </button>
           {categories.map(cat => (
-            <button
-              key={cat.name}
-              onClick={() => setActiveCategory(cat.name)}
-              className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                activeCategory === cat.name
-                  ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 shadow-sm'
-                  : 'bg-white/[0.03] text-[#8b949e] hover:text-[#e6edf3] border border-white/[0.06] hover:border-white/[0.12]'
-              }`}
-            >
-              <CategoryIcon category={cat.name} size={15} />
-              {cat.name.charAt(0).toUpperCase() + cat.name.slice(1)}
-            </button>
+            <div key={cat} className="shrink-0 flex items-center">
+              <button
+                onClick={() => setActiveCategory(cat)}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                  activeCategory === cat
+                    ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 shadow-sm'
+                    : 'bg-white/[0.03] text-[#8b949e] hover:text-[#e6edf3] border border-white/[0.06] hover:border-white/[0.12]'
+                }`}
+              >
+                <Tag size={14} />
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </button>
+              <button
+                onClick={() => setCategoryToDelete(cat)}
+                className="ml-0.5 p-1 rounded-lg text-[#636d7d] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                title="Delete category"
+              >
+                <X size={12} />
+              </button>
+            </div>
           ))}
+          <button
+            onClick={() => setNewCategoryOpen(true)}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium bg-white/[0.03] text-[#8b949e] hover:text-[#e6edf3] border border-dashed border-white/[0.1] hover:border-white/[0.2] transition-all"
+          >
+            <Plus size={14} /> Category
+          </button>
         </div>
 
         <div className="relative w-full sm:w-auto">
@@ -116,91 +243,111 @@ export function BlueprintsPage() {
 
       {/* Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(bp => (
-          <Card key={bp.name} hover onClick={() => openBp(bp)} className="group">
-            <div className="p-5">
-              <div className="flex items-start gap-4">
-                <CategoryIconBox category={bp.category} />
-                <div className="flex-1 min-w-0">
+        {filtered.map(tpl => {
+          const envObj = parseEnv(tpl.env)
+          const envCount = Object.keys(envObj).length
+          return (
+            <Card key={tpl.id} className="group">
+              <div className="p-5 flex flex-col h-full">
+                <div className="flex-1">
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-[#e6edf3] group-hover:text-indigo-300 transition-colors">{bp.name}</h3>
-                    <ArrowUpRight size={14} className="text-[#636d7d] group-hover:text-indigo-400 mt-0.5 shrink-0 transition-colors" />
+                    <h3 className="font-semibold text-[#e6edf3] group-hover:text-indigo-300 transition-colors">{tpl.name}</h3>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTpl(tpl.id) }}
+                      className="shrink-0 p-1 rounded-lg text-[#636d7d] hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                    >
+                      <Trash2 size={14} />
+                    </button>
                   </div>
-                  <p className="text-xs text-[#8b949e] mt-1.5 line-clamp-2 leading-relaxed">{bp.description}</p>
+                  <p className="text-xs text-[#8b949e] mt-1.5 line-clamp-2 leading-relaxed">{tpl.description || 'No description'}</p>
                   <div className="flex items-center gap-2 mt-3 flex-wrap">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-white/[0.04] text-[#8b949e] border border-white/[0.06]">
-                      {bp.image}
+                      {tpl.image}{tpl.tag ? `:${tpl.tag}` : ''}
                     </span>
-                    <CategoryBadge category={bp.category} />
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/15">
+                      {tpl.category}
+                    </span>
+                    {envCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-white/[0.03] text-[#8b949e] border border-white/[0.06]">
+                        {envCount} env
+                      </span>
+                    )}
                   </div>
                 </div>
+                <Button size="sm" className="mt-4 w-full" onClick={() => handleDeploy(tpl)} loading={submitting}>
+                  <Rocket size={14} /> Deploy
+                </Button>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          )
+        })}
       </div>
 
       {filtered.length === 0 && (
         <div className="text-center py-16">
           <div className="w-16 h-16 rounded-2xl bg-white/[0.03] flex items-center justify-center mx-auto mb-4">
-            <Search size={28} className="text-[#636d7d]" />
+            <FileJson size={28} className="text-[#636d7d]" />
           </div>
-          <p className="text-[#8b949e] text-sm">No blueprints match your search</p>
+          <p className="text-[#8b949e] text-sm">No templates yet. Export a container as a template or import one.</p>
         </div>
       )}
 
-      {/* Deploy Modal */}
-      <Modal open={!!selectedBp} onClose={() => setSelectedBp(null)} title={selectedBp?.name} size="lg">
-        {selectedBp && (
-          <div className="space-y-5">
-            <div className="flex items-start gap-4">
-              <CategoryIconBox category={selectedBp.category} />
-              <div>
-                <p className="text-sm text-[#8b949e] leading-relaxed">{selectedBp.description}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-medium bg-white/[0.04] text-[#8b949e] border border-white/[0.06]">
-                    {selectedBp.image}
-                  </span>
-                  <CategoryBadge category={selectedBp.category} />
-                </div>
-              </div>
-            </div>
-
-            <div className="h-px bg-white/[0.06]" />
-
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-[#e6edf3]">Configuration</h4>
-              {selectedBp.env.map(env => (
-                env.options && env.options.length > 0 ? (
-                  <Select
-                    key={env.key}
-                    label={`${env.key}${env.required ? ' *' : ''}`}
-                    value={envValues[env.key] || ''}
-                    onChange={e => setEnvValues({ ...envValues, [env.key]: e.target.value })}
-                    options={env.options.map(o => ({ value: o, label: o }))}
-                    placeholder={`Select ${env.key}`}
-                  />
-                ) : (
-                  <Input
-                    key={env.key}
-                    label={`${env.key}${env.required ? ' *' : ''}`}
-                    value={envValues[env.key] || ''}
-                    onChange={e => setEnvValues({ ...envValues, [env.key]: e.target.value })}
-                    placeholder={env.placeholder || `Enter ${env.key}`}
-                    required={env.required}
-                  />
-                )
-              ))}
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="secondary" onClick={() => setSelectedBp(null)}>Cancel</Button>
-              <Button onClick={handleLaunch} loading={deploying}>
-                <Rocket size={16} /> Deploy Blueprint
-              </Button>
-            </div>
+      {/* Import Modal */}
+      <Modal open={importOpen} onClose={() => setImportOpen(false)} title="Import Template" size="lg">
+        <div className="space-y-4">
+          <Input label="Name" value={importName} onChange={e => setImportName(e.target.value)} required />
+          <Input label="Category" value={importCategory} onChange={e => setImportCategory(e.target.value)} required />
+          <div>
+            <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Template JSON</label>
+            <textarea
+              value={importData}
+              onChange={e => setImportData(e.target.value)}
+              className="input w-full h-48 font-mono text-xs resize-y"
+              spellCheck={false}
+            />
           </div>
-        )}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setImportOpen(false)}>Cancel</Button>
+            <Button onClick={handleImport} loading={submitting}>
+              <Upload size={14} /> Import
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* New Category Modal */}
+      <Modal open={newCategoryOpen} onClose={() => setNewCategoryOpen(false)} title="New Category">
+        <div className="space-y-4">
+          <Input label="Category name" value={newCategoryName} onChange={e => setNewCategoryName(e.target.value)} required />
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setNewCategoryOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddCategory} loading={submitting}>
+              <Plus size={14} /> Create
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Category Confirm */}
+      <Modal open={!!categoryToDelete} onClose={() => setCategoryToDelete(null)} title="Delete Category">
+        <p className="text-sm text-[#8b949e]">Delete category <span className="text-[#e6edf3] font-mono">{categoryToDelete}</span>? Templates in it won't be removed.</p>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button variant="secondary" onClick={() => setCategoryToDelete(null)}>Cancel</Button>
+          <Button variant="danger" onClick={handleDeleteCategory}>
+            <Trash2 size={14} /> Delete
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Delete Template Confirm */}
+      <Modal open={!!deleteTpl} onClose={() => setDeleteTpl(null)} title="Delete Template">
+        <p className="text-sm text-[#8b949e]">Delete this template permanently?</p>
+        <div className="flex justify-end gap-3 pt-4">
+          <Button variant="secondary" onClick={() => setDeleteTpl(null)}>Cancel</Button>
+          <Button variant="danger" onClick={() => deleteTpl && handleDeleteTemplate(deleteTpl)}>
+            <Trash2 size={14} /> Delete
+          </Button>
+        </div>
       </Modal>
     </div>
   )

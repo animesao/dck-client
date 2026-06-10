@@ -25,8 +25,9 @@ import { formatDate } from '@/utils'
 import type { Container, ContainerStats } from '@/types'
 import type { BackupEntry } from '@/api/files'
 import { getContainerActivity } from '@/api/activity'
+import { exportContainerAsTemplate } from '@/api/blueprints'
 import type { ContainerPermission, ActivityLog } from '@/types'
-import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Folder, Archive, Users, List, Save, RotateCw, AlertTriangle, Plus, Download, RefreshCw, Key } from 'lucide-react'
+import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Folder, Archive, Users, List, Save, RotateCw, AlertTriangle, Plus, Download, RefreshCw, Key, FileDown } from 'lucide-react'
 import { listCollaborators, addCollaborator, removeCollaborator } from '@/api/collaborators'
 
 export function ContainerDetailPage() {
@@ -119,6 +120,22 @@ export function ContainerDetailPage() {
     setSavingStartup(false)
   }
 
+  const handleExportTemplate = async () => {
+    if (!id) return
+    try {
+      const tpl = await exportContainerAsTemplate(id)
+      const blob = new Blob([JSON.stringify(tpl, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = `${container?.name || id}.template.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      addToast('Template exported', 'success')
+    } catch (err: any) {
+      addToast(err.message || 'Failed to export template', 'error')
+    }
+  }
+
   useEffect(() => { if (activeTab === 'logs') loadLogs(); if (activeTab === 'state') loadState() }, [activeTab])
 
   if (loading) return <PageLoading />
@@ -164,6 +181,9 @@ export function ContainerDetailPage() {
               <Play size={14} /> Start
             </Button>
           )}
+          <Button variant="ghost" size="sm" onClick={handleExportTemplate}>
+            <FileDown size={14} /> Export
+          </Button>
           <Button variant="secondary" size="sm" onClick={() => handleAction('restart')} loading={actionLoading}>
             <RotateCcw size={14} />
           </Button>

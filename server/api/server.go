@@ -109,6 +109,15 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/containers/{id}/sftp", s.auth(s.requireContainerAccess(s.handleContainerSFTP)))
 	mux.HandleFunc("POST /api/containers/{id}/sftp/regenerate", s.auth(s.requireContainerAccess(s.handleRegenerateSFTPPassword)))
 
+	// Templates
+	mux.HandleFunc("GET /api/templates", s.auth(s.handleListTemplates))
+	mux.HandleFunc("POST /api/templates", s.auth(s.handleCreateTemplate))
+	mux.HandleFunc("DELETE /api/templates/{id}", s.auth(s.handleDeleteTemplate))
+	mux.HandleFunc("POST /api/templates/import", s.auth(s.handleImportTemplate))
+	mux.HandleFunc("GET /api/containers/{id}/export-template", s.auth(s.requireContainerAccess(s.handleExportContainerTemplate)))
+	mux.HandleFunc("POST /api/template-categories", s.auth(s.handleAddCategory))
+	mux.HandleFunc("DELETE /api/template-categories/{name}", s.auth(s.handleDeleteCategory))
+
 	return withCORS(s.frontendOrAPI(mux))
 }
 

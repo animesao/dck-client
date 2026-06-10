@@ -69,6 +69,25 @@ type ActivityLog struct {
 	CreatedAt   string  `json:"created_at"`
 }
 
+type Template struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	Image       string `json:"image"`
+	Tag         string `json:"tag,omitempty"`
+	Command     string `json:"command"`
+	Env         string `json:"env"` // JSON array of {key,value}
+	Ports       string `json:"ports"` // comma-separated
+	Memory      string `json:"memory,omitempty"`
+	CPUs        string `json:"cpus,omitempty"`
+	Restart     string `json:"restart,omitempty"`
+	Network     string `json:"network,omitempty"`
+	Volumes     string `json:"volumes,omitempty"` // comma-separated
+	CreatedAt   string `json:"created_at"`
+	UserID      string `json:"user_id,omitempty"`
+}
+
 func (s *Store) migrate() error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (
@@ -121,6 +140,30 @@ func (s *Store) migrate() error {
 			username TEXT UNIQUE NOT NULL,
 			password_hash TEXT NOT NULL,
 			created_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS template_categories (
+			id TEXT PRIMARY KEY,
+			name TEXT UNIQUE NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS templates (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			category TEXT NOT NULL,
+			description TEXT DEFAULT '',
+			image TEXT NOT NULL,
+			tag TEXT DEFAULT '',
+			command TEXT DEFAULT '',
+			env TEXT DEFAULT '[]',
+			ports TEXT DEFAULT '',
+			memory TEXT DEFAULT '',
+			cpus TEXT DEFAULT '',
+			restart TEXT DEFAULT 'no',
+			network TEXT DEFAULT 'bridge',
+			volumes TEXT DEFAULT '',
+			created_at TEXT NOT NULL,
+			user_id TEXT,
+			FOREIGN KEY (user_id) REFERENCES users(id)
 		)`,
 	}
 	for _, q := range queries {
@@ -632,6 +675,95 @@ func (s *Store) GetSFTPUserByUsername(username string) (string, string, error) {
 		return "", "", err
 	}
 	return containerID, passwordHash, nil
+}
+
+// ─── Template Categories ─────────────────────────────────────────
+
+func (s *Store) ListTemplateCategories() []string {
+	rows, err := s.db.Query("SELECT name FROM template_categories ORDER BY name ASC")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var cats []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err == nil {
+			cats = append(cats, name)
+		}
+	}
+	return cats
+}
+
+func (s *Store) CreateTemplateCategory(name string) error {
+	id := generateID()
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.Exec("INSERT OR IGNORE INTO template_categories (id, name, created_at) VALUES (?, ?, ?)", id, name, now)
+	return err
+}
+
+func (s *Store) DeleteTemplateCategory(name string) error {
+	_, err := s.db.Exec("DELETE FROM template_categories WHERE name = ?", name)
+	return err
+}
+
+// ─── Templates ───────────────────────────────────────────────────
+
+func (s *Store) ListTemplates() []Template {
+	rows, err := s.db.Query("SELECT id, name, category, COALESCE(description,''), image, COALESCE(tag,''), COALESCE(command,''), COALESCE(env,'[]'), COALESCE(ports,''), COALESCE(memory,''), COALESCE(cpus,''), COALESCE(restart,'no'), COALESCE(network,'bridge'), COALESCE(volumes,''), created_at, COALESCE(user_id,'') FROM templates ORDER BY category, name")
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []Template
+	for rows.Next() {
+		var t Template
+		if err := rows.Scan(&t.ID, &t.Name, &t.Category, &t.Description, &t.Image, &t.Tag, &t.Command, &t.Env, &t.Ports, &t.Memory, &t.CPUs, &t.Restart, &t.Network, &t.Volumes, &t.CreatedAt, &t.UserID); err == nil {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func (s *Store) ListTemplatesByCategory(category string) []Template {
+	rows, err := s.db.Query("SELECT id, name, category, COALESCE(description,''), image, COALESCE(tag,''), COALESCE(command,''), COALESCE(env,'[]'), COALESCE(ports,''), COALESCE(memory,''), COALESCE(cpus,''), COALESCE(restart,'no'), COALESCE(network,'bridge'), COALESCE(volumes,''), created_at, COALESCE(user_id,'') FROM templates WHERE category = ? ORDER BY name", category)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []Template
+	for rows.Next() {
+		var t Template
+		if err := rows.Scan(&t.ID, &t.Name, &t.Category, &t.Description, &t.Image, &t.Tag, &t.Command, &t.Env, &t.Ports, &t.Memory, &t.CPUs, &t.Restart, &t.Network, &t.Volumes, &t.CreatedAt, &t.UserID); err == nil {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func (s *Store) GetTemplate(id string) *Template {
+	row := s.db.QueryRow("SELECT id, name, category, COALESCE(description,''), image, COALESCE(tag,''), COALESCE(command,''), COALESCE(env,'[]'), COALESCE(ports,''), COALESCE(memory,''), COALESCE(cpus,''), COALESCE(restart,'no'), COALESCE(network,'bridge'), COALESCE(volumes,''), created_at, COALESCE(user_id,'') FROM templates WHERE id = ?", id)
+	var t Template
+	if err := row.Scan(&t.ID, &t.Name, &t.Category, &t.Description, &t.Image, &t.Tag, &t.Command, &t.Env, &t.Ports, &t.Memory, &t.CPUs, &t.Restart, &t.Network, &t.Volumes, &t.CreatedAt, &t.UserID); err != nil {
+		return nil
+	}
+	return &t
+}
+
+func (s *Store) CreateTemplate(t Template) error {
+	id := generateID()
+	now := time.Now().UTC().Format(time.RFC3339)
+	if t.CreatedAt == "" {
+		t.CreatedAt = now
+	}
+	_, err := s.db.Exec(`INSERT INTO templates (id, name, category, description, image, tag, command, env, ports, memory, cpus, restart, network, volumes, created_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, t.Name, t.Category, t.Description, t.Image, t.Tag, t.Command, t.Env, t.Ports, t.Memory, t.CPUs, t.Restart, t.Network, t.Volumes, t.CreatedAt, t.UserID)
+	return err
+}
+
+func (s *Store) DeleteTemplate(id string) error {
+	_, err := s.db.Exec("DELETE FROM templates WHERE id = ?", id)
+	return err
 }
 
 func (s *Store) RegenerateSFTPPassword(containerID string) (string, error) {
