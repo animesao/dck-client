@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -280,33 +281,30 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 	memLimit := uint64(0)
 	cpuPct := 0.0
 
-	// Try reading from cgroup (only available when running)
-	cgroupPath := fmt.Sprintf("/sys/fs/cgroup/memory/dck/%s/memory.current", id)
-	if b, err := os.ReadFile(cgroupPath); err == nil {
+	// dck uses cgroup v2 under /sys/fs/cgroup/dck/<id>/
+	cgPrefix := fmt.Sprintf("/sys/fs/cgroup/dck/%s", id)
+
+	// Memory used
+	if b, err := os.ReadFile(filepath.Join(cgPrefix, "memory.current")); err == nil {
 		var v uint64
 		if _, err := fmt.Sscanf(string(b), "%d", &v); err == nil {
 			memUsed = v
 		}
 	}
 
-	limitPath := fmt.Sprintf("/sys/fs/cgroup/memory/dck/%s/memory.max", id)
-	if b, err := os.ReadFile(limitPath); err == nil {
-		var v uint64
-		if _, err := fmt.Sscanf(string(b), "%d", &v); err == nil && v > 0 && v < ^uint64(0) {
-			memLimit = v
+	// Memory limit — file contains "max\n" when unlimited
+	if b, err := os.ReadFile(filepath.Join(cgPrefix, "memory.max")); err == nil {
+		s := strings.TrimSpace(string(b))
+		if s != "max" {
+			var v uint64
+			if _, err := fmt.Sscanf(s, "%d", &v); err == nil && v > 0 {
+				memLimit = v
+			}
 		}
 	}
 
-	// CPU — cgroup v1 then v2
-	cpuPath := fmt.Sprintf("/sys/fs/cgroup/cpu/dck/%s/cpuacct.usage", id)
-	cpuV2Path := fmt.Sprintf("/sys/fs/cgroup/dck/%s/cpu.stat", id)
-	b, err := os.ReadFile(cpuPath)
-	if err == nil {
-		var usage uint64
-		if _, err := fmt.Sscanf(string(b), "%d", &usage); err == nil {
-			cpuPct = float64(usage) / 1e9 * 100
-		}
-	} else if b, err := os.ReadFile(cpuV2Path); err == nil {
+	// CPU usage — cgroup v2 cpu.stat
+	if b, err := os.ReadFile(filepath.Join(cgPrefix, "cpu.stat")); err == nil {
 		for _, line := range strings.Split(string(b), "\n") {
 			if strings.HasPrefix(line, "usage_usec") {
 				var usec uint64
@@ -317,7 +315,7 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 		}
 	}
 
-	// Use allocated limits from container state as fallback
+	// Fallback: use allocated limits from container state (cgroup already cleaned up)
 	if memLimit == 0 && c.MemoryLimit > 0 {
 		memLimit = uint64(c.MemoryLimit)
 	}
