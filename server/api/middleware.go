@@ -72,7 +72,7 @@ func noAuth(h authHandler) http.HandlerFunc {
 	}
 }
 
-// requireContainerAccess checks if the user has at least 'view' permission on the container
+// requireContainerAccess checks if the user owns the container or has at least 'view' permission
 func (s *Server) requireContainerAccess(next authHandler) authHandler {
 	return func(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 		id := r.PathValue("id")
@@ -80,12 +80,16 @@ func (s *Server) requireContainerAccess(next authHandler) authHandler {
 			next(w, r, claims)
 			return
 		}
-		perm := s.store.GetUserContainerPermission(claims.Sub, id)
-		if perm != "view" && perm != "edit" && perm != "admin" {
-			writeError(w, http.StatusForbidden, "You do not have permission to access this container")
+		if s.store.IsContainerOwner(claims.Sub, id) {
+			next(w, r, claims)
 			return
 		}
-		next(w, r, claims)
+		perm := s.store.GetUserContainerPermission(claims.Sub, id)
+		if perm == "view" || perm == "edit" || perm == "admin" {
+			next(w, r, claims)
+			return
+		}
+		writeError(w, http.StatusForbidden, "You do not have permission to access this container")
 	}
 }
 

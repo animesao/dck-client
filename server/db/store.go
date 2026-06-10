@@ -319,6 +319,12 @@ func (s *Store) RecordContainer(userID, containerID, containerName, image string
 		userID, containerID, containerName, image, now)
 }
 
+func (s *Store) IsContainerOwner(userID, containerID string) bool {
+	var count int
+	s.db.QueryRow("SELECT COUNT(*) FROM user_containers WHERE user_id = ? AND container_id = ?", userID, containerID).Scan(&count)
+	return count > 0
+}
+
 func (s *Store) GetUserContainerCount(userID string) int {
 	var count int
 	s.db.QueryRow("SELECT COUNT(*) FROM user_containers WHERE user_id = ?", userID).Scan(&count)

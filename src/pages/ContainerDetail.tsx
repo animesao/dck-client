@@ -273,7 +273,7 @@ export function ContainerDetailPage() {
 
         {activeTab === 'logs' && (
           <Card>
-            <pre className="p-5 text-xs font-mono text-[#e6edf3] overflow-x-auto max-h-[600px] leading-relaxed whitespace-pre-wrap">
+            <pre className="p-5 text-xs font-mono text-[#e6edf3] overflow-x-auto overflow-y-auto max-h-[600px] leading-relaxed whitespace-pre-wrap">
               {logs || 'Loading...'}
             </pre>
           </Card>
