@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import { wsUrl } from '@/api/client'
@@ -10,9 +10,23 @@ interface ContainerConsoleProps {
 
 export function ContainerConsole({ containerId }: ContainerConsoleProps) {
   const terminalRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const xtermRef = useRef<{ terminal: Terminal; fitAddon: FitAddon } | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const [connected, setConnected] = useState(false)
+  const [command, setCommand] = useState('')
+
+  const sendCommand = useCallback(() => {
+    const ws = wsRef.current
+    const trimmed = command.trim()
+    if (!trimmed || !ws || ws.readyState !== WebSocket.OPEN) return
+    const terminal = xtermRef.current?.terminal
+    if (terminal) {
+      terminal.write(`\r\n> ${trimmed}\r\n`)
+    }
+    ws.send(trimmed + '\n')
+    setCommand('')
+  }, [command])
 
   useEffect(() => {
     if (!terminalRef.current || !containerId) return
@@ -68,7 +82,7 @@ export function ContainerConsole({ containerId }: ContainerConsoleProps) {
 
     ws.onopen = () => {
       setConnected(true)
-      terminal.focus()
+      inputRef.current?.focus()
     }
 
     ws.onmessage = (event) => {
@@ -90,6 +104,15 @@ export function ContainerConsole({ containerId }: ContainerConsoleProps) {
     terminal.onData((data) => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(data)
+      }
+      if (data === '\r') {
+        terminal.write('\r\n')
+      } else if (data === '\x7f') {
+        terminal.write('\b \b')
+      } else if (data === '\x03') {
+        terminal.write('^C\r\n')
+      } else {
+        terminal.write(data)
       }
     })
 
@@ -118,7 +141,20 @@ export function ContainerConsole({ containerId }: ContainerConsoleProps) {
           {connected ? 'Connected' : 'Disconnected'}
         </span>
       </div>
-      <div ref={terminalRef} className="h-[500px]" />
+      <div ref={terminalRef} className="h-[400px]" />
+      <div className="flex items-center gap-2 px-3 py-2 bg-[#161b22] border-t border-white/[0.06]">
+        <span className="text-xs text-indigo-400 font-mono font-medium">&gt;</span>
+        <input
+          ref={inputRef}
+          type="text"
+          value={command}
+          onChange={e => setCommand(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') sendCommand() }}
+          placeholder="Enter command..."
+          disabled={!connected}
+          className="flex-1 bg-transparent border-none outline-none text-xs text-[#e6edf3] font-mono placeholder:text-[#636d7d]"
+        />
+      </div>
     </div>
   )
 }
