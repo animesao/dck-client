@@ -71,7 +71,7 @@ function adminMiddleware(req, res, next) {
 
 // Auth
 app.post('/api/auth/login', (req, res) => {
-  const { username, password } = req.body
+  const { username, password, twofa_code, twofa_token } = req.body
   const user = users.find(u => u.username === username && u.password === password)
   if (!user) {
     // First run: auto-create admin/admin
@@ -85,11 +85,27 @@ app.post('/api/auth/login', (req, res) => {
       }
       users.push(newUser)
       const token = generateToken(newUser)
+      addActivityLog(newUser.id, '', 'login', 'admin logged in')
       return res.json({ token, user: { id: newUser.id, username: newUser.username, role: newUser.role, created_at: newUser.created_at } })
     }
     return res.status(401).json({ error: 'Invalid credentials' })
   }
+
+  if (twoFactorEnabled[user.id]) {
+    if (twofa_token && twofa_code) {
+      // Verify 2FA token - in mock just accept
+    } else {
+      const partialToken = generateToken(user)
+      return res.json({
+        twofa_required: true,
+        twofa_token: partialToken,
+        user: { id: user.id, username: user.username, role: user.role, created_at: user.created_at },
+      })
+    }
+  }
+
   const token = generateToken(user)
+  addActivityLog(user.id, '', 'login', user.username + ' logged in')
   res.json({ token, user: { id: user.id, username: user.username, role: user.role, created_at: user.created_at } })
 })
 
@@ -192,6 +208,7 @@ app.post('/api/containers', authMiddleware, (req, res) => {
     cmd: command || '',
   }
   containers.push(container)
+  addActivityLog(req.user.sub, id, 'container_created', `${req.user.username} created container ${container.name}`)
   res.status(201).json(container)
 })
 
@@ -199,6 +216,7 @@ app.post('/api/containers/:id/start', authMiddleware, (req, res) => {
   const c = containers.find(ct => ct.id === req.params.id)
   if (!c) return res.status(404).json({ error: 'Container not found' })
   c.status = 'running'
+  addActivityLog(req.user.sub, req.params.id, 'container_started', `${req.user.username} started container ${c.name}`)
   res.json({ status: 'ok' })
 })
 
@@ -206,6 +224,7 @@ app.post('/api/containers/:id/stop', authMiddleware, (req, res) => {
   const c = containers.find(ct => ct.id === req.params.id)
   if (!c) return res.status(404).json({ error: 'Container not found' })
   c.status = 'stopped'
+  addActivityLog(req.user.sub, req.params.id, 'container_stopped', `${req.user.username} stopped container ${c.name}`)
   res.json({ status: 'ok' })
 })
 
@@ -213,13 +232,16 @@ app.post('/api/containers/:id/restart', authMiddleware, (req, res) => {
   const c = containers.find(ct => ct.id === req.params.id)
   if (!c) return res.status(404).json({ error: 'Container not found' })
   c.status = 'running'
+  addActivityLog(req.user.sub, req.params.id, 'container_restarted', `${req.user.username} restarted container ${c.name}`)
   res.json({ status: 'ok' })
 })
 
 app.delete('/api/containers/:id', authMiddleware, (req, res) => {
   const idx = containers.findIndex(ct => ct.id === req.params.id)
   if (idx === -1) return res.status(404).json({ error: 'Container not found' })
+  const removed = containers[idx]
   containers.splice(idx, 1)
+  addActivityLog(req.user.sub, req.params.id, 'container_removed', `${req.user.username} removed container ${removed.name}`)
   res.status(204).send()
 })
 
@@ -396,6 +418,132 @@ app.put('/api/containers/:id/config', authMiddleware, (req, res) => {
   res.json({ status: 'ok' })
 })
 
+let activityLogs = []
+let twoFactorSecrets = {}
+let twoFactorEnabled = {}
+
+function addActivityLog(userId, containerId, action, details) {
+  const user = users.find(u => u.id === userId)
+  activityLogs.push({
+    id: activityLogs.length + 1,
+    user_id: userId,
+    username: user ? user.username : 'unknown',
+    container_id: containerId || null,
+    action,
+    details: details || '',
+    created_at: new Date().toISOString(),
+  })
+}
+
+app.get('/api/containers/:id/collaborators', authMiddleware, (req, res) => {
+  const { id } = req.params
+  const key = `collab_${id}`
+  res.json(containersCollab[key] || [])
+})
+
+const containersCollab = {}
+
+app.post('/api/containers/:id/collaborators', authMiddleware, (req, res) => {
+  const { id } = req.params
+  const { username, permission } = req.body
+  const targetUser = users.find(u => u.username === username)
+  if (!targetUser) return res.status(404).json({ error: 'User not found' })
+  const key = `collab_${id}`
+  if (!containersCollab[key]) containersCollab[key] = []
+  const existing = containersCollab[key].find(c => c.user_id === targetUser.id)
+  if (existing) {
+    existing.permission = permission || 'view'
+  } else {
+    containersCollab[key].push({
+      user_id: targetUser.id,
+      username: targetUser.username,
+      container_id: id,
+      permission: permission || 'view',
+      created_at: new Date().toISOString(),
+    })
+  }
+  addActivityLog(req.user.sub, id, 'collaborator_added', `${req.user.username} added ${username} as ${permission}`)
+  res.json({ message: 'Collaborator added' })
+})
+
+app.delete('/api/containers/:id/collaborators/:userId', authMiddleware, (req, res) => {
+  const { id, userId } = req.params
+  const key = `collab_${id}`
+  if (containersCollab[key]) {
+    const idx = containersCollab[key].findIndex(c => c.user_id === userId)
+    if (idx !== -1) {
+      const removed = containersCollab[key][idx]
+      containersCollab[key].splice(idx, 1)
+      addActivityLog(req.user.sub, id, 'collaborator_removed', `${req.user.username} removed ${removed.username}`)
+    }
+  }
+  res.json({ message: 'Collaborator removed' })
+})
+
+app.get('/api/containers/:id/activity', authMiddleware, (req, res) => {
+  const { id } = req.params
+  const limit = parseInt(req.query.limit) || 50
+  const logs = activityLogs
+    .filter(l => l.container_id === id)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit)
+  res.json(logs)
+})
+
+app.get('/api/activity', authMiddleware, (req, res) => {
+  const limit = parseInt(req.query.limit) || 50
+  const logs = activityLogs
+    .filter(l => l.user_id === req.user.sub)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit)
+  res.json(logs)
+})
+
+app.get('/api/auth/2fa/status', authMiddleware, (req, res) => {
+  res.json({ enabled: !!twoFactorEnabled[req.user.sub] })
+})
+
+app.post('/api/auth/2fa/setup', authMiddleware, (req, res) => {
+  const secret = crypto.randomBytes(20).toString('hex').toUpperCase().match(/.{1,4}/g).join(' ')
+  twoFactorSecrets[req.user.sub] = secret
+  const accountName = req.user.username
+  const url = `otpauth://totp/dck-panel:${accountName}?secret=${secret}&issuer=dck-panel`
+  res.json({ secret, url })
+})
+
+app.get('/api/auth/2fa/qr', authMiddleware, (req, res) => {
+  const secret = twoFactorSecrets[req.user.sub]
+  if (!secret) return res.status(404).json({ error: '2FA not set up' })
+  // Return a simple SVG QR placeholder
+  res.setHeader('Content-Type', 'image/svg+xml')
+  res.send(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="white"/><text x="100" y="100" text-anchor="middle" fill="black" font-size="12">QR: ${secret.slice(0, 12)}...</text></svg>`)
+})
+
+app.post('/api/auth/2fa/verify', authMiddleware, (req, res) => {
+  const { code } = req.body
+  // In mock: accept any 6-digit code
+  twoFactorEnabled[req.user.sub] = true
+  res.json({ message: '2FA enabled' })
+})
+
+app.post('/api/auth/2fa/disable', authMiddleware, (req, res) => {
+  delete twoFactorEnabled[req.user.sub]
+  delete twoFactorSecrets[req.user.sub]
+  res.json({ message: '2FA disabled' })
+})
+
+app.put('/api/auth/password', authMiddleware, (req, res) => {
+  const { old_password, new_password } = req.body
+  const user = users.find(u => u.id === req.user.sub)
+  if (!user) return res.status(404).json({ error: 'User not found' })
+  if (user.password !== '$2b$10$placeholder' && user.password !== old_password) {
+    return res.status(400).json({ error: 'Old password is incorrect' })
+  }
+  user.password = new_password
+  addActivityLog(req.user.sub, '', 'password_changed', `${req.user.username} changed password`)
+  res.json({ message: 'Password changed' })
+})
+
 app.post('/api/containers/:id/exec', authMiddleware, (req, res) => {
   const { command } = req.body
   res.json({
@@ -477,6 +625,7 @@ app.post('/api/blueprints/:name/launch', authMiddleware, (req, res) => {
     cmd: bp.command || '',
   }
   containers.push(container)
+  addActivityLog(req.user.sub, id, 'container_created', `${req.user.username} created container ${container.name} via blueprint`)
   res.status(201).json(container)
 })
 

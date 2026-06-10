@@ -67,6 +67,21 @@ func (s *Server) Router() http.Handler {
 
 	mux.HandleFunc("GET /api/containers/{id}/console", s.auth(s.handleConsole))
 
+	mux.HandleFunc("GET /api/containers/{id}/collaborators", s.auth(s.handleListCollaborators))
+	mux.HandleFunc("POST /api/containers/{id}/collaborators", s.auth(s.handleAddCollaborator))
+	mux.HandleFunc("DELETE /api/containers/{id}/collaborators/{user_id}", s.auth(s.handleRemoveCollaborator))
+
+	mux.HandleFunc("GET /api/containers/{id}/activity", s.auth(s.handleContainerActivity))
+	mux.HandleFunc("GET /api/activity", s.auth(s.handleUserActivity))
+
+	mux.HandleFunc("GET /api/auth/2fa/status", s.auth(s.handleTwoFactorStatus))
+	mux.HandleFunc("POST /api/auth/2fa/setup", s.auth(s.handleTwoFactorSetup))
+	mux.HandleFunc("GET /api/auth/2fa/qr", s.auth(s.handleTwoFactorQR))
+	mux.HandleFunc("POST /api/auth/2fa/verify", s.auth(s.handleTwoFactorVerify))
+	mux.HandleFunc("POST /api/auth/2fa/disable", s.auth(s.handleTwoFactorDisable))
+
+	mux.HandleFunc("PUT /api/auth/password", s.auth(s.handleChangePassword))
+
 	mux.HandleFunc("GET /api/images", s.auth(s.handleListImages))
 	mux.HandleFunc("POST /api/images/pull", s.auth(s.handlePullImage))
 	mux.HandleFunc("DELETE /api/images/{name}/{tag}", s.auth(s.handleRemoveImage))

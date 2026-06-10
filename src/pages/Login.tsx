@@ -5,6 +5,7 @@ import { useUIStore } from '@/store/uiStore'
 import { login } from '@/api/auth'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Shield } from 'lucide-react'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -15,12 +16,23 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // 2FA state
+  const [twofaToken, setTwofaToken] = useState('')
+  const [twofaCode, setTwofaCode] = useState('')
+  const [twofaRequired, setTwofaRequired] = useState(false)
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
     try {
-      const res = await login(username, password)
+      const res = await login(username, password, twofaCode || undefined, twofaToken || undefined)
+      if (res.twofa_required) {
+        setTwofaRequired(true)
+        setTwofaToken(res.twofa_token || '')
+        setLoading(false)
+        return
+      }
       setAuth(res.token, res.user)
       addToast('Welcome back!', 'success')
       navigate('/dashboard')
@@ -35,7 +47,9 @@ export function LoginPage() {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="text-center mb-4">
         <h2 className="text-lg font-semibold text-[#e6edf3]">Sign In</h2>
-        <p className="text-sm text-[#636d7d] mt-1">Enter your credentials to continue</p>
+        <p className="text-sm text-[#636d7d] mt-1">
+          {twofaRequired ? 'Enter your 2FA code' : 'Enter your credentials to continue'}
+        </p>
       </div>
 
       {error && (
@@ -45,35 +59,66 @@ export function LoginPage() {
         </div>
       )}
 
-      <Input
-        label="Username"
-        type="text"
-        value={username}
-        onChange={e => setUsername(e.target.value)}
-        placeholder="Enter username"
-        required
-        autoFocus
-      />
+      {twofaRequired ? (
+        <>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+            <Shield size={14} />
+            Two-factor authentication is required
+          </div>
+          <Input
+            label="Authentication Code"
+            type="text"
+            value={twofaCode}
+            onChange={e => setTwofaCode(e.target.value)}
+            placeholder="000000"
+            maxLength={6}
+            required
+            autoFocus
+          />
+          <Button type="submit" loading={loading} className="w-full">
+            <Shield size={14} /> Verify
+          </Button>
+          <button
+            type="button"
+            onClick={() => { setTwofaRequired(false); setTwofaToken(''); setTwofaCode('') }}
+            className="text-xs text-[#636d7d] hover:text-[#e6edf3] transition-colors text-center w-full"
+          >
+            Back to login
+          </button>
+        </>
+      ) : (
+        <>
+          <Input
+            label="Username"
+            type="text"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            placeholder="Enter username"
+            required
+            autoFocus
+          />
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Enter password"
+            required
+          />
+          <Button type="submit" loading={loading} className="w-full">
+            Sign In
+          </Button>
+        </>
+      )}
 
-      <Input
-        label="Password"
-        type="password"
-        value={password}
-        onChange={e => setPassword(e.target.value)}
-        placeholder="Enter password"
-        required
-      />
-
-      <Button type="submit" loading={loading} className="w-full">
-        Sign In
-      </Button>
-
-      <p className="text-center text-sm text-[#636d7d]">
-        Don't have an account?{' '}
-        <Link to="/register" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
-          Register
-        </Link>
-      </p>
+      {!twofaRequired && (
+        <p className="text-center text-sm text-[#636d7d]">
+          Don't have an account?{' '}
+          <Link to="/register" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium">
+            Register
+          </Link>
+        </p>
+      )}
     </form>
   )
 }

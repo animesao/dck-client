@@ -51,6 +51,24 @@ func (s *Store) Close() error {
 	return s.db.Close()
 }
 
+type ContainerPermission struct {
+	UserID       string `json:"user_id"`
+	Username     string `json:"username"`
+	ContainerID  string `json:"container_id"`
+	Permission   string `json:"permission"` // "view", "edit", "admin"
+	CreatedAt    string `json:"created_at"`
+}
+
+type ActivityLog struct {
+	ID          int64   `json:"id"`
+	UserID      string  `json:"user_id"`
+	Username    string  `json:"username,omitempty"`
+	ContainerID *string `json:"container_id,omitempty"`
+	Action      string  `json:"action"`
+	Details     string  `json:"details"`
+	CreatedAt   string  `json:"created_at"`
+}
+
 func (s *Store) migrate() error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (
@@ -72,6 +90,30 @@ func (s *Store) migrate() error {
 			container_name TEXT NOT NULL,
 			image TEXT NOT NULL,
 			created_at TEXT NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS container_permissions (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id TEXT NOT NULL,
+			container_id TEXT NOT NULL,
+			permission TEXT NOT NULL DEFAULT 'view',
+			created_at TEXT NOT NULL,
+			UNIQUE(user_id, container_id),
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS activity_logs (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id TEXT NOT NULL,
+			container_id TEXT,
+			action TEXT NOT NULL,
+			details TEXT DEFAULT '',
+			created_at TEXT NOT NULL,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS two_factor (
+			user_id TEXT PRIMARY KEY,
+			secret TEXT NOT NULL,
+			enabled INTEGER NOT NULL DEFAULT 0,
 			FOREIGN KEY (user_id) REFERENCES users(id)
 		)`,
 	}
@@ -324,6 +366,159 @@ func (s *Store) GetUserStats() (int, []UserWithStats) {
 		})
 	}
 	return len(users), out
+}
+
+// ─── Container Permissions ───────────────────────────────────────
+
+func (s *Store) SetContainerPermission(userID, containerID, permission string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.Exec(`INSERT INTO container_permissions (user_id, container_id, permission, created_at)
+		VALUES (?, ?, ?, ?)
+		ON CONFLICT(user_id, container_id) DO UPDATE SET permission = ?`,
+		userID, containerID, permission, now, permission)
+	return err
+}
+
+func (s *Store) RemoveContainerPermission(userID, containerID string) error {
+	_, err := s.db.Exec("DELETE FROM container_permissions WHERE user_id = ? AND container_id = ?", userID, containerID)
+	return err
+}
+
+func (s *Store) ListContainerPermissions(containerID string) []ContainerPermission {
+	rows, err := s.db.Query(`
+		SELECT cp.user_id, u.username, cp.container_id, cp.permission, cp.created_at
+		FROM container_permissions cp
+		JOIN users u ON u.id = cp.user_id
+		WHERE cp.container_id = ?`, containerID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var out []ContainerPermission
+	for rows.Next() {
+		var cp ContainerPermission
+		if err := rows.Scan(&cp.UserID, &cp.Username, &cp.ContainerID, &cp.Permission, &cp.CreatedAt); err == nil {
+			out = append(out, cp)
+		}
+	}
+	return out
+}
+
+func (s *Store) GetUserContainerPermission(userID, containerID string) string {
+	var perm string
+	err := s.db.QueryRow("SELECT permission FROM container_permissions WHERE user_id = ? AND container_id = ?", userID, containerID).Scan(&perm)
+	if err != nil {
+		return ""
+	}
+	return perm
+}
+
+// ─── Activity Logs ───────────────────────────────────────────────
+
+func (s *Store) AddActivityLog(userID, containerID, action, details string) int64 {
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := s.db.Exec("INSERT INTO activity_logs (user_id, container_id, action, details, created_at) VALUES (?, ?, ?, ?, ?)",
+		userID, containerID, action, details, now)
+	if err != nil {
+		return 0
+	}
+	id, _ := res.LastInsertId()
+	return id
+}
+
+func (s *Store) ListContainerActivity(containerID string, limit int) []ActivityLog {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := s.db.Query(`
+		SELECT al.id, al.user_id, u.username, al.container_id, al.action, al.details, al.created_at
+		FROM activity_logs al
+		JOIN users u ON u.id = al.user_id
+		WHERE al.container_id = ?
+		ORDER BY al.created_at DESC LIMIT ?`, containerID, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var out []ActivityLog
+	for rows.Next() {
+		var l ActivityLog
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.ContainerID, &l.Action, &l.Details, &l.CreatedAt); err == nil {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+func (s *Store) ListUserActivity(userID string, limit int) []ActivityLog {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := s.db.Query(`
+		SELECT al.id, al.user_id, u.username, COALESCE(al.container_id, ''), al.action, al.details, al.created_at
+		FROM activity_logs al
+		JOIN users u ON u.id = al.user_id
+		WHERE al.user_id = ?
+		ORDER BY al.created_at DESC LIMIT ?`, userID, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var out []ActivityLog
+	for rows.Next() {
+		var l ActivityLog
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.ContainerID, &l.Action, &l.Details, &l.CreatedAt); err == nil {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
+// ─── Two‑Factor Auth ─────────────────────────────────────────────
+
+func (s *Store) GetTwoFactor(userID string) (secret string, enabled bool) {
+	err := s.db.QueryRow("SELECT secret, enabled FROM two_factor WHERE user_id = ?", userID).Scan(&secret, &enabled)
+	if err != nil {
+		return "", false
+	}
+	return secret, enabled
+}
+
+func (s *Store) SetTwoFactorSecret(userID, secret string) error {
+	_, err := s.db.Exec("INSERT OR REPLACE INTO two_factor (user_id, secret, enabled) VALUES (?, ?, 0)", userID, secret)
+	return err
+}
+
+func (s *Store) EnableTwoFactor(userID string) error {
+	_, err := s.db.Exec("UPDATE two_factor SET enabled = 1 WHERE user_id = ?", userID)
+	return err
+}
+
+func (s *Store) DisableTwoFactor(userID string) error {
+	_, err := s.db.Exec("DELETE FROM two_factor WHERE user_id = ?", userID)
+	return err
+}
+
+// ─── Change Password (with old password check) ──────────────────
+
+func (s *Store) ChangePassword(userID, oldPassword, newPassword string) error {
+	row := s.db.QueryRow("SELECT password FROM users WHERE id = ?", userID)
+	var hash string
+	if err := row.Scan(&hash); err != nil {
+		return fmt.Errorf("user not found")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(oldPassword)); err != nil {
+		return fmt.Errorf("old password is incorrect")
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = s.db.Exec("UPDATE users SET password = ? WHERE id = ?", string(newHash), userID)
+	return err
 }
 
 func generateID() string {

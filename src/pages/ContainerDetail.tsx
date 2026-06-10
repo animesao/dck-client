@@ -23,7 +23,10 @@ import { ResourceBar } from '@/components/containers/ResourceBar'
 import { formatDate } from '@/utils'
 import type { Container, ContainerStats } from '@/types'
 import type { FileEntry, BackupEntry } from '@/api/files'
-import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Wrench, Folder, Archive, File, Home, ChevronRight, Edit3, Save, X, Plus, Upload, Download, RotateCw, AlertTriangle, Pencil } from 'lucide-react'
+import { listCollaborators, addCollaborator, removeCollaborator } from '@/api/collaborators'
+import { getContainerActivity } from '@/api/activity'
+import type { ContainerPermission, ActivityLog } from '@/types'
+import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Wrench, Folder, Archive, File, Home, ChevronRight, Edit3, Save, X, Plus, Upload, Download, RotateCw, AlertTriangle, Pencil, Users, List } from 'lucide-react'
 
 export function ContainerDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -116,6 +119,8 @@ export function ContainerDetailPage() {
     { id: 'console', label: 'Console', icon: <Cpu size={14} /> },
     { id: 'files', label: 'Files', icon: <Folder size={14} /> },
     { id: 'backups', label: 'Backups', icon: <Archive size={14} /> },
+    { id: 'collaborators', label: 'Collaborators', icon: <Users size={14} /> },
+    { id: 'activity', label: 'Activity', icon: <List size={14} /> },
   ]
 
   return (
@@ -305,6 +310,10 @@ export function ContainerDetailPage() {
         {activeTab === 'files' && id && <ContainerFilesTab containerId={id} />}
 
         {activeTab === 'backups' && id && <ContainerBackupsTab containerId={id} />}
+
+        {activeTab === 'collaborators' && id && <ContainerCollaboratorsTab containerId={id} />}
+
+        {activeTab === 'activity' && id && <ContainerActivityTab containerId={id} />}
       </div>
     </div>
   )
@@ -740,4 +749,185 @@ function formatSize(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + sizes[i]
+}
+
+// ─── Collaborators Tab ──────────────────────────────────────────
+
+function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
+  const addToast = useUIStore(s => s.addToast)
+  const [perms, setPerms] = useState<ContainerPermission[]>([])
+  const [loading, setLoading] = useState(true)
+  const [addUsername, setAddUsername] = useState('')
+  const [addPermission, setAddPermission] = useState<'view' | 'edit' | 'admin'>('view')
+  const [adding, setAdding] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const data = await listCollaborators(containerId)
+      setPerms(data)
+    } catch (err: any) {
+      addToast(err.message || 'Failed to load collaborators', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [containerId])
+
+  const handleAdd = async () => {
+    if (!addUsername) return
+    setAdding(true)
+    try {
+      await addCollaborator(containerId, addUsername, addPermission)
+      setAddUsername('')
+      addToast('Collaborator added', 'success')
+      load()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to add collaborator', 'error')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const handleRemove = async (userId: string) => {
+    try {
+      await removeCollaborator(containerId, userId)
+      addToast('Collaborator removed', 'success')
+      load()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to remove collaborator', 'error')
+    }
+  }
+
+  return (
+    <Card>
+      <div className="p-5 space-y-4">
+        <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Collaborators</h3>
+
+        <div className="flex gap-2">
+          <Input
+            value={addUsername}
+            onChange={e => setAddUsername(e.target.value)}
+            placeholder="Username"
+            className="flex-1"
+          />
+          <select
+            value={addPermission}
+            onChange={e => setAddPermission(e.target.value as 'view' | 'edit' | 'admin')}
+            className="px-2 py-1.5 rounded-lg bg-[#1c1f26] border border-white/[0.08] text-xs text-[#e6edf3]"
+          >
+            <option value="view">View</option>
+            <option value="edit">Edit</option>
+            <option value="admin">Admin</option>
+          </select>
+          <Button onClick={handleAdd} loading={adding} size="sm">
+            <Plus size={14} /> Add
+          </Button>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-[#636d7d]">Loading...</p>
+        ) : perms.length === 0 ? (
+          <p className="text-xs text-[#636d7d]">No collaborators</p>
+        ) : (
+          <div className="space-y-2">
+            {perms.map(p => (
+              <div key={p.user_id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500/30 to-indigo-600/10 flex items-center justify-center text-xs font-semibold text-indigo-300">
+                    {p.username[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm text-[#e6edf3]">{p.username}</p>
+                    <p className="text-[10px] text-[#636d7d] capitalize">{p.permission}</p>
+                  </div>
+                </div>
+                <button onClick={() => handleRemove(p.user_id)} className="p-1.5 rounded hover:bg-red-500/20 text-[#8b949e] hover:text-red-400">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+// ─── Activity Tab ───────────────────────────────────────────────
+
+function ContainerActivityTab({ containerId }: { containerId: string }) {
+  const addToast = useUIStore(s => s.addToast)
+  const [logs, setLogs] = useState<ActivityLog[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const data = await getContainerActivity(containerId, 100)
+      setLogs(data)
+    } catch (err: any) {
+      addToast(err.message || 'Failed to load activity', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [containerId])
+
+  return (
+    <Card>
+      <div className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Activity Log</h3>
+          <button onClick={load} className="p-1.5 rounded hover:bg-white/[0.05] text-[#8b949e] hover:text-[#e6edf3]">
+            <RotateCw size={14} />
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-[#636d7d]">Loading...</p>
+        ) : logs.length === 0 ? (
+          <p className="text-xs text-[#636d7d]">No activity recorded</p>
+        ) : (
+          <div className="space-y-1">
+            {logs.map(l => (
+              <div key={l.id} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-white/[0.02] text-xs">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 mt-1.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[#e6edf3]">
+                    <span className="font-medium text-indigo-300">{l.username}</span>
+                    {' '}{formatAction(l.action)}{l.details ? ` — ${l.details}` : ''}
+                  </p>
+                  <p className="text-[10px] text-[#636d7d] mt-0.5">{formatDate(l.created_at)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+function formatAction(action: string): string {
+  const map: Record<string, string> = {
+    container_created: 'created container',
+    container_started: 'started container',
+    container_stopped: 'stopped container',
+    container_restarted: 'restarted container',
+    container_removed: 'removed container',
+    collaborator_added: 'added collaborator',
+    collaborator_removed: 'removed collaborator',
+    file_uploaded: 'uploaded file',
+    file_deleted: 'deleted file',
+    file_renamed: 'renamed file',
+    backup_created: 'created backup',
+    backup_restored: 'restored backup',
+    backup_deleted: 'deleted backup',
+    login: 'logged in',
+    password_changed: 'changed password',
+  }
+  return map[action] || action.replace(/_/g, ' ')
 }

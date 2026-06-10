@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/pquerna/otp/totp"
 )
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClaims) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		TwoFACode string `json:"twofa_code,omitempty"`
+		TwoFAToken string `json:"twofa_token,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -24,7 +27,34 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 		return
 	}
 
+	_, twoFAEnabled := s.store.GetTwoFactor(user.ID)
+	if twoFAEnabled {
+		if req.TwoFAToken != "" && req.TwoFACode != "" {
+			token, err := jwt.ParseWithClaims(req.TwoFAToken, &UserClaims{}, func(t *jwt.Token) (interface{}, error) {
+				return []byte(s.jwtSecret), nil
+			})
+			if err != nil || !token.Valid {
+				writeError(w, http.StatusUnauthorized, "Invalid 2FA token")
+				return
+			}
+			secret, _ := s.store.GetTwoFactor(user.ID)
+			if !totpValidate(req.TwoFACode, secret) {
+				writeError(w, http.StatusUnauthorized, "Invalid 2FA code")
+				return
+			}
+		} else {
+			partialToken, _ := s.generateToken(user.ID, user.Username, user.Role)
+			writeJSON(w, http.StatusOK, map[string]interface{}{
+				"twofa_required": true,
+				"twofa_token":    partialToken,
+				"user":           user,
+			})
+			return
+		}
+	}
+
 	s.store.UpdateLastLogin(user.ID)
+	s.store.AddActivityLog(user.ID, "", "login", user.Username+" logged in")
 
 	token, err := s.generateToken(user.ID, user.Username, user.Role)
 	if err != nil {
@@ -36,6 +66,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 		"token": token,
 		"user":  user,
 	})
+}
+
+func totpValidate(code, secret string) bool {
+	return totp.Validate(code, secret)
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ *UserClaims) {

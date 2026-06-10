@@ -245,10 +245,30 @@ export interface ContainerState {
 export interface AuthResponse {
   token: string
   user: User
+  twofa_required?: boolean
+  twofa_token?: string
 }
 
 export interface CatalogItem {
   name: string
   description: string
   category: string
+}
+
+export interface ContainerPermission {
+  user_id: string
+  username: string
+  container_id: string
+  permission: 'view' | 'edit' | 'admin'
+  created_at: string
+}
+
+export interface ActivityLog {
+  id: number
+  user_id: string
+  username?: string
+  container_id?: string
+  action: string
+  details: string
+  created_at: string
 }
