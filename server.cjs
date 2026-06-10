@@ -749,6 +749,16 @@ app.get('/api/containers/:id/sftp', authMiddleware, (req, res) => {
   }
 })
 
+app.post('/api/containers/:id/sftp/regenerate', authMiddleware, (req, res) => {
+  const id = req.params.id
+  const sftpUsers = sftpUsersMap || {}
+  if (!sftpUsers[id]) {
+    return res.status(404).json({ error: 'SFTP user not found' })
+  }
+  sftpUsers[id].password = `sftp_${Math.random().toString(36).slice(2, 10)}`
+  res.json({ password: sftpUsers[id].password })
+})
+
 // Templates
 app.get('/api/templates', authMiddleware, (req, res) => res.json([]))
 app.post('/api/templates', authMiddleware, (req, res) => res.json({ id: crypto.randomUUID(), ...req.body }))

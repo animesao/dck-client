@@ -107,6 +107,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/version", s.auth(s.handleVersion))
 
 	mux.HandleFunc("GET /api/containers/{id}/sftp", s.auth(s.requireContainerAccess(s.handleContainerSFTP)))
+	mux.HandleFunc("POST /api/containers/{id}/sftp/regenerate", s.auth(s.requireContainerAccess(s.handleRegenerateSFTPPassword)))
 
 	return withCORS(s.frontendOrAPI(mux))
 }

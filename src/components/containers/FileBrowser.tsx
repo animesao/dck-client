@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl, getContainerSFTP } from '@/api/files'
+import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl, getContainerSFTP, regenerateSFTPPassword } from '@/api/files'
 import { getAuthToken } from '@/api/client'
 import type { ContainerSFTPInfo } from '@/api/files'
 import { useUIStore } from '@/store/uiStore'
@@ -84,6 +84,7 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ active: false, percent: 0, filename: '' })
   const [showSftpInfo, setShowSftpInfo] = useState(false)
   const [sftpInfo, setSftpInfo] = useState<ContainerSFTPInfo | null>(null)
+  const [resettingSftp, setResettingSftp] = useState(false)
 
   const loadFiles = useCallback(async (path: string) => {
     if (!containerId) return
@@ -558,11 +559,32 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Password</label>
-              {sftpInfo.password ? (
-                <p className="text-xs text-[#e6ed3f] font-mono mt-0.5 break-all">{sftpInfo.password}</p>
-              ) : (
-                <p className="text-xs text-[#636d7d] mt-0.5">Already generated — reset to get new one</p>
-              )}
+              <div className="flex items-center justify-between mt-0.5 gap-2">
+                {sftpInfo.password ? (
+                  <p className="text-xs text-[#e6ed3f] font-mono break-all flex-1">{sftpInfo.password}</p>
+                ) : (
+                  <p className="text-xs text-[#636d7d] flex-1">Already generated</p>
+                )}
+                <button
+                  onClick={async () => {
+                    setResettingSftp(true)
+                    try {
+                      const { password } = await regenerateSFTPPassword(containerId)
+                      setSftpInfo(prev => prev ? { ...prev, password } : prev)
+                      addToast('SFTP password reset', 'success')
+                    } catch (err: any) {
+                      addToast(err.message || 'Failed to reset password', 'error')
+                    } finally {
+                      setResettingSftp(false)
+                    }
+                  }}
+                  disabled={resettingSftp}
+                  className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors shrink-0 disabled:opacity-50"
+                >
+                  <RefreshCw size={10} className={resettingSftp ? 'animate-spin' : ''} />
+                  {resettingSftp ? 'Resetting...' : 'Reset'}
+                </button>
+              </div>
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Remote Path</label>

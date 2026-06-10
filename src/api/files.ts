@@ -71,6 +71,10 @@ export async function getContainerSFTP(id: string): Promise<ContainerSFTPInfo> {
   return api<ContainerSFTPInfo>('GET', `/containers/${id}/sftp`)
 }
 
+export async function regenerateSFTPPassword(id: string): Promise<{ password: string }> {
+  return api<{ password: string }>('POST', `/containers/${id}/sftp/regenerate`)
+}
+
 export function getBackupDownloadUrl(id: string, name: string): string {
   return apiUrl(`/containers/${id}/backups/${name}/download`)
 }

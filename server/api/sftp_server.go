@@ -353,3 +353,17 @@ func (s *Server) handleContainerSFTP(w http.ResponseWriter, r *http.Request, cla
 
 	writeJSON(w, http.StatusOK, resp)
 }
+
+func (s *Server) handleRegenerateSFTPPassword(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+
+	password, err := s.store.RegenerateSFTPPassword(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to regenerate SFTP password")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{
+		"password": password,
+	})
+}
