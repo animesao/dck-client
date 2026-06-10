@@ -276,36 +276,37 @@ func (l listerAt) ListAt(ls []os.FileInfo, offset int64) (int, error) {
 }
 
 func containerDataRoot(dckClient *dck.Client, containerID string) (string, error) {
-	// Try merged overlay (container running)
-	root := dckClient.OverlayPath(containerID)
-	info, err := os.Stat(root)
-	if err == nil && info.IsDir() {
-		dataDir := getContainerWorkDir(dckClient, containerID)
-		dataPath := filepath.Join(root, dataDir)
-		os.MkdirAll(dataPath, 0755)
-		return dataPath, nil
-	}
-	// Fall back to diff layer
-	diffPath := dckClient.OverlayDiffPath(containerID)
-	info, err = os.Stat(diffPath)
-	if err == nil && info.IsDir() {
-		dataDir := getContainerWorkDir(dckClient, containerID)
-		dataPath := filepath.Join(diffPath, dataDir)
-		os.MkdirAll(dataPath, 0755)
-		return dataPath, nil
-	}
-	return "", fmt.Errorf("container %s filesystem not available", containerID)
-}
-
-func getContainerWorkDir(dckClient *dck.Client, id string) string {
-	c, err := dckClient.GetContainer(id)
+	c, err := dckClient.GetContainer(containerID)
 	if err != nil {
-		return "/home/container"
+		return "", fmt.Errorf("container %s not found", containerID)
 	}
-	if c.WorkingDir != "" {
-		return c.WorkingDir
+
+	dataDir := c.WorkingDir
+	if dataDir == "" {
+		dataDir = "/home/container"
 	}
-	return "/home/container"
+
+	// If container is running, use merged overlay (full filesystem view)
+	if c.Status == "running" {
+		root := dckClient.OverlayPath(containerID)
+		info, err := os.Stat(root)
+		if err == nil && info.IsDir() {
+			dataPath := filepath.Join(root, dataDir)
+			os.MkdirAll(dataPath, 0755)
+			return dataPath, nil
+		}
+	}
+
+	// Fall back to upper layer (persists when container is stopped)
+	upperPath := dckClient.OverlayDiffPath(containerID)
+	info, err := os.Stat(upperPath)
+	if err == nil && info.IsDir() {
+		dataPath := filepath.Join(upperPath, dataDir)
+		os.MkdirAll(dataPath, 0755)
+		return dataPath, nil
+	}
+
+	return "", fmt.Errorf("container %s filesystem not available", containerID)
 }
 
 // ─── Host key generation ────────────────────────────────────────

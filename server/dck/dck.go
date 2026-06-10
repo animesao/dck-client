@@ -302,7 +302,7 @@ func (c *Client) OverlayPath(id string) string {
 }
 
 func (c *Client) OverlayDiffPath(id string) string {
-	return filepath.Join(c.DataDir, "overlay", id, "diff")
+	return filepath.Join(c.DataDir, "overlay", id, "upper")
 }
 
 func (c *Client) LogPath(id string) string {

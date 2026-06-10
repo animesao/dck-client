@@ -8,35 +8,42 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"dck-panel/dck"
 )
 
 func (s *Server) getContainerRoot(id string) (string, error) {
-	// Try merged overlay (container running)
-	root := s.dck.OverlayPath(id)
-	info, err := os.Stat(root)
-	if err == nil && info.IsDir() {
-		abs, _ := filepath.Abs(root)
-		if abs == "/" {
-			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
-		}
-		// Always scope to data directory (WorkingDir or /home/container) like Pterodactyl
-		dataDir := s.getContainerDataDir(id)
-		dataPath := filepath.Join(root, dataDir)
-		os.MkdirAll(dataPath, 0755)
-		return dataPath, nil
+	c, err := s.dck.GetContainer(id)
+	if err != nil {
+		return "", fmt.Errorf("container %s not found", id)
 	}
 
-	// Fall back to diff layer (persists when container is stopped)
-	diffPath := s.dck.OverlayDiffPath(id)
-	info, err = os.Stat(diffPath)
+	// If container is running, use merged overlay (full filesystem view)
+	if c.Status == "running" {
+		root := s.dck.OverlayPath(id)
+		info, err := os.Stat(root)
+		if err == nil && info.IsDir() {
+			abs, _ := filepath.Abs(root)
+			if abs == "/" {
+				return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
+			}
+			dataDir := s.getContainerDataDir(c)
+			dataPath := filepath.Join(root, dataDir)
+			os.MkdirAll(dataPath, 0755)
+			return dataPath, nil
+		}
+	}
+
+	// Fall back to upper layer (persists when container is stopped)
+	upperPath := s.dck.OverlayDiffPath(id)
+	info, err := os.Stat(upperPath)
 	if err == nil && info.IsDir() {
-		abs, _ := filepath.Abs(diffPath)
+		abs, _ := filepath.Abs(upperPath)
 		if abs == "/" {
 			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
-		// Always scope to data directory
-		dataDir := s.getContainerDataDir(id)
-		dataPath := filepath.Join(diffPath, dataDir)
+		dataDir := s.getContainerDataDir(c)
+		dataPath := filepath.Join(upperPath, dataDir)
 		os.MkdirAll(dataPath, 0755)
 		return dataPath, nil
 	}
@@ -44,11 +51,7 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 	return "", fmt.Errorf("container %s filesystem not available", id)
 }
 
-func (s *Server) getContainerDataDir(id string) string {
-	c, err := s.dck.GetContainer(id)
-	if err != nil {
-		return "/home/container"
-	}
+func (s *Server) getContainerDataDir(c *dck.Container) string {
 	if c.WorkingDir != "" {
 		return c.WorkingDir
 	}
