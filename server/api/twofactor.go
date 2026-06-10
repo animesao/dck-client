@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base32"
 	"encoding/json"
 	"image/png"
 	"net/http"
@@ -43,10 +44,16 @@ func (s *Server) handleTwoFactorQR(w http.ResponseWriter, r *http.Request, claim
 		return
 	}
 
+	rawSecret, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(secret)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to decode secret")
+		return
+	}
+
 	key, err := totp.Generate(totp.GenerateOpts{
 		Issuer:      "dck-panel",
 		AccountName: claims.Username,
-		Secret:      []byte(secret),
+		Secret:      rawSecret,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to generate QR")
