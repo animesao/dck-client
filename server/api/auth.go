@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
 
@@ -74,8 +75,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 
 func totpValidate(code, secret string) bool {
 	valid, _ := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
-		Period: 30,
-		Skew:   1,
+		Period:    30,
+		Skew:      2,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
 	})
 	return valid
 }

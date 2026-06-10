@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 )
 
@@ -78,8 +79,10 @@ func (s *Server) handleTwoFactorVerify(w http.ResponseWriter, r *http.Request, c
 	}
 
 	valid, _ := totp.ValidateCustom(req.Code, secret, time.Now(), totp.ValidateOpts{
-		Period: 30,
-		Skew:   1,
+		Period:    30,
+		Skew:      2,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
 	})
 	if !valid {
 		writeError(w, http.StatusBadRequest, "Invalid code")
