@@ -21,6 +21,7 @@ interface EnvPair {
 interface ImagePreset {
   env: EnvPair[]
   ports: string[]
+  command?: string
 }
 
 const imagePresets: Record<string, ImagePreset> = {
@@ -32,6 +33,7 @@ const imagePresets: Record<string, ImagePreset> = {
       { key: 'MYSQL_PASSWORD', value: 'pass' },
     ],
     ports: ['3306:3306'],
+    command: 'mysqld',
   },
   postgres: {
     env: [
@@ -40,6 +42,7 @@ const imagePresets: Record<string, ImagePreset> = {
       { key: 'POSTGRES_USER', value: 'user' },
     ],
     ports: ['5432:5432'],
+    command: 'postgres -D /var/lib/postgresql/data',
   },
   mongo: {
     env: [
@@ -47,6 +50,7 @@ const imagePresets: Record<string, ImagePreset> = {
       { key: 'MONGO_INITDB_ROOT_PASSWORD', value: 'adminpass' },
     ],
     ports: ['27017:27017'],
+    command: 'mongod',
   },
   'minecraft-server': {
     env: [
@@ -56,14 +60,17 @@ const imagePresets: Record<string, ImagePreset> = {
       { key: 'VERSION', value: 'LATEST' },
     ],
     ports: ['25565:25565'],
+    command: 'java -Xmx$MEMORY -Xms$MEMORY -jar server.jar --nogui',
   },
   redis: {
     env: [],
     ports: ['6379:6379'],
+    command: 'redis-server',
   },
   nginx: {
     env: [],
     ports: ['80:80'],
+    command: 'nginx -g daemon off;',
   },
 }
 
@@ -131,6 +138,7 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
       const preset = imagePresets[key]
       setEnvPairs(preset.env.map(e => ({ ...e })))
       setPortStr(preset.ports.join(', '))
+      setForm(f => ({ ...f, command: preset.command || '' }))
     } else {
       setEnvPairs([])
       setPortStr('')
