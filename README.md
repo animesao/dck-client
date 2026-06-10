@@ -107,13 +107,20 @@ sudo ./server/dck-panel --port 443
 sudo DCK_HOME=/root/.dck ./server/dck-panel --port 443
 ```
 
+> [!TIP]
+> Некоторые хостинг-провайдеры блокируют порт 443 на внешнем firewall. Если панель не открывается на 443 — используй порт 8443:
+> ```bash
+> curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash -s 8443
+> ```
+> Панель будет доступна по адресу `https://ваш-сервер:8443`
+
 ### Option 3: Install script (Ubuntu/Debian)
 
 ```bash
 # One-command install (downloads and runs latest script)
 curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash
 
-# Or with custom port
+# Or with custom port (e.g. 8443 if hoster blocks 443)
 curl -sSL https://raw.githubusercontent.com/animesao/dck-client/main/install.sh | sudo bash -s 8443
 
 # Or download first, then run
@@ -454,6 +461,7 @@ After=network.target
 
 [Service]
 Type=simple
+# Use --port 8443 if your hoster blocks port 443
 ExecStart=/usr/local/bin/dck-panel --port 443
 Environment=DCK_HOME=/root/.dck
 Restart=always
@@ -478,7 +486,11 @@ your-domain.com {
 ### Firewall
 
 ```bash
+# Open panel port (change 8443 if you use a different port)
 ufw allow 443/tcp
+
+# Show current rules
+ufw status
 ```
 
 ## Security
