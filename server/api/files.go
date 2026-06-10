@@ -15,6 +15,10 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 	root := s.dck.OverlayPath(id)
 	info, err := os.Stat(root)
 	if err == nil && info.IsDir() {
+		abs, _ := filepath.Abs(root)
+		if abs == "/" {
+			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
+		}
 		return root, nil
 	}
 
@@ -22,6 +26,10 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 	diffPath := s.dck.OverlayDiffPath(id)
 	info, err = os.Stat(diffPath)
 	if err == nil && info.IsDir() {
+		abs, _ := filepath.Abs(diffPath)
+		if abs == "/" {
+			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
+		}
 		return diffPath, nil
 	}
 

@@ -93,6 +93,23 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, cl
 	if containers == nil {
 		containers = []dck.Container{}
 	}
+
+	// Filter by user access (admins see all)
+	if claims.Role != "admin" {
+		accessible := s.store.GetUserContainerIDs(claims.Sub)
+		accessMap := make(map[string]bool, len(accessible))
+		for _, id := range accessible {
+			accessMap[id] = true
+		}
+		filtered := make([]dck.Container, 0, len(containers))
+		for _, c := range containers {
+			if accessMap[c.ID] {
+				filtered = append(filtered, c)
+			}
+		}
+		containers = filtered
+	}
+
 	writeJSON(w, http.StatusOK, containersToResp(containers))
 }
 

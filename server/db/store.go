@@ -325,6 +325,22 @@ func (s *Store) GetUserContainerCount(userID string) int {
 	return count
 }
 
+func (s *Store) GetUserContainerIDs(userID string) []string {
+	rows, err := s.db.Query("SELECT container_id FROM user_containers WHERE user_id = ? UNION SELECT container_id FROM container_permissions WHERE user_id = ?", userID, userID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 func (s *Store) GetAllUserContainerCounts() map[string]int {
 	rows, err := s.db.Query("SELECT user_id, COUNT(*) as cnt FROM user_containers GROUP BY user_id")
 	if err != nil {

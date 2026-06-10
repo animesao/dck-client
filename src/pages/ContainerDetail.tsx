@@ -51,6 +51,7 @@ export function ContainerDetailPage() {
         getContainer(id),
         getContainerStats(id).catch(() => null),
       ])
+      if (!c) { throw new Error('Container not found') }
       setContainer(c)
       setStats(s)
       setStartupCmd(c.cmd || '')
@@ -108,7 +109,7 @@ export function ContainerDetailPage() {
   useEffect(() => { if (activeTab === 'logs') loadLogs(); if (activeTab === 'state') loadState() }, [activeTab])
 
   if (loading) return <PageLoading />
-  if (!container) return null
+  if (!container) return <div className="flex items-center justify-center py-20"><p className="text-[#636d7d]">Container not found</p></div>
 
   const tabs = [
     { id: 'info', label: 'Info', icon: <Info size={14} /> },
@@ -162,7 +163,13 @@ export function ContainerDetailPage() {
       {stats && (
         <Card>
           <div className="p-4">
-            <ResourceBar cpu={stats.cpu} memory={stats.memory} memoryUsed={stats.memory_used} memoryLimit={stats.memory_limit} />
+            <ResourceBar
+              cpu={stats.cpu}
+              memory={stats.memory}
+              memoryUsed={stats.memory_used}
+              memoryLimit={stats.memory_limit}
+              cpuLimit={container.cpus ? parseFloat(container.cpus) : undefined}
+            />
           </div>
         </Card>
       )}
