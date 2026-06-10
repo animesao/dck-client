@@ -19,13 +19,11 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		if abs == "/" {
 			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
-		// Scope to container's data directory (WorkingDir or default /home/container)
+		// Always scope to data directory (WorkingDir or /home/container) like Pterodactyl
 		dataDir := s.getContainerDataDir(id)
 		dataPath := filepath.Join(root, dataDir)
-		if info, err := os.Stat(dataPath); err == nil && info.IsDir() {
-			return dataPath, nil
-		}
-		return root, nil
+		os.MkdirAll(dataPath, 0755)
+		return dataPath, nil
 	}
 
 	// Fall back to diff layer (persists when container is stopped)
@@ -36,13 +34,11 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		if abs == "/" {
 			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
-		// Scope to container's data directory within diff
+		// Always scope to data directory
 		dataDir := s.getContainerDataDir(id)
 		dataPath := filepath.Join(diffPath, dataDir)
-		if info, err := os.Stat(dataPath); err == nil && info.IsDir() {
-			return dataPath, nil
-		}
-		return diffPath, nil
+		os.MkdirAll(dataPath, 0755)
+		return dataPath, nil
 	}
 
 	return "", fmt.Errorf("container %s filesystem not available", id)
@@ -115,7 +111,8 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request, claims 
 
 	entries, err := os.ReadDir(fullPath)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "Directory not found")
+		// Data directory may not exist yet; return empty list
+		writeJSON(w, http.StatusOK, []FileEntry{})
 		return
 	}
 
