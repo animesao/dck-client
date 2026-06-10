@@ -8,9 +8,21 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"dck-panel/dck"
 )
+
+var (
+	cpuPrevMu sync.Mutex
+	cpuPrev   = map[string]cpuSample{}
+)
+
+type cpuSample struct {
+	usage uint64
+	time  time.Time
+}
 
 type ContainerResp struct {
 	ID         string          `json:"id"`
@@ -270,7 +282,6 @@ func (s *Server) handleContainerState(w http.ResponseWriter, r *http.Request, cl
 func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
 
-	// Get container state for allocated limits
 	c, err := s.dck.GetContainer(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Container not found")
@@ -281,8 +292,11 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 	memLimit := uint64(0)
 	cpuPct := 0.0
 
-	// dck uses cgroup v2 under /sys/fs/cgroup/dck/<id>/
-	cgPrefix := fmt.Sprintf("/sys/fs/cgroup/dck/%s", id)
+	// Use the actual cgroup path from container state, fallback to default
+	cgPrefix := c.CgroupPath
+	if cgPrefix == "" {
+		cgPrefix = fmt.Sprintf("/sys/fs/cgroup/dck/%s", id)
+	}
 
 	// Memory used
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "memory.current")); err == nil {
@@ -292,7 +306,7 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 		}
 	}
 
-	// Memory limit — file contains "max\n" when unlimited
+	// Memory limit — "max\n" means unlimited
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "memory.max")); err == nil {
 		s := strings.TrimSpace(string(b))
 		if s != "max" {
@@ -303,19 +317,35 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 		}
 	}
 
-	// CPU usage — cgroup v2 cpu.stat
+	// CPU usage — delta from cumulative usage_usec in cpu.stat
+	var cpuUsage uint64
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "cpu.stat")); err == nil {
 		for _, line := range strings.Split(string(b), "\n") {
 			if strings.HasPrefix(line, "usage_usec") {
-				var usec uint64
-				fmt.Sscanf(line, "usage_usec %d", &usec)
-				cpuPct = float64(usec) / 1e6 * 100
+				fmt.Sscanf(line, "usage_usec %d", &cpuUsage)
 				break
 			}
 		}
 	}
 
-	// Fallback: use allocated limits from container state (cgroup already cleaned up)
+	now := time.Now()
+	cpuPrevMu.Lock()
+	prev, ok := cpuPrev[id]
+	cpuPrev[id] = cpuSample{usage: cpuUsage, time: now}
+	cpuPrevMu.Unlock()
+
+	if ok && prev.usage > 0 && cpuUsage > prev.usage {
+		delta := float64(cpuUsage-prev.usage) / 1e6 // μs → seconds
+		elapsed := now.Sub(prev.time).Seconds()
+		if elapsed > 0 {
+			cpuPct = (delta / elapsed) * 100
+			if cpuPct < 0 {
+				cpuPct = 0
+			}
+		}
+	}
+
+	// Fallback to container state limits when cgroup not available
 	if memLimit == 0 && c.MemoryLimit > 0 {
 		memLimit = uint64(c.MemoryLimit)
 	}
