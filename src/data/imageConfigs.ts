@@ -30,7 +30,7 @@ export const imageConfigs: ImageConfig[] = [
     image: 'itzg/minecraft-server',
     defaultTag: 'latest',
     versions: ['latest', 'java8', 'java8-multiarch', 'java17', 'java17-alpine', 'java21', 'java21-alpine'],
-    command: 'java -Xmx$MEMORY -Xms$MEMORY -jar server.jar --nogui',
+    command: '',
     env: [
       { key: 'EULA', label: 'EULA', defaultValue: 'TRUE', description: 'Must be TRUE to accept Mojang EULA', options: ['TRUE'] },
       { key: 'TYPE', label: 'Server Type', defaultValue: 'VANILLA', description: 'Server software type', options: ['VANILLA', 'FORGE', 'FABRIC', 'PAPER', 'SPIGOT', 'BUKKIT', 'SPONGEVANILLA', 'PURPUR'] },
@@ -52,7 +52,7 @@ export const imageConfigs: ImageConfig[] = [
     image: 'itzg/minecraft-server',
     defaultTag: 'latest',
     versions: ['latest', 'java17', 'java17-alpine', 'java21', 'java21-alpine'],
-    command: 'java -Xmx$MEMORY -Xms$MEMORY -jar server.jar --nogui',
+    command: '',
     env: [
       { key: 'EULA', label: 'EULA', defaultValue: 'TRUE', description: 'Must be TRUE' },
       { key: 'TYPE', label: 'Server Type', defaultValue: 'FORGE', description: '', options: ['FORGE', 'FABRIC', 'PAPER'] },
@@ -71,7 +71,7 @@ export const imageConfigs: ImageConfig[] = [
     image: 'itzg/minecraft-server',
     defaultTag: 'latest',
     versions: ['latest', 'java17', 'java17-alpine', 'java21', 'java21-alpine'],
-    command: 'java -Xmx$MEMORY -Xms$MEMORY -jar server.jar --nogui',
+    command: '',
     env: [
       { key: 'EULA', label: 'EULA', defaultValue: 'TRUE', description: '' },
       { key: 'TYPE', label: 'Server Type', defaultValue: 'PAPER', description: '', options: ['PAPER', 'PURPUR'] },
