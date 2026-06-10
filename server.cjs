@@ -435,6 +435,7 @@ app.put('/api/containers/:id/config', authMiddleware, (req, res) => {
 let activityLogs = []
 let twoFactorSecrets = {}
 let twoFactorEnabled = {}
+let sftpUsersMap = {}
 
 function addActivityLog(userId, containerId, action, details) {
   const user = users.find(u => u.id === userId)
@@ -733,9 +734,19 @@ app.get('/api/version', authMiddleware, (req, res) => {
   })
 })
 
-app.get('/api/sftp/info', authMiddleware, (req, res) => {
+app.get('/api/containers/:id/sftp', authMiddleware, (req, res) => {
+  const id = req.params.id
   const host = req.headers.host ? req.headers.host.split(':')[0] : 'localhost'
-  res.json({ host, port: '2222', username: req.user.username })
+  const username = `sftp_${id.slice(0, 8)}`
+  const password = `sftp_${Math.random().toString(36).slice(2, 10)}`
+  const sftpUsers = sftpUsersMap || {}
+  sftpUsersMap = sftpUsers
+  if (!sftpUsers[id]) {
+    sftpUsers[id] = { username, password }
+    res.json({ host, port: '2222', username, password })
+  } else {
+    res.json({ host, port: '2222', username: sftpUsers[id].username })
+  }
 })
 
 // Templates

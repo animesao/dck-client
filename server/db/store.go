@@ -116,6 +116,12 @@ func (s *Store) migrate() error {
 			enabled INTEGER NOT NULL DEFAULT 0,
 			FOREIGN KEY (user_id) REFERENCES users(id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS container_sftp (
+			container_id TEXT PRIMARY KEY,
+			username TEXT UNIQUE NOT NULL,
+			password_hash TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 	}
 	for _, q := range queries {
 		if _, err := s.db.Exec(q); err != nil {
@@ -571,4 +577,72 @@ func generateID() string {
 	b := make([]byte, 16)
 	rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// ─── SFTP per-container credentials ────────────────────────────
+
+type SFTPUser struct {
+	ContainerID string `json:"container_id"`
+	Username    string `json:"username"`
+	CreatedAt   string `json:"created_at"`
+}
+
+func generateSFTPPassword() string {
+	b := make([]byte, 12)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
+func generateSFTPUsername(containerID string) string {
+	short := containerID
+	if len(short) > 8 {
+		short = short[:8]
+	}
+	return fmt.Sprintf("sftp_%s", short)
+}
+
+func (s *Store) GetOrCreateSFTPUser(containerID string) (SFTPUser, string, error) {
+	// Check if already exists
+	row := s.db.QueryRow("SELECT container_id, username, created_at FROM container_sftp WHERE container_id = ?", containerID)
+	var existing SFTPUser
+	if err := row.Scan(&existing.ContainerID, &existing.Username, &existing.CreatedAt); err == nil {
+		return existing, "", nil
+	}
+
+	// Create new
+	username := generateSFTPUsername(containerID)
+	password := generateSFTPPassword()
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return SFTPUser{}, "", err
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err = s.db.Exec("INSERT INTO container_sftp (container_id, username, password_hash, created_at) VALUES (?, ?, ?, ?)",
+		containerID, username, string(hash), now)
+	if err != nil {
+		return SFTPUser{}, "", err
+	}
+	return SFTPUser{ContainerID: containerID, Username: username, CreatedAt: now}, password, nil
+}
+
+func (s *Store) GetSFTPUserByUsername(username string) (string, string, error) {
+	row := s.db.QueryRow("SELECT container_id, password_hash FROM container_sftp WHERE username = ?", username)
+	var containerID, passwordHash string
+	if err := row.Scan(&containerID, &passwordHash); err != nil {
+		return "", "", err
+	}
+	return containerID, passwordHash, nil
+}
+
+func (s *Store) RegenerateSFTPPassword(containerID string) (string, error) {
+	password := generateSFTPPassword()
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	_, err = s.db.Exec("UPDATE container_sftp SET password_hash = ? WHERE container_id = ?", string(hash), containerID)
+	if err != nil {
+		return "", err
+	}
+	return password, nil
 }

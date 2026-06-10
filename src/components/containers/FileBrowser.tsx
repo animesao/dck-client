@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl, getSFTPInfo } from '@/api/files'
+import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl, getContainerSFTP } from '@/api/files'
 import { getAuthToken } from '@/api/client'
-import type { SFTPInfo } from '@/api/files'
+import type { ContainerSFTPInfo } from '@/api/files'
 import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -83,7 +83,7 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
   const [search, setSearch] = useState('')
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ active: false, percent: 0, filename: '' })
   const [showSftpInfo, setShowSftpInfo] = useState(false)
-  const [sftpInfo, setSftpInfo] = useState<SFTPInfo | null>(null)
+  const [sftpInfo, setSftpInfo] = useState<ContainerSFTPInfo | null>(null)
 
   const loadFiles = useCallback(async (path: string) => {
     if (!containerId) return
@@ -461,7 +461,7 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
         <button
           onClick={async () => {
             try {
-              const info = await getSFTPInfo()
+              const info = await getContainerSFTP(containerId)
               setSftpInfo(info)
               setShowSftpInfo(true)
             } catch (err: any) {
@@ -558,7 +558,11 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Password</label>
-              <p className="text-xs text-[#636d7d] mt-0.5">Your panel login password</p>
+              {sftpInfo.password ? (
+                <p className="text-xs text-[#e6ed3f] font-mono mt-0.5 break-all">{sftpInfo.password}</p>
+              ) : (
+                <p className="text-xs text-[#636d7d] mt-0.5">Already generated — reset to get new one</p>
+              )}
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Remote Path</label>

@@ -7,7 +7,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/fs"
 	"log"
 	"net"
 	"net/http"
@@ -15,12 +14,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
-	"dck-panel/db"
 	"dck-panel/dck"
 
 	"github.com/pkg/sftp"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -43,14 +41,16 @@ func (s *Server) StartSFTPServer(port string, dataDir string) error {
 
 	config := &ssh.ServerConfig{
 		PasswordCallback: func(c ssh.ConnMetadata, pass []byte) (*ssh.Permissions, error) {
-			user := s.store.CheckPassword(c.User(), string(pass))
-			if user == nil {
+			containerID, passwordHash, err := s.store.GetSFTPUserByUsername(c.User())
+			if err != nil {
+				return nil, fmt.Errorf("invalid credentials")
+			}
+			if err := bcrypt.CompareHashAndPassword([]byte(passwordHash), pass); err != nil {
 				return nil, fmt.Errorf("invalid credentials")
 			}
 			return &ssh.Permissions{
 				Extensions: map[string]string{
-					"user-id": user.ID,
-					"role":    user.Role,
+					"container-id": containerID,
 				},
 			}, nil
 		},
@@ -92,10 +92,9 @@ func (s *Server) handleSFTPConn(conn net.Conn, config *ssh.ServerConfig) {
 	}
 	defer sshConn.Close()
 
-	userID := sshConn.Permissions.Extensions["user-id"]
-	role := sshConn.Permissions.Extensions["role"]
+	containerID := sshConn.Permissions.Extensions["container-id"]
 
-	log.Printf("[sftp] %s connected from %s", sshConn.User(), conn.RemoteAddr())
+	log.Printf("[sftp] %s connected to container %s from %s", sshConn.User(), containerID[:12], conn.RemoteAddr())
 
 	go ssh.DiscardRequests(reqs)
 
@@ -117,7 +116,7 @@ func (s *Server) handleSFTPConn(conn net.Conn, config *ssh.ServerConfig) {
 				case "subsystem":
 					if len(req.Payload) >= 4 && string(req.Payload[4:]) == "sftp" {
 						req.Reply(true, nil)
-						serveSFTPForUser(channel, s.store, s.dck, userID, role)
+						serveSFTPForContainer(channel, s.dck, containerID)
 					} else {
 						req.Reply(false, nil)
 					}
@@ -131,131 +130,127 @@ func (s *Server) handleSFTPConn(conn net.Conn, config *ssh.ServerConfig) {
 	}
 }
 
-func serveSFTPForUser(channel ssh.Channel, store *db.Store, dckClient *dck.Client, userID, role string) {
-	rootFS := &containerFS{
-		store:  store,
-		dck:    dckClient,
-		userID: userID,
-		role:   role,
+func serveSFTPForContainer(channel ssh.Channel, dckClient *dck.Client, containerID string) {
+	root, err := containerDataRoot(dckClient, containerID)
+	if err != nil {
+		log.Printf("[sftp] container %s filesystem not available: %v", containerID[:12], err)
+		return
 	}
 
+	fs := &scopedFS{root: root}
+
 	handlers := sftp.Handlers{
-		FileGet:  rootFS,
-		FilePut:  rootFS,
-		FileCmd:  rootFS,
-		FileList: rootFS,
+		FileGet:  fs,
+		FilePut:  fs,
+		FileCmd:  fs,
+		FileList: fs,
 	}
 
 	server := sftp.NewRequestServer(channel, handlers)
 	server.Serve()
 }
 
-// ─── Virtual container filesystem for SFTP ──────────────────────
+// ─── Scoped container filesystem (single container) ──────────────
 
-type containerFS struct {
-	store  *db.Store
-	dck    *dck.Client
-	userID string
-	role   string
-	mu     sync.Mutex
+type scopedFS struct {
+	root string
+	mu   sync.Mutex
 }
 
-func (c *containerFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	_, absPath, err := c.resolve(r.Filepath)
-	if err != nil {
-		return nil, err
+func (f *scopedFS) resolve(path string) (string, error) {
+	clean := filepath.Clean(path)
+	if clean == "." || clean == "/" {
+		return f.root, nil
 	}
-	f, err := os.Open(absPath)
+	clean = strings.TrimPrefix(clean, "/")
+	full := filepath.Join(f.root, clean)
+	abs, err := filepath.Abs(full)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return f, nil
+	rootAbs, err := filepath.Abs(f.root)
+	if err != nil {
+		return "", err
+	}
+	rootPrefix := rootAbs
+	if !strings.HasSuffix(rootPrefix, string(filepath.Separator)) {
+		rootPrefix += string(filepath.Separator)
+	}
+	if !strings.HasPrefix(abs, rootPrefix) {
+		return "", fmt.Errorf("path traversal denied")
+	}
+	return abs, nil
 }
 
-func (c *containerFS) Filewrite(r *sftp.Request) (io.WriterAt, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	_, absPath, err := c.resolve(r.Filepath)
+func (f *scopedFS) Fileread(r *sftp.Request) (io.ReaderAt, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	abs, err := f.resolve(r.Filepath)
 	if err != nil {
 		return nil, err
 	}
-	os.MkdirAll(filepath.Dir(absPath), 0755)
-	f, err := os.Create(absPath)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
+	return os.Open(abs)
 }
 
-func (c *containerFS) Filecmd(r *sftp.Request) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	_, targetPath, err := c.resolve(r.Filepath)
+func (f *scopedFS) Filewrite(r *sftp.Request) (io.WriterAt, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	abs, err := f.resolve(r.Filepath)
 	if err != nil {
-		return err
+		return nil, err
 	}
+	os.MkdirAll(filepath.Dir(abs), 0755)
+	return os.Create(abs)
+}
 
+func (f *scopedFS) Filecmd(r *sftp.Request) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	switch r.Method {
 	case "Setstat":
 		return nil
 	case "Rename":
-		_, oldPath, err := c.resolve(r.Filepath)
+		old, err := f.resolve(r.Filepath)
 		if err != nil {
 			return err
 		}
-		_, newPath, err := c.resolve(r.Target)
+		neu, err := f.resolve(r.Target)
 		if err != nil {
 			return err
 		}
-		return os.Rename(oldPath, newPath)
-	case "Rmdir":
-		return os.RemoveAll(targetPath)
-	case "Remove":
-		return os.RemoveAll(targetPath)
+		return os.Rename(old, neu)
+	case "Rmdir", "Remove":
+		abs, err := f.resolve(r.Filepath)
+		if err != nil {
+			return err
+		}
+		return os.RemoveAll(abs)
 	case "Mkdir":
-		return os.MkdirAll(targetPath, 0755)
+		abs, err := f.resolve(r.Filepath)
+		if err != nil {
+			return err
+		}
+		return os.MkdirAll(abs, 0755)
 	case "Symlink":
-		return os.Symlink(r.Target, targetPath)
+		abs, err := f.resolve(r.Filepath)
+		if err != nil {
+			return err
+		}
+		return os.Symlink(r.Target, abs)
 	}
 	return nil
 }
 
-func (c *containerFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	containerID, absPath, err := c.resolve(r.Filepath)
+func (f *scopedFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	abs, err := f.resolve(r.Filepath)
 	if err != nil {
 		return nil, err
 	}
-
-	// Root: list accessible containers as directories
-	if containerID == "" {
-		ids := c.containerIDs()
-		entries := make([]os.FileInfo, 0, len(ids))
-		for _, id := range ids {
-			ct, _ := c.dck.GetContainer(id)
-			name := id
-			if ct != nil && ct.Name != "" {
-				name = ct.Name + " (" + id[:12] + ")"
-			}
-			entries = append(entries, &virtualFileInfo{
-				name:  name,
-				isDir: true,
-				mode:  0755 | os.ModeDir,
-			})
-		}
-		return listerAt(entries), nil
-	}
-
-	ents, err := os.ReadDir(absPath)
+	ents, err := os.ReadDir(abs)
 	if err != nil {
-		return listerAt([]os.FileInfo{}), nil
+		return listerAt{}, nil
 	}
 	entries := make([]os.FileInfo, 0, len(ents))
 	for _, e := range ents {
@@ -268,22 +263,7 @@ func (c *containerFS) Filelist(r *sftp.Request) (sftp.ListerAt, error) {
 	return listerAt(entries), nil
 }
 
-// ─── Helpers: virtual file info & listerAt ──────────────────────
-
-type virtualFileInfo struct {
-	name  string
-	isDir bool
-	size  int64
-	mode  os.FileMode
-	t     time.Time
-}
-
-func (f *virtualFileInfo) Name() string      { return f.name }
-func (f *virtualFileInfo) Size() int64       { return f.size }
-func (f *virtualFileInfo) Mode() fs.FileMode  { return f.mode }
-func (f *virtualFileInfo) ModTime() time.Time { return f.t }
-func (f *virtualFileInfo) IsDir() bool        { return f.isDir }
-func (f *virtualFileInfo) Sys() interface{}   { return nil }
+// ─── Helpers ────────────────────────────────────────────────────
 
 type listerAt []os.FileInfo
 
@@ -295,66 +275,26 @@ func (l listerAt) ListAt(ls []os.FileInfo, offset int64) (int, error) {
 	return n, io.EOF
 }
 
-// ─── Container access resolution ────────────────────────────────
-
-func (c *containerFS) containerIDs() []string {
-	if c.role == "admin" {
-		all, _ := c.dck.ListContainers(true)
-		ids := make([]string, len(all))
-		for i, ct := range all {
-			ids[i] = ct.ID
-		}
-		return ids
-	}
-	return c.store.GetUserContainerIDs(c.userID)
-}
-
-func (c *containerFS) containerRoot(id string) (string, error) {
-	root := c.dck.OverlayPath(id)
+func containerDataRoot(dckClient *dck.Client, containerID string) (string, error) {
+	// Try merged overlay (container running)
+	root := dckClient.OverlayPath(containerID)
 	info, err := os.Stat(root)
 	if err == nil && info.IsDir() {
-		dataDir := getContainerWorkDir(c.dck, id)
+		dataDir := getContainerWorkDir(dckClient, containerID)
 		dataPath := filepath.Join(root, dataDir)
 		os.MkdirAll(dataPath, 0755)
 		return dataPath, nil
 	}
-	diffPath := c.dck.OverlayDiffPath(id)
+	// Fall back to diff layer
+	diffPath := dckClient.OverlayDiffPath(containerID)
 	info, err = os.Stat(diffPath)
 	if err == nil && info.IsDir() {
-		dataDir := getContainerWorkDir(c.dck, id)
+		dataDir := getContainerWorkDir(dckClient, containerID)
 		dataPath := filepath.Join(diffPath, dataDir)
 		os.MkdirAll(dataPath, 0755)
 		return dataPath, nil
 	}
-	return "", fmt.Errorf("filesystem not available")
-}
-
-func (c *containerFS) resolve(path string) (string, string, error) {
-	path = filepath.Clean(path)
-	parts := strings.SplitN(strings.TrimPrefix(path, "/"), "/", 2)
-	if len(parts) == 0 || parts[0] == "" {
-		return "", "", nil
-	}
-	containerID := parts[0]
-	hasAccess := false
-	for _, id := range c.containerIDs() {
-		if id == containerID {
-			hasAccess = true
-			break
-		}
-	}
-	if !hasAccess {
-		return "", "", fmt.Errorf("container not found")
-	}
-	subPath := "/"
-	if len(parts) > 1 && parts[1] != "" {
-		subPath = "/" + parts[1]
-	}
-	root, err := c.containerRoot(containerID)
-	if err != nil {
-		return "", "", err
-	}
-	return containerID, filepath.Join(root, subPath), nil
+	return "", fmt.Errorf("container %s filesystem not available", containerID)
 }
 
 func getContainerWorkDir(dckClient *dck.Client, id string) string {
@@ -389,14 +329,27 @@ func ensureHostKey(path string) error {
 	})
 }
 
-func (s *Server) handleSFTPInfo(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+func (s *Server) handleContainerSFTP(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
 	host := r.Host
 	if idx := strings.LastIndex(host, ":"); idx > 0 {
 		host = host[:idx]
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{
+
+	sftpUser, password, err := s.store.GetOrCreateSFTPUser(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to get SFTP credentials")
+		return
+	}
+
+	resp := map[string]interface{}{
 		"host":     host,
 		"port":     s.sftpPort,
-		"username": claims.Username,
-	})
+		"username": sftpUser.Username,
+	}
+	if password != "" {
+		resp["password"] = password
+	}
+
+	writeJSON(w, http.StatusOK, resp)
 }
