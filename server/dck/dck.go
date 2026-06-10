@@ -301,6 +301,10 @@ func (c *Client) OverlayPath(id string) string {
 	return filepath.Join(c.DataDir, "overlay", id, "merged")
 }
 
+func (c *Client) OverlayDiffPath(id string) string {
+	return filepath.Join(c.DataDir, "overlay", id, "diff")
+}
+
 func (c *Client) LogPath(id string) string {
 	return filepath.Join(c.DataDir, "logs", id+".log")
 }

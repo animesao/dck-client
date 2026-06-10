@@ -44,9 +44,9 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, claim
 func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
 
-	overlayPath := s.dck.OverlayPath(id)
-	if _, err := os.Stat(overlayPath); err != nil {
-		writeError(w, http.StatusNotFound, "Container overlay not found")
+	overlayPath, err := s.getContainerRoot(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Container filesystem not available")
 		return
 	}
 
@@ -145,9 +145,9 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, cla
 		return
 	}
 
-	overlayPath := s.dck.OverlayPath(id)
-	if _, err := os.Stat(overlayPath); os.IsNotExist(err) {
-		writeError(w, http.StatusNotFound, "Container overlay not found")
+	overlayPath, err := s.getContainerRoot(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Container filesystem not available")
 		return
 	}
 

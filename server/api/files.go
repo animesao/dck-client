@@ -11,15 +11,21 @@ import (
 )
 
 func (s *Server) getContainerRoot(id string) (string, error) {
+	// Try merged overlay (container running)
 	root := s.dck.OverlayPath(id)
 	info, err := os.Stat(root)
-	if err != nil {
-		return "", fmt.Errorf("container %s not found or not running", id)
+	if err == nil && info.IsDir() {
+		return root, nil
 	}
-	if !info.IsDir() {
-		return "", fmt.Errorf("container %s overlay not available", id)
+
+	// Fall back to diff layer (persists when container is stopped)
+	diffPath := s.dck.OverlayDiffPath(id)
+	info, err = os.Stat(diffPath)
+	if err == nil && info.IsDir() {
+		return diffPath, nil
 	}
-	return root, nil
+
+	return "", fmt.Errorf("container %s filesystem not available", id)
 }
 
 func safePath(root, requested string) (string, error) {
