@@ -223,10 +223,10 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request, claims
 		return
 	}
 
-	// 10MB max upload
-	r.Body = http.MaxBytesReader(w, r.Body, 10<<20)
+	// 250MB max upload
+	r.Body = http.MaxBytesReader(w, r.Body, 250<<20)
 
-	if err := r.ParseMultipartForm(10 << 20); err != nil {
+	if err := r.ParseMultipartForm(250 << 20); err != nil {
 		writeError(w, http.StatusBadRequest, "File too large or invalid multipart form")
 		return
 	}
