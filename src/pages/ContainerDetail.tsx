@@ -7,8 +7,9 @@ import {
   updateContainerConfig,
 } from '@/api/containers'
 import {
-  listBackups, createBackup, restoreBackup, deleteBackup, getBackupDownloadUrl,
+  listBackups, createBackup, restoreBackup, deleteBackup, getBackupDownloadUrl, getContainerSFTP, regenerateSFTPPassword,
 } from '@/api/files'
+import type { ContainerSFTPInfo } from '@/api/files'
 import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
 import { Tabs } from '@/components/ui/Tabs'
@@ -25,7 +26,7 @@ import type { Container, ContainerStats } from '@/types'
 import type { BackupEntry } from '@/api/files'
 import { getContainerActivity } from '@/api/activity'
 import type { ContainerPermission, ActivityLog } from '@/types'
-import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Folder, Archive, Users, List, Save, RotateCw, AlertTriangle, Plus, Download } from 'lucide-react'
+import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Folder, Archive, Users, List, Save, RotateCw, AlertTriangle, Plus, Download, RefreshCw, Key } from 'lucide-react'
 import { listCollaborators, addCollaborator, removeCollaborator } from '@/api/collaborators'
 
 export function ContainerDetailPage() {
@@ -119,6 +120,7 @@ export function ContainerDetailPage() {
     { id: 'exec', label: 'Exec', icon: <Terminal size={14} /> },
     { id: 'console', label: 'Console', icon: <Cpu size={14} /> },
     { id: 'files', label: 'Files', icon: <Folder size={14} /> },
+    { id: 'sftp', label: 'SFTP', icon: <Key size={14} /> },
     { id: 'backups', label: 'Backups', icon: <Archive size={14} /> },
     { id: 'collaborators', label: 'Collaborators', icon: <Users size={14} /> },
     { id: 'activity', label: 'Activity', icon: <List size={14} /> },
@@ -317,6 +319,8 @@ export function ContainerDetailPage() {
         {activeTab === 'files' && id && (
           <FileBrowser containerId={id} />
         )}
+
+        {activeTab === 'sftp' && id && <ContainerSFTPTab containerId={id} />}
 
         {activeTab === 'backups' && id && <ContainerBackupsTab containerId={id} />}
 
@@ -575,6 +579,105 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
                 </button>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+    </Card>
+  )
+}
+
+// ─── SFTP Tab ───────────────────────────────────────────────────
+
+function ContainerSFTPTab({ containerId }: { containerId: string }) {
+  const addToast = useUIStore(s => s.addToast)
+  const [sftpInfo, setSftpInfo] = useState<ContainerSFTPInfo | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [resetting, setResetting] = useState(false)
+
+  const load = async () => {
+    setLoading(true)
+    try {
+      const info = await getContainerSFTP(containerId)
+      setSftpInfo(info)
+    } catch (err: any) {
+      addToast(err.message || 'Failed to load SFTP info', 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [containerId])
+
+  const handleReset = async () => {
+    setResetting(true)
+    try {
+      const { password } = await regenerateSFTPPassword(containerId)
+      setSftpInfo(prev => prev ? { ...prev, password } : prev)
+      addToast('SFTP password reset', 'success')
+    } catch (err: any) {
+      addToast(err.message || 'Failed to reset password', 'error')
+    } finally {
+      setResetting(false)
+    }
+  }
+
+  return (
+    <Card>
+      <div className="p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">SFTP Connection</h3>
+          <button onClick={load} className="p-1.5 rounded hover:bg-white/[0.05] text-[#8b949e] hover:text-[#e6edf3]">
+            <RotateCw size={14} />
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-[#636d7d]">Loading...</p>
+        ) : !sftpInfo ? (
+          <p className="text-xs text-[#636d7d]">Failed to load SFTP info</p>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Host</p>
+                <p className="text-xs text-[#e6edf3] font-mono mt-0.5">{sftpInfo.host}</p>
+              </div>
+              <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Port</p>
+                <p className="text-xs text-[#e6edf3] font-mono mt-0.5">{sftpInfo.port || '2222'}</p>
+              </div>
+            </div>
+            <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Username</p>
+              <p className="text-xs text-[#e6edf3] font-mono mt-0.5">{sftpInfo.username}</p>
+            </div>
+            <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Password</p>
+                <button
+                  onClick={handleReset}
+                  disabled={resetting}
+                  className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw size={10} className={resetting ? 'animate-spin' : ''} />
+                  {resetting ? 'Resetting...' : 'Reset'}
+                </button>
+              </div>
+              {sftpInfo.password ? (
+                <p className="text-xs text-[#e6ed3f] font-mono mt-0.5 break-all">{sftpInfo.password}</p>
+              ) : (
+                <p className="text-xs text-[#636d7d] mt-0.5">Click Reset to generate a new password</p>
+              )}
+            </div>
+            <div className="px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+              <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Remote Path</p>
+              <p className="text-xs text-[#8b949e] font-mono mt-0.5">/{containerId.slice(0, 12)}/</p>
+            </div>
+            <div className="bg-white/[0.04] rounded-lg p-3">
+              <p className="text-[10px] text-[#636d7d] mb-1 font-medium">Example connection string:</p>
+              <code className="text-[11px] text-[#e6edf3] font-mono break-all">
+                sftp://{sftpInfo.username}@{sftpInfo.host}:{sftpInfo.port || '2222'}/</code>
+            </div>
           </div>
         )}
       </div>
