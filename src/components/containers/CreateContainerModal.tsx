@@ -65,6 +65,8 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
   const [availableImages, setAvailableImages] = useState<Image[]>([])
   const [pullingTag, setPullingTag] = useState('')
 
+  const config = useMemo(() => imageConfigs.find(c => c.id === selectedId), [selectedId])
+
   useEffect(() => {
     if (!open) return
     listImages().then(setAvailableImages).catch(() => {})
@@ -93,8 +95,6 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
       setPullingTag('')
     }
   }
-
-  const config = useMemo(() => imageConfigs.find(c => c.id === selectedId), [selectedId])
 
   const filtered = useMemo(() => {
     if (!search) return imageConfigs
