@@ -48,9 +48,14 @@ export function MainLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, isAdmin, logout } = useAuth()
-  const { sidebarOpen, toggleSidebar } = useUIStore()
+  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+  useEffect(() => {
+    if (window.innerWidth >= 1024) {
+      setSidebarOpen(true)
+    }
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -172,7 +177,7 @@ export function MainLayout() {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Topbar */}
         <header className="h-14 flex items-center justify-between px-3 lg:px-6 bg-[#080b12]/80 backdrop-blur-xl border-b border-white/[0.05] shrink-0 z-10">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button onClick={toggleSidebar} className="btn-ghost p-2 rounded-xl hover:bg-white/[0.04]">
               {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
