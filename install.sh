@@ -125,17 +125,64 @@ cp dck-panel /usr/local/bin/dck-panel
 cd "$PANEL_DIR"
 log "Go binary built: $(/usr/local/bin/dck-panel --help 2>&1 | head -1 || echo 'ok')"
 
+# ---- Ask domain / IP ----
+DOMAIN=""
+AUTO_IP=$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "")
+echo ""
+echo -e "${YELLOW}┌─────────────────────────────────────────────┐${NC}"
+echo -e "${YELLOW}│         dck Panel Configuration              │${NC}"
+echo -e "${YELLOW}└─────────────────────────────────────────────┘${NC}"
+echo -e "${GREEN}Your server IP: ${AUTO_IP:-detecting...}${NC}"
+echo -e "Enter your domain name to use HTTPS with Let's Encrypt."
+echo -e "Leave empty to use self-signed certificate with IP address."
+echo ""
+read -p "Domain (e.g. panel.example.com) or press Enter for IP: " -r DOMAIN </dev/tty || true
+echo ""
+
 # ---- TLS certificate ----
 CERT_DIR="$PANEL_DIR/tls"
-if [[ ! -f "$CERT_DIR/cert.pem" || ! -f "$CERT_DIR/key.pem" ]]; then
-  log "Generating self-signed TLS certificate..."
+TLS_CERT=""
+TLS_KEY=""
+
+if [[ -n "$DOMAIN" ]]; then
+  log "Using domain: $DOMAIN"
+  INSTALL_LE=""
+  read -p "Install Let's Encrypt certificate for $DOMAIN? (Y/n): " -r INSTALL_LE </dev/tty || true
+  echo ""
+  if [[ ! "$INSTALL_LE" =~ ^[Nn] ]]; then
+    if ! command -v certbot &> /dev/null; then
+      apt-get install -y -qq certbot 2>/dev/null || true
+    fi
+    if command -v certbot &> /dev/null; then
+      log "Obtaining Let's Encrypt certificate for $DOMAIN..."
+      ufw allow 80/tcp 2>/dev/null || true
+      certbot certonly --standalone --non-interactive --agree-tos --register-unsafely-without-email -d "$DOMAIN" 2>/dev/null || {
+        warn "Non-interactive certbot failed, trying interactive..."
+        certbot certonly --standalone -d "$DOMAIN" </dev/tty || true
+      }
+      if [[ -f "/etc/letsencrypt/live/$DOMAIN/fullchain.pem" ]]; then
+        TLS_CERT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
+        TLS_KEY="/etc/letsencrypt/live/$DOMAIN/privkey.pem"
+        log "Let's Encrypt certificate obtained!"
+      fi
+    fi
+  fi
+fi
+
+if [[ -z "$TLS_CERT" ]]; then
   mkdir -p "$CERT_DIR"
-  IP=$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "localhost")
-  openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-    -keyout "$CERT_DIR/key.pem" \
-    -out "$CERT_DIR/cert.pem" \
-    -subj "/CN=$IP" 2>/dev/null
-  log "TLS certificate generated ($IP, 10 years)"
+  CN="${DOMAIN:-$AUTO_IP}"
+  CN="${CN:-localhost}"
+  if [[ ! -f "$CERT_DIR/cert.pem" || ! -f "$CERT_DIR/key.pem" ]]; then
+    log "Generating self-signed TLS certificate for $CN..."
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+      -keyout "$CERT_DIR/key.pem" \
+      -out "$CERT_DIR/cert.pem" \
+      -subj "/CN=$CN" 2>/dev/null
+    log "Self-signed certificate generated (10 years)"
+  fi
+  TLS_CERT="$CERT_DIR/cert.pem"
+  TLS_KEY="$CERT_DIR/key.pem"
 fi
 
 # ---- Systemd service ----
@@ -147,7 +194,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT} --sftp-port 2222 --tls-cert ${CERT_DIR}/cert.pem --tls-key ${CERT_DIR}/key.pem --serve-dir ${PANEL_DIR}/server/dist
+ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT} --sftp-port 2222 --tls-cert ${TLS_CERT} --tls-key ${TLS_KEY} --serve-dir ${PANEL_DIR}/server/dist
 Restart=always
 RestartSec=5
 Environment=DCK_HOME=/root/.dck
@@ -167,12 +214,13 @@ if command -v ufw &> /dev/null; then
 fi
 
 # ---- Done ----
-IP=$(curl -4 -s ifconfig.me 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}' || echo "your-server-ip")
+ACCESS="${DOMAIN:-$AUTO_IP}"
+ACCESS="${ACCESS:-localhost}"
 log ""
 log "╔══════════════════════════════════════════════╗"
 log "║       dck Panel installed successfully!     ║"
 log "╠══════════════════════════════════════════════╣"
-log "║  Panel:  https://${IP}:${PANEL_PORT}           "
+log "║  Panel:  https://${ACCESS}:${PANEL_PORT}           "
 log "║  Login:  admin / admin                      ║"
 log "║                                              ║"
 log "║  Manage: sudo systemctl status dck-panel     ║"
