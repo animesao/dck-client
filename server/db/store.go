@@ -477,6 +477,30 @@ func (s *Store) ListUserActivity(userID string, limit int) []ActivityLog {
 	return out
 }
 
+func (s *Store) ListAllActivity(limit int) []ActivityLog {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.db.Query(`
+		SELECT al.id, al.user_id, u.username, COALESCE(al.container_id, ''), al.action, al.details, al.created_at
+		FROM activity_logs al
+		JOIN users u ON u.id = al.user_id
+		ORDER BY al.created_at DESC LIMIT ?`, limit)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var out []ActivityLog
+	for rows.Next() {
+		var l ActivityLog
+		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.ContainerID, &l.Action, &l.Details, &l.CreatedAt); err == nil {
+			out = append(out, l)
+		}
+	}
+	return out
+}
+
 // ─── Two‑Factor Auth ─────────────────────────────────────────────
 
 func (s *Store) GetTwoFactor(userID string) (secret string, enabled bool) {

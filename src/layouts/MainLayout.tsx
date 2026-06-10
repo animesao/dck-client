@@ -16,6 +16,11 @@ import {
   ChevronRight,
   Activity,
   Shield,
+  List,
+  Server,
+  UserCog,
+  Sliders,
+  FileText,
 } from 'lucide-react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { ToastContainer } from '@/components/ui/Toast'
@@ -28,7 +33,15 @@ const navItems = [
   { to: '/projects', icon: FileCode2, label: 'Projects' },
   { to: '/config', icon: Settings, label: 'Config' },
   { to: '/guide', icon: BookOpen, label: 'Guide' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
+  { to: '/settings', icon: Sliders, label: 'Settings' },
+]
+
+const adminNavItems = [
+  { to: '/admin', icon: Shield, label: 'Dashboard', exact: true },
+  { to: '/admin/containers', icon: Server, label: 'Containers' },
+  { to: '/admin/users', icon: Users, label: 'Users' },
+  { to: '/admin/activity', icon: List, label: 'Activity' },
+  { to: '/admin/settings', icon: Sliders, label: 'Settings' },
 ]
 
 export function MainLayout() {
@@ -97,23 +110,35 @@ export function MainLayout() {
             {isAdmin && (
               <>
                 <div className={`border-t border-white/[0.05] my-3 ${!sidebarOpen && 'lg:mx-2'}`} />
-                <NavLink
-                  to="/admin"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
-                      isActive
-                        ? 'bg-indigo-500/10 text-indigo-300'
-                        : 'text-[#636d7d] hover:text-[#e6edf3] hover:bg-white/[0.03]'
-                    } ${!sidebarOpen && 'lg:justify-center lg:px-2'}`
-                  }
-                >
-                  <div className="shrink-0 text-[#636d7d] group-hover:text-[#8b949e]">
-                    <Shield size={18} />
-                  </div>
-                  <span className={`whitespace-nowrap transition-all duration-200 ${!sidebarOpen && 'lg:w-0 lg:overflow-hidden lg:opacity-0'}`}>
-                    Admin Panel
-                  </span>
-                </NavLink>
+                <div className={`px-3 py-1.5 text-[10px] uppercase tracking-widest text-[#484f58] font-semibold ${!sidebarOpen && 'lg:hidden'}`}>
+                  Admin
+                </div>
+                {adminNavItems.map(item => {
+                  const isActive = item.exact
+                    ? location.pathname === item.to
+                    : location.pathname.startsWith(item.to)
+                  return (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
+                        isActive
+                          ? 'bg-indigo-500/10 text-indigo-300'
+                          : 'text-[#636d7d] hover:text-[#e6edf3] hover:bg-white/[0.03]'
+                      } ${!sidebarOpen && 'lg:justify-center lg:px-2'}`}
+                    >
+                      <div className={`shrink-0 transition-colors duration-200 ${isActive ? 'text-indigo-400' : 'text-[#636d7d] group-hover:text-[#8b949e]'}`}>
+                        <item.icon size={18} />
+                      </div>
+                      <span className={`whitespace-nowrap transition-all duration-200 ${!sidebarOpen && 'lg:w-0 lg:overflow-hidden lg:opacity-0'}`}>
+                        {item.label}
+                      </span>
+                      {isActive && (
+                        <span className={`ml-auto w-1 h-4 rounded-full bg-indigo-400 ${!sidebarOpen && 'lg:hidden'}`} />
+                      )}
+                    </NavLink>
+                  )
+                })}
               </>
             )}
           </nav>

@@ -499,6 +499,14 @@ app.get('/api/activity', authMiddleware, (req, res) => {
   res.json(logs)
 })
 
+app.get('/api/admin/activity', authMiddleware, adminMiddleware, (req, res) => {
+  const limit = parseInt(req.query.limit) || 200
+  const logs = activityLogs
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit)
+  res.json(logs)
+})
+
 app.get('/api/auth/2fa/status', authMiddleware, (req, res) => {
   res.json({ enabled: !!twoFactorEnabled[req.user.sub] })
 })

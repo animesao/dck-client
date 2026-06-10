@@ -25,7 +25,9 @@ import { BackupsPage } from '@/pages/Backups'
 
 // Admin pages
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboard'
+import { AdminContainersPage } from '@/pages/admin/AdminContainers'
 import { AdminUsersPage } from '@/pages/admin/AdminUsers'
+import { AdminActivityPage } from '@/pages/admin/AdminActivity'
 import { AdminSettingsPage } from '@/pages/admin/AdminSettings'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -100,7 +102,9 @@ export default function App() {
 
           {/* Admin routes */}
           <Route path="/admin" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
+          <Route path="/admin/containers" element={<AdminRoute><AdminContainersPage /></AdminRoute>} />
           <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="/admin/activity" element={<AdminRoute><AdminActivityPage /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
 
           {/* Redirects */}

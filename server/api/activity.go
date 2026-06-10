@@ -27,3 +27,14 @@ func (s *Server) handleUserActivity(w http.ResponseWriter, r *http.Request, clai
 	logs := s.store.ListUserActivity(claims.Sub, limit)
 	writeJSON(w, http.StatusOK, logs)
 }
+
+func (s *Server) handleAdminActivity(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	limit := 100
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	logs := s.store.ListAllActivity(limit)
+	writeJSON(w, http.StatusOK, logs)
+}
