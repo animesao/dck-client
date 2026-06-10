@@ -244,9 +244,9 @@ export function ContainerDetailPage() {
                   <div className="space-y-2">
                     {container.ports.map((p, i) => (
                       <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
-                        <span className="text-xs font-mono text-[#e6edf3]">{p.host}</span>
+                        <span className="text-xs font-mono text-[#e6edf3]">{p.host_port}</span>
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#636d7d]"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                        <span className="text-xs font-mono text-indigo-400">{p.container}/{p.protocol}</span>
+                        <span className="text-xs font-mono text-indigo-400">{p.container_port}/{p.protocol}</span>
                       </div>
                     ))}
                   </div>

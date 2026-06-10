@@ -147,7 +147,7 @@ export function AdminContainersPage() {
                   </div>
                   <div className="flex items-center gap-2 text-xs text-[#636d7d]">
                     <span className="truncate max-w-[120px]">{c.image}</span>
-                    {c.ports?.length ? <span>· {c.ports.map(p => `${p.host}:${p.container}`).join(', ')}</span> : null}
+                    {c.ports?.length ? <span>· {c.ports.map(p => `${p.host_port}:${p.container_port}`).join(', ')}</span> : null}
                   </div>
                   <div className="flex gap-1">
                     {c.status === 'running' ? (

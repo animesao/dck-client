@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { listTemplates, listCategories, createTemplate, deleteTemplate, addCategory, deleteCategory } from '@/api/blueprints'
 import type { Template } from '@/api/blueprints'
-import { createContainer } from '@/api/containers'
+import { createContainer, listContainers } from '@/api/containers'
 import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -55,6 +55,23 @@ export function BlueprintsPage() {
         return `${name}-${parts[0]}:${parts.slice(1).join(':')}`
       return v
     })
+
+  const resolveFreePorts = async (templatePorts: string[]): Promise<string[]> => {
+    const containers = await listContainers(true)
+    const usedHostPorts = new Set<number>()
+    for (const c of containers) {
+      for (const p of (c.ports || [])) usedHostPorts.add(p.host_port)
+    }
+    return templatePorts.map(p => {
+      const parts = p.split(':')
+      const hostPort = parseInt(parts[0], 10)
+      if (isNaN(hostPort) || !usedHostPorts.has(hostPort)) return p
+      let free = hostPort + 1
+      while (usedHostPorts.has(free)) free++
+      usedHostPorts.add(free)
+      return `${free}:${parts.slice(1).join(':')}`
+    })
+  }
 
   const load = () => {
     setLoading(true)
@@ -317,12 +334,14 @@ export function BlueprintsPage() {
                     const image = tpl.tag && tpl.tag !== 'latest' ? `${tpl.image}:${tpl.tag}` : tpl.image
                     try {
                       const vols = tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : []
+                      const tplPorts = tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : []
+                      const finalPorts = tplPorts.length > 0 ? await resolveFreePorts(tplPorts) : undefined
                       await createContainer({
                         image,
                         name: `${tpl.name}-${uniqueSuffix}`,
                         command: tpl.command || undefined,
                         env: (() => { try { return JSON.parse(tpl.env).map((e: any) => `${e.key}=${e.value}`) } catch { return [] } })(),
-                        ports: tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : undefined,
+                        ports: finalPorts,
                         volumes: makeUniqueVolumes(`${tpl.name}-${uniqueSuffix}`, vols),
                         memory: tpl.memory || undefined,
                         cpus: tpl.cpus || undefined,
