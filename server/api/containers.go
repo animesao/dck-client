@@ -279,6 +279,41 @@ func (s *Server) handleContainerState(w http.ResponseWriter, r *http.Request, cl
 	writeJSON(w, http.StatusOK, map[string]interface{}{"state": state})
 }
 
+func readProcMem(pid int) uint64 {
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/status", pid))
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, "VmRSS:") {
+			var v uint64
+			fmt.Sscanf(line, "VmRSS: %d", &v)
+			return v * 1024 // kB → bytes
+		}
+	}
+	return 0
+}
+
+func readProcCPU(pid int) uint64 {
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		return 0
+	}
+	// /proc/<pid>/stat: fields 14 (utime) and 15 (stime) in jiffies
+	// Find the closing ')' of comm field, then skip fields
+	paren := strings.LastIndex(string(b), ")")
+	if paren < 0 {
+		return 0
+	}
+	rest := strings.Fields(string(b)[paren+2:])
+	if len(rest) < 12 {
+		return 0
+	}
+	utime, _ := strconv.ParseUint(rest[11], 10, 64)
+	stime, _ := strconv.ParseUint(rest[12], 10, 64)
+	return (utime + stime) * 10000 // jiffies → μs (assuming 100Hz)
+}
+
 func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
 
@@ -292,21 +327,21 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 	memLimit := uint64(0)
 	cpuPct := 0.0
 
-	// Use the actual cgroup path from container state, fallback to default
+	// 1. Try cgroup (v2 path from container state or default)
 	cgPrefix := c.CgroupPath
 	if cgPrefix == "" {
 		cgPrefix = fmt.Sprintf("/sys/fs/cgroup/dck/%s", id)
 	}
+	cgOK := false
 
-	// Memory used
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "memory.current")); err == nil {
 		var v uint64
 		if _, err := fmt.Sscanf(string(b), "%d", &v); err == nil {
 			memUsed = v
+			cgOK = true
 		}
 	}
 
-	// Memory limit — "max\n" means unlimited
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "memory.max")); err == nil {
 		s := strings.TrimSpace(string(b))
 		if s != "max" {
@@ -317,17 +352,24 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 		}
 	}
 
-	// CPU usage — delta from cumulative usage_usec in cpu.stat
 	var cpuUsage uint64
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "cpu.stat")); err == nil {
 		for _, line := range strings.Split(string(b), "\n") {
 			if strings.HasPrefix(line, "usage_usec") {
 				fmt.Sscanf(line, "usage_usec %d", &cpuUsage)
+				cgOK = true
 				break
 			}
 		}
 	}
 
+	// 2. Fallback to /proc/<pid>/ when cgroup not accessible
+	if !cgOK && c.PID > 0 {
+		memUsed = readProcMem(c.PID)
+		cpuUsage = readProcCPU(c.PID)
+	}
+
+	// CPU delta calculation
 	now := time.Now()
 	cpuPrevMu.Lock()
 	prev, ok := cpuPrev[id]
@@ -345,7 +387,7 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 		}
 	}
 
-	// Fallback to container state limits when cgroup not available
+	// Allocated limits from container state as fallback
 	if memLimit == 0 && c.MemoryLimit > 0 {
 		memLimit = uint64(c.MemoryLimit)
 	}
