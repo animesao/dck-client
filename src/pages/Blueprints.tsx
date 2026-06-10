@@ -40,6 +40,12 @@ export function BlueprintsPage() {
   const [submitting, setSubmitting] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Deploy options
+  const [deployTpl, setDeployTpl] = useState<Template | null>(null)
+  const [deployName, setDeployName] = useState('')
+  const [deployPorts, setDeployPorts] = useState<string[]>([])
+  const [deployEnv, setDeployEnv] = useState<{key:string;value:string}[]>([])
+
   const load = () => {
     setLoading(true)
     Promise.all([listTemplates(), listCategories()])
@@ -142,26 +148,32 @@ export function BlueprintsPage() {
     setCategoryToDelete(null)
   }
 
-  const handleDeploy = async (tpl: Template) => {
+  const openDeployModal = (tpl: Template) => {
+    const envArr = (() => { try { return JSON.parse(tpl.env) } catch { return [] } })() as { key: string; value: string }[]
+    setDeployName(`${tpl.name}-${Date.now().toString(36).slice(-4)}`)
+    setDeployPorts(tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : [''])
+    setDeployEnv(Array.isArray(envArr) ? envArr.filter(e => e.key) : [])
+    setDeployTpl(tpl)
+  }
+
+  const handleDeploy = async () => {
+    const tpl = deployTpl
+    if (!tpl) return
     setSubmitting(true)
     try {
-      const envArr = (() => { try { return JSON.parse(tpl.env) } catch { return [] } })()
-      const env: string[] = []
-      if (Array.isArray(envArr)) envArr.forEach((e: { key: string; value: string }) => { if (e.key) env.push(`${e.key}=${e.value}`) })
-
       const image = tpl.tag && tpl.tag !== 'latest' ? `${tpl.image}:${tpl.tag}` : tpl.image
-
       await createContainer({
         image,
-        name: tpl.name,
+        name: deployName,
         command: tpl.command || undefined,
-        env,
-        ports: tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : undefined,
+        env: deployEnv.map(e => `${e.key}=${e.value}`),
+        ports: deployPorts.filter(Boolean).length > 0 ? deployPorts.filter(Boolean) : undefined,
         volumes: tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : undefined,
         memory: tpl.memory || undefined,
         cpus: tpl.cpus || undefined,
       })
       addToast('Container created from template!', 'success')
+      setDeployTpl(null)
     } catch (err: any) {
       addToast(err.message || 'Failed to deploy', 'error')
     } finally {
@@ -274,7 +286,7 @@ export function BlueprintsPage() {
                     )}
                   </div>
                 </div>
-                <Button size="sm" className="mt-4 w-full" onClick={() => handleDeploy(tpl)} loading={submitting}>
+                <Button size="sm" className="mt-4 w-full" onClick={() => openDeployModal(tpl)}>
                   <Rocket size={14} /> Deploy
                 </Button>
               </div>
@@ -310,6 +322,83 @@ export function BlueprintsPage() {
             <Button variant="secondary" onClick={() => setImportOpen(false)}>Cancel</Button>
             <Button onClick={handleImport} loading={submitting}>
               <Upload size={14} /> Import
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Deploy Options Modal */}
+      <Modal open={!!deployTpl} onClose={() => setDeployTpl(null)} title="Deploy Options" size="lg">
+        <div className="space-y-4">
+          <Input label="Container name" value={deployName} onChange={e => setDeployName(e.target.value)} required />
+
+          <div>
+            <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Port mappings</label>
+            <div className="space-y-2">
+              {deployPorts.map((p, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    value={p}
+                    onChange={e => { const n = [...deployPorts]; n[i] = e.target.value; setDeployPorts(n) }}
+                    placeholder="host:container/protocol"
+                    className="input flex-1 text-sm"
+                  />
+                  <button
+                    onClick={() => setDeployPorts(deployPorts.filter((_, j) => j !== i))}
+                    className="p-1.5 rounded-lg text-[#636d7d] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => setDeployPorts([...deployPorts, ''])}
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                + Add port
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Environment variables</label>
+            <div className="space-y-2">
+              {deployEnv.map((e, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    value={e.key}
+                    onChange={ev => { const n = [...deployEnv]; n[i] = { ...n[i], key: ev.target.value }; setDeployEnv(n) }}
+                    placeholder="KEY"
+                    className="input w-40 text-sm font-mono"
+                  />
+                  <span className="text-[#636d7d]">=</span>
+                  <input
+                    value={e.value}
+                    onChange={ev => { const n = [...deployEnv]; n[i] = { ...n[i], value: ev.target.value }; setDeployEnv(n) }}
+                    placeholder="value"
+                    className="input flex-1 text-sm font-mono"
+                  />
+                  <button
+                    onClick={() => setDeployEnv(deployEnv.filter((_, j) => j !== i))}
+                    className="p-1.5 rounded-lg text-[#636d7d] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => setDeployEnv([...deployEnv, { key: '', value: '' }])}
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                + Add env
+              </button>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="secondary" onClick={() => setDeployTpl(null)}>Cancel</Button>
+            <Button onClick={handleDeploy} loading={submitting}>
+              <Rocket size={14} /> Deploy
             </Button>
           </div>
         </div>
