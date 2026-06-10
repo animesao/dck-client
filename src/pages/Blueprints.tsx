@@ -44,6 +44,7 @@ export function BlueprintsPage() {
   const [deployTpl, setDeployTpl] = useState<Template | null>(null)
   const [deployName, setDeployName] = useState('')
   const [deployPorts, setDeployPorts] = useState<string[]>([])
+  const [deployVolumes, setDeployVolumes] = useState<string[]>([])
   const [deployEnv, setDeployEnv] = useState<{key:string;value:string}[]>([])
 
   const load = () => {
@@ -152,6 +153,7 @@ export function BlueprintsPage() {
     const envArr = (() => { try { return JSON.parse(tpl.env) } catch { return [] } })() as { key: string; value: string }[]
     setDeployName(`${tpl.name}-${Date.now().toString(36).slice(-4)}`)
     setDeployPorts(tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : [''])
+    setDeployVolumes(tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : [''])
     setDeployEnv(Array.isArray(envArr) ? envArr.filter(e => e.key) : [])
     setDeployTpl(tpl)
   }
@@ -168,7 +170,7 @@ export function BlueprintsPage() {
         command: tpl.command || undefined,
         env: deployEnv.map(e => `${e.key}=${e.value}`),
         ports: deployPorts.filter(Boolean).length > 0 ? deployPorts.filter(Boolean) : undefined,
-        volumes: tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : undefined,
+        volumes: deployVolumes.filter(Boolean).length > 0 ? deployVolumes.filter(Boolean) : undefined,
         memory: tpl.memory || undefined,
         cpus: tpl.cpus || undefined,
       })
@@ -331,6 +333,34 @@ export function BlueprintsPage() {
       <Modal open={!!deployTpl} onClose={() => setDeployTpl(null)} title="Deploy Options" size="lg">
         <div className="space-y-4">
           <Input label="Container name" value={deployName} onChange={e => setDeployName(e.target.value)} required />
+
+          <div>
+            <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Volumes</label>
+            <div className="space-y-2">
+              {deployVolumes.map((v, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    value={v}
+                    onChange={e => { const n = [...deployVolumes]; n[i] = e.target.value; setDeployVolumes(n) }}
+                    placeholder="volume:/container/path"
+                    className="input flex-1 text-sm font-mono"
+                  />
+                  <button
+                    onClick={() => setDeployVolumes(deployVolumes.filter((_, j) => j !== i))}
+                    className="p-1.5 rounded-lg text-[#636d7d] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => setDeployVolumes([...deployVolumes, ''])}
+                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+              >
+                + Add volume
+              </button>
+            </div>
+          </div>
 
           <div>
             <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Port mappings</label>
