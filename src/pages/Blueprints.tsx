@@ -188,6 +188,11 @@ export function BlueprintsPage() {
       })
       addToast('Container created from template!', 'success')
       setDeployTpl(null)
+      setDeployName('')
+      setDeployPorts([])
+      setDeployVolumes([])
+      setDeployVolSrc([])
+      setDeployEnv([])
     } catch (err: any) {
       addToast(err.message || 'Failed to deploy', 'error')
     } finally {
@@ -344,11 +349,7 @@ export function BlueprintsPage() {
       {/* Deploy Options Modal */}
       <Modal open={!!deployTpl} onClose={() => setDeployTpl(null)} title="Deploy Options" size="lg">
         <div className="space-y-4">
-          <Input label="Container name" value={deployName} onChange={e => {
-            const n = e.target.value
-            setDeployName(n)
-            setDeployVolumes(makeUniqueVolumes(n, deployVolSrc))
-          }} required />
+          <Input label="Container name" value={deployName} onChange={e => setDeployName(e.target.value)} required />
 
           <div>
             <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Volumes</label>
