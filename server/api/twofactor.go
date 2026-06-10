@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"image/png"
 	"net/http"
+	"time"
 
 	"github.com/pquerna/otp/totp"
 )
@@ -76,7 +77,10 @@ func (s *Server) handleTwoFactorVerify(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	valid := totp.Validate(req.Code, secret)
+	valid, _ := totp.ValidateCustom(req.Code, secret, time.Now(), totp.ValidateOpts{
+		Period: 30,
+		Skew:   1,
+	})
 	if !valid {
 		writeError(w, http.StatusBadRequest, "Invalid code")
 		return

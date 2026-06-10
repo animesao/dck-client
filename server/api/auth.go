@@ -73,7 +73,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 }
 
 func totpValidate(code, secret string) bool {
-	return totp.Validate(code, secret)
+	valid, _ := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
+		Period: 30,
+		Skew:   1,
+	})
+	return valid
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ *UserClaims) {
