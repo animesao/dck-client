@@ -75,10 +75,10 @@ export function BlueprintsPage() {
 
       {/* Category filter + Search */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-none -mx-3 px-3 sm:mx-0 sm:px-0 flex-nowrap sm:flex-wrap">
           <button
             onClick={() => setActiveCategory('all')}
-            className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+            className={`shrink-0 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
               activeCategory === 'all'
                 ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 shadow-sm'
                 : 'bg-white/[0.03] text-[#8b949e] hover:text-[#e6edf3] border border-white/[0.06] hover:border-white/[0.12]'
@@ -90,7 +90,7 @@ export function BlueprintsPage() {
             <button
               key={cat.name}
               onClick={() => setActiveCategory(cat.name)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+              className={`shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                 activeCategory === cat.name
                   ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/20 shadow-sm'
                   : 'bg-white/[0.03] text-[#8b949e] hover:text-[#e6edf3] border border-white/[0.06] hover:border-white/[0.12]'
@@ -102,7 +102,7 @@ export function BlueprintsPage() {
           ))}
         </div>
 
-        <div className="relative">
+        <div className="relative w-full sm:w-auto">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#636d7d]" />
           <input
             type="text"

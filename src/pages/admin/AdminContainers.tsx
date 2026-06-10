@@ -80,80 +80,88 @@ export function AdminContainersPage() {
         {filtered.length === 0 ? (
           <div className="p-8 text-center text-sm text-[#636d7d]">No containers found</div>
         ) : (
-          <div className="divide-y divide-white/[0.04]">
-            <div className="flex items-center gap-3 px-5 py-2 text-xs text-[#636d7d] font-medium">
-              <span className="w-20" />
-              <span className="flex-1">Name</span>
-              <span className="w-32 hidden md:inline">Image</span>
-              <span className="w-24 text-center hidden md:inline">Status</span>
-              <span className="w-24 text-center hidden lg:inline">User</span>
-              <span className="w-24 text-center hidden lg:inline">Ports</span>
-              <span className="w-32 text-right">Actions</span>
+          <>
+            {/* Desktop table */}
+            <table className="w-full hidden md:table">
+              <thead>
+                <tr className="border-b border-white/[0.05]">
+                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">
+                    <span className="hidden lg:inline">Status</span>
+                    <span className="lg:hidden">S</span>
+                  </th>
+                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Name</th>
+                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden lg:table-cell">Image</th>
+                  <th className="text-center px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.04]">
+                {filtered.map(c => (
+                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="px-4 py-3.5">
+                      <ContainerStatusBadge status={c.status} />
+                    </td>
+                    <td className="px-4 py-3.5 cursor-pointer" onClick={() => navigate(`/containers/${c.id}`)}>
+                      <p className="text-sm font-medium text-[#e6edf3] truncate max-w-[200px]">{c.name || c.id.slice(0, 12)}</p>
+                      <p className="text-[10px] text-[#636d7d] font-mono">{c.id.slice(0, 19)}</p>
+                    </td>
+                    <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden lg:table-cell">{c.image}</td>
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => navigate(`/containers/${c.id}`)} className="p-1.5 rounded hover:bg-white/[0.06] text-[#8b949e] hover:text-indigo-400" title="View">
+                          <ExternalLink size={13} />
+                        </button>
+                        {c.status === 'running' ? (
+                          <button onClick={() => handleAction(c.id, 'stop')} disabled={actionLoading === c.id} className="p-1.5 rounded hover:bg-amber-500/20 text-[#8b949e] hover:text-amber-400" title="Stop">
+                            <Square size={13} />
+                          </button>
+                        ) : (
+                          <button onClick={() => handleAction(c.id, 'start')} disabled={actionLoading === c.id} className="p-1.5 rounded hover:bg-emerald-500/20 text-[#8b949e] hover:text-emerald-400" title="Start">
+                            <Play size={13} />
+                          </button>
+                        )}
+                        <button onClick={() => handleAction(c.id, 'restart')} disabled={actionLoading === c.id} className="p-1.5 rounded hover:bg-blue-500/20 text-[#8b949e] hover:text-blue-400" title="Restart">
+                          <RotateCcw size={13} />
+                        </button>
+                        <button onClick={() => handleAction(c.id, 'delete')} disabled={actionLoading === c.id} className="p-1.5 rounded hover:bg-red-500/20 text-[#8b949e] hover:text-red-400" title="Delete">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile cards */}
+            <div className="divide-y divide-white/[0.04] md:hidden">
+              {filtered.map(c => (
+                <div key={c.id} className="px-4 py-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2" onClick={() => navigate(`/containers/${c.id}`)}>
+                      <ContainerStatusBadge status={c.status} />
+                      <span className="text-sm font-medium text-[#e6edf3]">{c.name || c.id.slice(0, 12)}</span>
+                    </div>
+                    <button onClick={() => navigate(`/containers/${c.id}`)} className="p-1 rounded hover:bg-white/[0.06] text-[#8b949e]">
+                      <ExternalLink size={13} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-[#636d7d]">
+                    <span className="truncate max-w-[120px]">{c.image}</span>
+                    {c.ports?.length ? <span>· {c.ports.map(p => `${p.host}:${p.container}`).join(', ')}</span> : null}
+                  </div>
+                  <div className="flex gap-1">
+                    {c.status === 'running' ? (
+                      <button onClick={() => handleAction(c.id, 'stop')} disabled={actionLoading === c.id} className="btn-ghost p-1 text-xs">Stop</button>
+                    ) : (
+                      <button onClick={() => handleAction(c.id, 'start')} disabled={actionLoading === c.id} className="btn-ghost p-1 text-xs">Start</button>
+                    )}
+                    <button onClick={() => handleAction(c.id, 'restart')} disabled={actionLoading === c.id} className="btn-ghost p-1 text-xs">Restart</button>
+                    <button onClick={() => handleAction(c.id, 'delete')} disabled={actionLoading === c.id} className="btn-ghost p-1 text-xs text-red-400">Delete</button>
+                  </div>
+                </div>
+              ))}
             </div>
-            {filtered.map(c => (
-              <div key={c.id} className="flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10 shrink-0">
-                  <ContainerIcon size={14} className="text-indigo-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[#e6edf3] font-medium truncate">{c.name || c.id.slice(0, 12)}</p>
-                  <p className="text-[10px] text-[#636d7d] font-mono truncate">{c.id.slice(0, 19)}</p>
-                </div>
-                <span className="text-xs text-[#636d7d] w-32 hidden md:inline truncate">{c.image}</span>
-                <div className="w-24 text-center hidden md:block">
-                  <ContainerStatusBadge status={c.status} />
-                </div>
-                <span className="text-xs text-[#636d7d] w-24 text-center hidden lg:inline">{c.user_id?.slice(0, 8) || '-'}</span>
-                <span className="text-xs text-[#636d7d] w-24 text-center hidden lg:inline">
-                  {c.ports?.length ? c.ports.map(p => `${p.host}:${p.container}`).join(', ') : '-'}
-                </span>
-                <div className="flex items-center gap-1 w-32 justify-end shrink-0">
-                  <button
-                    onClick={() => navigate(`/containers/${c.id}`)}
-                    className="p-1.5 rounded hover:bg-white/[0.06] text-[#8b949e] hover:text-indigo-400"
-                    title="View"
-                  >
-                    <ExternalLink size={13} />
-                  </button>
-                  {c.status === 'running' ? (
-                    <button
-                      onClick={() => handleAction(c.id, 'stop')}
-                      disabled={actionLoading === c.id}
-                      className="p-1.5 rounded hover:bg-amber-500/20 text-[#8b949e] hover:text-amber-400"
-                      title="Stop"
-                    >
-                      <Square size={13} />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleAction(c.id, 'start')}
-                      disabled={actionLoading === c.id}
-                      className="p-1.5 rounded hover:bg-emerald-500/20 text-[#8b949e] hover:text-emerald-400"
-                      title="Start"
-                    >
-                      <Play size={13} />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleAction(c.id, 'restart')}
-                    disabled={actionLoading === c.id}
-                    className="p-1.5 rounded hover:bg-blue-500/20 text-[#8b949e] hover:text-blue-400"
-                    title="Restart"
-                  >
-                    <RotateCcw size={13} />
-                  </button>
-                  <button
-                    onClick={() => handleAction(c.id, 'delete')}
-                    disabled={actionLoading === c.id}
-                    className="p-1.5 rounded hover:bg-red-500/20 text-[#8b949e] hover:text-red-400"
-                    title="Delete"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+          </>
         )}
       </Card>
     </div>

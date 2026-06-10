@@ -55,58 +55,58 @@ export function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4 sm:gap-4">
         <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center border border-emerald-500/10">
-                <Activity size={22} className="text-emerald-400" />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center border border-emerald-500/10 shrink-0">
+                <Activity size={18} className="text-emerald-400 sm:w-[22px] sm:h-[22px]" />
               </div>
               <div>
-                <p className="stat-value text-emerald-400">{runningCount}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Running</p>
+                <p className="stat-value text-emerald-400 text-xl sm:text-2xl">{runningCount}</p>
+                <p className="text-[10px] sm:text-xs text-[#636d7d] font-medium">Running</p>
               </div>
             </div>
           </div>
         </Card>
 
         <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center border border-red-500/10">
-                <Box size={22} className="text-red-400" />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center border border-red-500/10 shrink-0">
+                <Box size={18} className="text-red-400 sm:w-[22px] sm:h-[22px]" />
               </div>
               <div>
-                <p className="stat-value text-red-400">{stoppedCount}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Stopped</p>
+                <p className="stat-value text-red-400 text-xl sm:text-2xl">{stoppedCount}</p>
+                <p className="text-[10px] sm:text-xs text-[#636d7d] font-medium">Stopped</p>
               </div>
             </div>
           </div>
         </Card>
 
         <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10">
-                <HardDrive size={22} className="text-indigo-400" />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10 shrink-0">
+                <HardDrive size={18} className="text-indigo-400 sm:w-[22px] sm:h-[22px]" />
               </div>
               <div>
-                <p className="stat-value text-indigo-400">{stats?.images || 0}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Images</p>
+                <p className="stat-value text-indigo-400 text-xl sm:text-2xl">{stats?.images || 0}</p>
+                <p className="text-[10px] sm:text-xs text-[#636d7d] font-medium">Images</p>
               </div>
             </div>
           </div>
         </Card>
 
         <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center border border-blue-500/10">
-                <Globe size={22} className="text-blue-400" />
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center border border-blue-500/10 shrink-0">
+                <Globe size={18} className="text-blue-400 sm:w-[22px] sm:h-[22px]" />
               </div>
               <div>
-                <p className="stat-value text-blue-400">{stats?.containers?.total || 0}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Total</p>
+                <p className="stat-value text-blue-400 text-xl sm:text-2xl">{stats?.containers?.total || 0}</p>
+                <p className="text-[10px] sm:text-xs text-[#636d7d] font-medium">Total</p>
               </div>
             </div>
           </div>
@@ -151,21 +151,21 @@ export function DashboardPage() {
             <Gauge size={16} className="text-indigo-400" />
             <h3 className="text-sm font-semibold text-[#e6edf3]">System Information</h3>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
             <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">OS</p>
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">OS</p>
               <p className="text-sm font-medium text-[#e6edf3]">{stats?.system?.os || '-'}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Architecture</p>
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Architecture</p>
               <p className="text-sm font-medium text-[#e6edf3]">{stats?.system?.arch || '-'}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Kernel</p>
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Kernel</p>
               <p className="text-sm font-medium text-[#e6edf3]">{stats?.system?.kernel || '-'}</p>
             </div>
             <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Uptime</p>
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Uptime</p>
               <p className="text-sm font-medium text-[#e6edf3] flex items-center gap-1.5">
                 <Clock size={14} className="text-indigo-400" />
                 {stats?.system?.uptime || '-'}

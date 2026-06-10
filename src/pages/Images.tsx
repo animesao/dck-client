@@ -75,14 +75,14 @@ export function ImagesPage() {
             onKeyDown={e => e.key === 'Enter' && handlePull()}
             className="flex-1"
           />
-          <Button onClick={handlePull} loading={pulling} className="shrink-0">
+          <Button onClick={handlePull} loading={pulling} className="shrink-0 w-full sm:w-auto">
             <Download size={16} /> Pull
           </Button>
         </div>
       </Card>
 
       {/* Filter */}
-      <div className="relative max-w-xs">
+      <div className="relative w-full sm:max-w-xs">
         <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#636d7d]" />
         <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search images..." className="input pl-9" />
       </div>
@@ -99,49 +99,74 @@ export function ImagesPage() {
               <p className="text-xs text-[#636d7d] mt-1">Pull an image to get started</p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/[0.05]">
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Image</th>
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">ID</th>
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">Size</th>
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">Created</th>
-                  <th className="text-right px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
-                {filtered.map(img => (
-                  <tr key={`${img.name}:${img.tag}`} className="hover:bg-white/[0.02] transition-colors group">
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10">
-                          <HardDrive size={16} className="text-indigo-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-[#e6edf3]">
-                            {img.name}:<span className="text-indigo-400">{img.tag}</span>
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5 text-xs font-mono text-[#636d7d] hidden md:table-cell">
-                      {img.id.slice(0, 16)}
-                    </td>
-                    <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden md:table-cell">
-                      {img.size}
-                    </td>
-                    <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden md:table-cell">
-                      {formatRelativeTime(img.created)}
-                    </td>
-                    <td className="px-4 py-3.5 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => handleRemove(img.name, img.tag)} className="text-red-400 hover:text-red-300">
-                        <Trash2 size={14} />
-                      </Button>
-                    </td>
+            <>
+              {/* Desktop table */}
+              <table className="w-full hidden md:table">
+                <thead>
+                  <tr className="border-b border-white/[0.05]">
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Image</th>
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">ID</th>
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">Size</th>
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">Created</th>
+                    <th className="text-right px-4 py-3" />
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {filtered.map(img => (
+                    <tr key={`${img.name}:${img.tag}`} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10">
+                            <HardDrive size={16} className="text-indigo-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-[#e6edf3]">
+                              {img.name}:<span className="text-indigo-400">{img.tag}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-xs font-mono text-[#636d7d] hidden md:table-cell">
+                        {img.id.slice(0, 16)}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden md:table-cell">
+                        {img.size}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden md:table-cell">
+                        {formatRelativeTime(img.created)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleRemove(img.name, img.tag)} className="text-red-400 hover:text-red-300">
+                          <Trash2 size={14} />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Mobile cards */}
+              <div className="divide-y divide-white/[0.04] md:hidden">
+                {filtered.map(img => (
+                  <div key={`${img.name}:${img.tag}`} className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10 shrink-0">
+                        <HardDrive size={16} className="text-indigo-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[#e6edf3]">
+                          {img.name}:<span className="text-indigo-400">{img.tag}</span>
+                        </p>
+                        <p className="text-xs text-[#636d7d]">{img.size} · {formatRelativeTime(img.created)}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleRemove(img.name, img.tag)} className="p-1.5 rounded hover:bg-red-500/20 text-[#8b949e] hover:text-red-400">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </Card>

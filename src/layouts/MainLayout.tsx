@@ -170,21 +170,23 @@ export function MainLayout() {
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
         {/* Topbar */}
-        <header className="h-14 flex items-center justify-between px-4 lg:px-6 bg-[#080b12]/80 backdrop-blur-xl border-b border-white/[0.05] shrink-0 z-10">
+        <header className="h-14 flex items-center justify-between px-3 lg:px-6 bg-[#080b12]/80 backdrop-blur-xl border-b border-white/[0.05] shrink-0 z-10">
           <div className="flex items-center gap-3">
             <button onClick={toggleSidebar} className="btn-ghost p-2 rounded-xl hover:bg-white/[0.04]">
               <Menu size={18} />
             </button>
+            <span className="text-sm font-semibold text-[#e6edf3] lg:hidden truncate max-w-[160px]">
+              {navItems.find(i => location.pathname === i.to || (i.to !== '/' && location.pathname.startsWith(i.to)))?.label || 'dck'}
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/10">
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/10">
               <span className="status-dot-running" />
               <span className="text-[11px] font-medium text-emerald-400">All systems operational</span>
             </div>
             {isAdmin && (
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 text-[11px] font-medium border border-indigo-500/15">
                 <Shield size={12} />
-                Admin
               </span>
             )}
           </div>

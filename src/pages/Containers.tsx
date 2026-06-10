@@ -128,63 +128,107 @@ export function ContainersPage() {
               </Button>
             </div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/[0.05]">
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Status</th>
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Name / Image</th>
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">IP</th>
-                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">Created</th>
-                  <th className="text-right px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+            <>
+              {/* Desktop table */}
+              <table className="w-full hidden md:table">
+                <thead>
+                  <tr className="border-b border-white/[0.05]">
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Status</th>
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Name / Image</th>
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">IP</th>
+                    <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden md:table-cell">Created</th>
+                    <th className="text-right px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {filtered.map(c => (
+                    <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-4 py-3.5">
+                        <ContainerStatusBadge status={c.status} />
+                      </td>
+                      <td
+                        className="px-4 py-3.5 cursor-pointer"
+                        onClick={() => navigate(`/containers/${c.id}`)}
+                      >
+                        <p className="text-sm font-medium text-[#e6edf3] group-hover:text-indigo-300 transition-colors">
+                          {c.name || truncate(c.id, 12)}
+                        </p>
+                        <p className="text-xs text-[#636d7d]">{c.image}</p>
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-[#636d7d] font-mono hidden md:table-cell">
+                        {c.ip || '-'}
+                      </td>
+                      <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden md:table-cell">
+                        {formatRelativeTime(c.created)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center justify-end gap-0.5">
+                          {c.status === 'running' ? (
+                            <button onClick={() => handleAction(c.id, 'stop')} className="btn-ghost p-1.5" title="Stop" disabled={actionLoading === c.id}>
+                              {actionLoading === c.id ? <Spinner className="h-3.5 w-3.5" /> : <Square size={14} />}
+                            </button>
+                          ) : (
+                            <button onClick={() => handleAction(c.id, 'start')} className="btn-ghost p-1.5" title="Start" disabled={actionLoading === c.id}>
+                              {actionLoading === c.id ? <Spinner className="h-3.5 w-3.5" /> : <Play size={14} />}
+                            </button>
+                          )}
+                          <button onClick={() => handleAction(c.id, 'restart')} className="btn-ghost p-1.5" title="Restart">
+                            <RotateCcw size={14} />
+                          </button>
+                          <button onClick={() => navigate(`/containers/${c.id}`)} className="btn-ghost p-1.5" title="Details">
+                            <Eye size={14} />
+                          </button>
+                          <button onClick={() => handleAction(c.id, 'delete')} className="btn-ghost p-1.5 text-red-400 hover:text-red-300" title="Delete">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Mobile cards */}
+              <div className="divide-y divide-white/[0.04] md:hidden">
                 {filtered.map(c => (
-                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
-                    <td className="px-4 py-3.5">
-                      <ContainerStatusBadge status={c.status} />
-                    </td>
-                    <td
-                      className="px-4 py-3.5 cursor-pointer"
-                      onClick={() => navigate(`/containers/${c.id}`)}
-                    >
-                      <p className="text-sm font-medium text-[#e6edf3] group-hover:text-indigo-300 transition-colors">
-                        {c.name || truncate(c.id, 12)}
-                      </p>
-                      <p className="text-xs text-[#636d7d]">{c.image}</p>
-                    </td>
-                    <td className="px-4 py-3.5 text-sm text-[#636d7d] font-mono hidden md:table-cell">
-                      {c.ip || '-'}
-                    </td>
-                    <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden md:table-cell">
-                      {formatRelativeTime(c.created)}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <div className="flex items-center justify-end gap-0.5">
+                  <div key={c.id} className="px-4 py-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2" onClick={() => navigate(`/containers/${c.id}`)}>
+                        <ContainerStatusBadge status={c.status} />
+                        <span className="text-sm font-medium text-[#e6edf3]">{c.name || truncate(c.id, 12)}</span>
+                      </div>
+                      <div className="flex gap-1">
                         {c.status === 'running' ? (
-                          <button onClick={() => handleAction(c.id, 'stop')} className="btn-ghost p-1.5" title="Stop" disabled={actionLoading === c.id}>
+                          <button onClick={() => handleAction(c.id, 'stop')} disabled={actionLoading === c.id} className="btn-ghost p-1">
                             {actionLoading === c.id ? <Spinner className="h-3.5 w-3.5" /> : <Square size={14} />}
                           </button>
                         ) : (
-                          <button onClick={() => handleAction(c.id, 'start')} className="btn-ghost p-1.5" title="Start" disabled={actionLoading === c.id}>
+                          <button onClick={() => handleAction(c.id, 'start')} disabled={actionLoading === c.id} className="btn-ghost p-1">
                             {actionLoading === c.id ? <Spinner className="h-3.5 w-3.5" /> : <Play size={14} />}
                           </button>
                         )}
-                        <button onClick={() => handleAction(c.id, 'restart')} className="btn-ghost p-1.5" title="Restart">
+                        <button onClick={() => handleAction(c.id, 'restart')} className="btn-ghost p-1">
                           <RotateCcw size={14} />
                         </button>
-                        <button onClick={() => navigate(`/containers/${c.id}`)} className="btn-ghost p-1.5" title="Details">
+                        <button onClick={() => navigate(`/containers/${c.id}`)} className="btn-ghost p-1">
                           <Eye size={14} />
                         </button>
-                        <button onClick={() => handleAction(c.id, 'delete')} className="btn-ghost p-1.5 text-red-400 hover:text-red-300" title="Delete">
+                        <button onClick={() => handleAction(c.id, 'delete')} className="btn-ghost p-1 text-red-400">
                           <Trash2 size={14} />
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-[#636d7d]">
+                      <span>{c.image}</span>
+                      <span>·</span>
+                      <span className="font-mono">{c.ip || '-'}</span>
+                      <span>·</span>
+                      <span>{formatRelativeTime(c.created)}</span>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </>
           )}
         </div>
       </Card>

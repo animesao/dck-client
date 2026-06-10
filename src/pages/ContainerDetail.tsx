@@ -126,20 +126,20 @@ export function ContainerDetailPage() {
   return (
     <div className="space-y-5 page-enter">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/containers')} className="btn-ghost p-2 rounded-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/containers')} className="btn-ghost p-2 rounded-xl shrink-0">
             <ArrowLeft size={18} />
           </button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-[#e6edf3] tracking-tight">{container.name || container.id.slice(0, 12)}</h1>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-bold text-[#e6edf3] tracking-tight truncate max-w-[180px] sm:max-w-none">{container.name || container.id.slice(0, 12)}</h1>
               <ContainerStatusBadge status={container.status} />
             </div>
-            <p className="text-sm text-[#636d7d] mt-0.5">{container.image} · <span className="font-mono">{container.id.slice(0, 19)}</span></p>
+            <p className="text-xs sm:text-sm text-[#636d7d] mt-0.5 truncate max-w-[220px] sm:max-w-none">{container.image} · <span className="font-mono">{container.id.slice(0, 19)}</span></p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-1.5 flex-wrap">
           {container.status === 'running' ? (
             <Button variant="secondary" size="sm" onClick={() => handleAction('stop')} loading={actionLoading}>
               <Square size={14} /> Stop
@@ -150,10 +150,10 @@ export function ContainerDetailPage() {
             </Button>
           )}
           <Button variant="secondary" size="sm" onClick={() => handleAction('restart')} loading={actionLoading}>
-            <RotateCcw size={14} /> Restart
+            <RotateCcw size={14} />
           </Button>
           <Button variant="danger" size="sm" onClick={() => handleAction('delete')} loading={actionLoading}>
-            <Trash2 size={14} /> Delete
+            <Trash2 size={14} />
           </Button>
         </div>
       </div>
@@ -173,7 +173,7 @@ export function ContainerDetailPage() {
       {/* Content */}
       <div className="mt-1">
         {activeTab === 'info' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <Card>
               <div className="p-5 space-y-4">
                 <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Details</h3>
