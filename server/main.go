@@ -17,6 +17,7 @@ import (
 
 var (
 	port        = flag.Int("port", 443, "HTTP/HTTPS port")
+	sftpPort    = flag.Int("sftp-port", 2222, "SFTP port (0 to disable)")
 	certFile    = flag.String("tls-cert", "", "TLS certificate file (enables HTTPS)")
 	keyFile     = flag.String("tls-key", "", "TLS private key file")
 	dckBin      = flag.String("dck-bin", "dck", "Path to dck binary")
@@ -88,6 +89,12 @@ func main() {
 			log.Fatalf("Server error: %v", err)
 		}
 	}()
+
+	if *sftpPort > 0 {
+		if err := srv.StartSFTPServer(fmt.Sprintf("%d", *sftpPort), panelDir); err != nil {
+			log.Fatalf("SFTP server error: %v", err)
+		}
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

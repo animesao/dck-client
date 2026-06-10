@@ -210,6 +210,8 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request, claims 
 		return
 	}
 
+	s.store.AddActivityLog(claims.Sub, id, "file_written", claims.Username+" saved "+req.Path)
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -260,6 +262,8 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request, claims
 		return
 	}
 
+	s.store.AddActivityLog(claims.Sub, id, "file_uploaded", claims.Username+" uploaded "+header.Filename)
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "path": filepath.Join(destDir, header.Filename)})
 }
 
@@ -287,6 +291,8 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request, claims
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	s.store.AddActivityLog(claims.Sub, id, "file_deleted", claims.Username+" deleted "+filePath)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -317,6 +323,8 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request, claims *Use
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	s.store.AddActivityLog(claims.Sub, id, "file_created", claims.Username+" created directory "+req.Path)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -356,6 +364,8 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request, claims
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
+	s.store.AddActivityLog(claims.Sub, id, "file_renamed", claims.Username+" renamed "+req.OldPath+" to "+req.NewPath)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

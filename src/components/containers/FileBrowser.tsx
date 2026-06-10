@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl } from '@/api/files'
+import { listFiles, readFile, writeFile, deleteFile, mkdir, renameFile, getUploadUrl, getSFTPInfo } from '@/api/files'
 import { getAuthToken } from '@/api/client'
+import type { SFTPInfo } from '@/api/files'
 import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -12,8 +13,14 @@ import {
   Folder, File, FileText, Image, FileCode, FileJson,
   Upload, Download, Plus, Trash2, Edit3, Save, X,
   ChevronRight, Home, Pencil, RefreshCw, FolderPlus,
-  Search, Terminal,
+  Search, Terminal, Server,
 } from 'lucide-react'
+
+interface UploadProgress {
+  active: boolean
+  percent: number
+  filename: string
+}
 
 interface FileBrowserProps {
   containerId: string
@@ -74,6 +81,9 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
   const [renamingFile, setRenamingFile] = useState<string | null>(null)
   const [renameName, setRenameName] = useState('')
   const [search, setSearch] = useState('')
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({ active: false, percent: 0, filename: '' })
+  const [showSftpInfo, setShowSftpInfo] = useState(false)
+  const [sftpInfo, setSftpInfo] = useState<SFTPInfo | null>(null)
 
   const loadFiles = useCallback(async (path: string) => {
     if (!containerId) return
@@ -96,28 +106,49 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
     ? files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
     : files
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !containerId) return
-    setOperating('upload')
+    setUploadProgress({ active: true, percent: 0, filename: file.name })
+
     const formData = new FormData()
     formData.append('file', file)
     formData.append('path', currentPath)
-    try {
-      const token = getAuthToken()
-      const url = getUploadUrl(containerId, currentPath)
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: token ? { Authorization: 'Bearer ' + token } : {},
-        body: formData,
-      })
-      if (!res.ok) throw new Error((await res.json()).error || 'Upload failed')
-      addToast('Uploaded', 'success')
-      loadFiles(currentPath)
-    } catch (err: any) {
-      addToast(err.message || 'Upload failed', 'error')
+
+    const token = getAuthToken()
+    const url = getUploadUrl(containerId, currentPath)
+    const xhr = new XMLHttpRequest()
+
+    xhr.upload.onprogress = (evt) => {
+      if (evt.lengthComputable) {
+        setUploadProgress(prev => ({ ...prev, percent: Math.round((evt.loaded / evt.total) * 100) }))
+      }
     }
-    setOperating(null)
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        addToast('Uploaded', 'success')
+        loadFiles(currentPath)
+      } else {
+        try {
+          const err = JSON.parse(xhr.responseText)
+          addToast(err.error || 'Upload failed', 'error')
+        } catch {
+          addToast('Upload failed', 'error')
+        }
+      }
+      setUploadProgress({ active: false, percent: 0, filename: '' })
+    }
+
+    xhr.onerror = () => {
+      addToast('Upload failed', 'error')
+      setUploadProgress({ active: false, percent: 0, filename: '' })
+    }
+
+    xhr.open('POST', url)
+    if (token) xhr.setRequestHeader('Authorization', 'Bearer ' + token)
+    xhr.send(formData)
+
     e.target.value = ''
   }
 
@@ -243,12 +274,32 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
           <Button variant="secondary" size="sm" onClick={() => setShowNewDir(true)}>
             <FolderPlus size={13} />
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => uploadRef.current?.click()}>
-            <Upload size={13} /> Upload
+          <Button variant="secondary" size="sm" onClick={() => uploadRef.current?.click()} disabled={uploadProgress.active}>
+            {uploadProgress.active ? (
+              <><Upload size={13} className="animate-pulse" /> {uploadProgress.percent}%</>
+            ) : (
+              <><Upload size={13} /> Upload</>
+            )}
           </Button>
           <input ref={uploadRef} type="file" className="hidden" onChange={handleUpload} />
         </div>
       </div>
+
+      {/* Upload progress bar */}
+      {uploadProgress.active && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-[#8b949e] truncate max-w-[200px]">{uploadProgress.filename}</span>
+            <span className="text-[10px] text-[#636d7d] font-mono">{uploadProgress.percent}%</span>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+            <div
+              className="h-full rounded-full bg-indigo-500 transition-all duration-200 ease-out"
+              style={{ width: uploadProgress.percent + '%' }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1 text-xs mb-3 text-[#636d7d] overflow-x-auto scrollbar-none">
@@ -401,12 +452,27 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
         </div>
       </Card>
 
-      {/* Footer with count */}
-      <div className="flex items-center justify-between">
+      {/* Footer with count and SFTP info */}
+      <div className="flex items-center justify-between mt-2">
         <p className="text-[10px] text-[#636d7d]">
           {filtered.length} item{filtered.length !== 1 ? 's' : ''}
           {search && files.length !== filtered.length ? ` (${files.length} total)` : ''}
         </p>
+        <button
+          onClick={async () => {
+            try {
+              const info = await getSFTPInfo()
+              setSftpInfo(info)
+              setShowSftpInfo(true)
+            } catch (err: any) {
+              addToast(err.message || 'Failed to get SFTP info', 'error')
+            }
+          }}
+          className="flex items-center gap-1.5 text-[10px] text-[#636d7d] hover:text-indigo-400 transition-colors"
+        >
+          <Terminal size={11} />
+          SFTP
+        </button>
       </div>
 
       {/* Edit Modal */}
@@ -471,6 +537,44 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="secondary" onClick={() => setShowNewDir(false)}>Cancel</Button>
           <Button onClick={handleCreateDir}>Create</Button>
+        </div>
+      </Modal>
+
+      {/* SFTP Info Modal */}
+      <Modal open={showSftpInfo} onClose={() => setShowSftpInfo(false)} title="SFTP Connection">
+        {sftpInfo && (
+          <div className="space-y-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Host</label>
+              <p className="text-xs text-[#e6edf3] font-mono mt-0.5">{sftpInfo.host}</p>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Port</label>
+              <p className="text-xs text-[#e6edf3] font-mono mt-0.5">{sftpInfo.port || '2222'}</p>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Username</label>
+              <p className="text-xs text-[#e6edf3] font-mono mt-0.5">{sftpInfo.username}</p>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Password</label>
+              <p className="text-xs text-[#636d7d] mt-0.5">Your panel login password</p>
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium">Remote Path</label>
+              <p className="text-xs text-[#8b949e] font-mono mt-0.5">
+                /{containerId.slice(0, 12)}/
+              </p>
+            </div>
+            <div className="bg-white/[0.04] rounded-lg p-3 mt-2">
+              <p className="text-[10px] text-[#636d7d] mb-1 font-medium">Example connection string:</p>
+              <code className="text-[11px] text-[#e6edf3] font-mono break-all">
+                sftp://{sftpInfo.username}@{sftpInfo.host}:{sftpInfo.port || '2222'}/</code>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-end mt-4">
+          <Button onClick={() => setShowSftpInfo(false)}>Close</Button>
         </div>
       </Modal>
 

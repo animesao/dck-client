@@ -163,11 +163,13 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 
 	c, err := s.dck.GetContainer(id)
 	if err != nil {
+		s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
 		writeJSON(w, http.StatusOK, map[string]string{"id": id, "status": "created"})
 		return
 	}
 
 	s.store.RecordContainer(claims.Sub, id, req.Name, req.Image)
+	s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
 	writeJSON(w, http.StatusCreated, c)
 }
 
@@ -178,6 +180,7 @@ func (s *Server) handleRemoveContainer(w http.ResponseWriter, r *http.Request, c
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.store.AddActivityLog(claims.Sub, id, "container_removed", claims.Username+" removed container")
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -187,6 +190,7 @@ func (s *Server) handleStartContainer(w http.ResponseWriter, r *http.Request, cl
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.store.AddActivityLog(claims.Sub, id, "container_started", claims.Username+" started container")
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -196,6 +200,7 @@ func (s *Server) handleStopContainer(w http.ResponseWriter, r *http.Request, cla
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.store.AddActivityLog(claims.Sub, id, "container_stopped", claims.Username+" stopped container")
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -205,6 +210,7 @@ func (s *Server) handleRestartContainer(w http.ResponseWriter, r *http.Request, 
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.store.AddActivityLog(claims.Sub, id, "container_restarted", claims.Username+" restarted container")
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

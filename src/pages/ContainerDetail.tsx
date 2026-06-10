@@ -492,7 +492,7 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
     setLoading(true)
     try {
       const data = await listCollaborators(containerId)
-      setPerms(data)
+      setPerms(data || [])
     } catch (err: any) {
       addToast(err.message || 'Failed to load collaborators', 'error')
     } finally {
@@ -593,7 +593,7 @@ function ContainerActivityTab({ containerId }: { containerId: string }) {
     setLoading(true)
     try {
       const data = await getContainerActivity(containerId, 100)
-      setLogs(data)
+      setLogs(data || [])
     } catch (err: any) {
       addToast(err.message || 'Failed to load activity', 'error')
     } finally {
@@ -650,6 +650,8 @@ function formatAction(action: string): string {
     file_uploaded: 'uploaded file',
     file_deleted: 'deleted file',
     file_renamed: 'renamed file',
+    file_written: 'saved file',
+    file_created: 'created directory',
     backup_created: 'created backup',
     backup_restored: 'restored backup',
     backup_deleted: 'deleted backup',

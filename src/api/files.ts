@@ -60,6 +60,16 @@ export async function deleteBackup(id: string, name: string): Promise<void> {
   return api('DELETE', `/containers/${id}/backups/${name}`)
 }
 
+export interface SFTPInfo {
+  host: string
+  port: string
+  username: string
+}
+
+export async function getSFTPInfo(): Promise<SFTPInfo> {
+  return api<SFTPInfo>('GET', '/sftp/info')
+}
+
 export function getBackupDownloadUrl(id: string, name: string): string {
   return apiUrl(`/containers/${id}/backups/${name}/download`)
 }

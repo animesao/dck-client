@@ -323,6 +323,14 @@ function formatUserAction(action: string): string {
     container_removed: 'Removed container',
     collaborator_added: 'Added collaborator',
     collaborator_removed: 'Removed collaborator',
+    file_uploaded: 'Uploaded file',
+    file_deleted: 'Deleted file',
+    file_renamed: 'Renamed file',
+    file_written: 'Saved file',
+    file_created: 'Created directory',
+    backup_created: 'Created backup',
+    backup_restored: 'Restored backup',
+    backup_deleted: 'Deleted backup',
   }
   return map[action] || action.replace(/_/g, ' ')
 }

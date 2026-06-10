@@ -15,6 +15,7 @@ type Server struct {
 	dckHome  string
 	serveDir string
 	jwtSecret string
+	sftpPort string
 }
 
 func NewServer(store *db.Store, dckClient *dck.Client, dckHome, serveDir string) *Server {
@@ -104,6 +105,8 @@ func (s *Server) Router() http.Handler {
 
 	mux.HandleFunc("GET /api/dashboard/stats", s.auth(s.handleDashboardStats))
 	mux.HandleFunc("GET /api/version", s.auth(s.handleVersion))
+
+	mux.HandleFunc("GET /api/sftp/info", s.auth(s.handleSFTPInfo))
 
 	return withCORS(s.frontendOrAPI(mux))
 }

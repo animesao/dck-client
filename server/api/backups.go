@@ -62,6 +62,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request, clai
 	}
 
 	fi, _ := os.Stat(backupFile)
+	s.store.AddActivityLog(claims.Sub, id, "backup_created", claims.Username+" created backup "+backupName)
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"name":       backupName,
 		"size":       fi.Size(),
@@ -161,6 +162,8 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, cla
 		return
 	}
 
+	s.store.AddActivityLog(claims.Sub, id, "backup_restored", claims.Username+" restored backup "+backupName)
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -231,6 +234,8 @@ func (s *Server) handleDeleteBackup(w http.ResponseWriter, r *http.Request, clai
 		writeError(w, http.StatusNotFound, "Backup not found")
 		return
 	}
+
+	s.store.AddActivityLog(claims.Sub, id, "backup_deleted", claims.Username+" deleted backup "+backupName)
 
 	w.WriteHeader(http.StatusNoContent)
 }

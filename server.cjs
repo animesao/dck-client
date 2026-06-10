@@ -339,7 +339,15 @@ app.post('/api/containers/:id/files/write', authMiddleware, (req, res) => {
     const name = path.split('/').pop()
     files.push({ name, path, is_dir: false, size: (content || '').length, mode: '-rw-r--r--', mod_time: new Date().toISOString() })
   }
+  addActivityLog(req.user.sub, id, 'file_written', `${req.user.username} saved ${path}`)
   res.json({ status: 'ok' })
+})
+
+app.post('/api/containers/:id/files/upload', authMiddleware, (req, res) => {
+  const id = req.params.id
+  const filename = req.query.name || 'uploaded-file'
+  addActivityLog(req.user.sub, id, 'file_uploaded', `${req.user.username} uploaded ${filename}`)
+  res.json({ status: 'ok', path: '/' + filename })
 })
 
 app.post('/api/containers/:id/files/mkdir', authMiddleware, (req, res) => {
@@ -349,6 +357,7 @@ app.post('/api/containers/:id/files/mkdir', authMiddleware, (req, res) => {
   const files = mockFileRoot(id)
   const name = path.split('/').pop()
   files.push({ name, path, is_dir: true, size: 0, mode: 'drwxr-xr-x', mod_time: new Date().toISOString() })
+  addActivityLog(req.user.sub, id, 'file_created', `${req.user.username} created directory ${path}`)
   res.json({ status: 'ok' })
 })
 
@@ -359,6 +368,7 @@ app.delete('/api/containers/:id/files', authMiddleware, (req, res) => {
   const files = mockFileRoot(id)
   const idx = files.findIndex(f => f.path === filePath)
   if (idx !== -1) files.splice(idx, 1)
+  addActivityLog(req.user.sub, id, 'file_deleted', `${req.user.username} deleted ${filePath}`)
   res.status(204).send()
 })
 
@@ -374,6 +384,7 @@ app.put('/api/containers/:id/files/rename', authMiddleware, (req, res) => {
     files[idx].path = new_path
     files[idx].mod_time = new Date().toISOString()
   }
+  addActivityLog(req.user.sub, id, 'file_renamed', `${req.user.username} renamed ${old_path} to ${new_path}`)
   res.json({ status: 'ok' })
 })
 
@@ -390,10 +401,12 @@ app.post('/api/containers/:id/backups', authMiddleware, (req, res) => {
   const name = `backup-${id.slice(0, 12)}-${new Date().toISOString().replace(/[:.]/g, '-')}`
   const entry = { name, size: Math.floor(Math.random() * 100000) + 1000, created_at: new Date().toISOString() }
   backups.get(id).push(entry)
+  addActivityLog(req.user.sub, id, 'backup_created', `${req.user.username} created backup ${name}`)
   res.status(201).json(entry)
 })
 
 app.post('/api/containers/:id/backups/:backup/restore', authMiddleware, (req, res) => {
+  addActivityLog(req.user.sub, req.params.id, 'backup_restored', `${req.user.username} restored backup ${req.params.backup}`)
   res.json({ status: 'ok' })
 })
 
@@ -407,6 +420,7 @@ app.delete('/api/containers/:id/backups/:backup', authMiddleware, (req, res) => 
   if (backups.has(id)) {
     backups.set(id, backups.get(id).filter(b => b.name !== name))
   }
+  addActivityLog(req.user.sub, id, 'backup_deleted', `${req.user.username} deleted backup ${name}`)
   res.status(204).send()
 })
 
@@ -717,6 +731,11 @@ app.get('/api/version', authMiddleware, (req, res) => {
     dck_latest: '1.5.0',
     dck_update_available: false,
   })
+})
+
+app.get('/api/sftp/info', authMiddleware, (req, res) => {
+  const host = req.headers.host ? req.headers.host.split(':')[0] : 'localhost'
+  res.json({ host, port: '2222', username: req.user.username })
 })
 
 // Templates

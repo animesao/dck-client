@@ -417,7 +417,7 @@ func (s *Store) ListContainerPermissions(containerID string) []ContainerPermissi
 	}
 	defer rows.Close()
 
-	var out []ContainerPermission
+	var out = make([]ContainerPermission, 0)
 	for rows.Next() {
 		var cp ContainerPermission
 		if err := rows.Scan(&cp.UserID, &cp.Username, &cp.ContainerID, &cp.Permission, &cp.CreatedAt); err == nil {
@@ -464,7 +464,7 @@ func (s *Store) ListContainerActivity(containerID string, limit int) []ActivityL
 	}
 	defer rows.Close()
 
-	var out []ActivityLog
+	var out = make([]ActivityLog, 0)
 	for rows.Next() {
 		var l ActivityLog
 		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.ContainerID, &l.Action, &l.Details, &l.CreatedAt); err == nil {
@@ -489,7 +489,7 @@ func (s *Store) ListUserActivity(userID string, limit int) []ActivityLog {
 	}
 	defer rows.Close()
 
-	var out []ActivityLog
+	var out = make([]ActivityLog, 0)
 	for rows.Next() {
 		var l ActivityLog
 		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.ContainerID, &l.Action, &l.Details, &l.CreatedAt); err == nil {
@@ -513,7 +513,7 @@ func (s *Store) ListAllActivity(limit int) []ActivityLog {
 	}
 	defer rows.Close()
 
-	var out []ActivityLog
+	var out = make([]ActivityLog, 0)
 	for rows.Next() {
 		var l ActivityLog
 		if err := rows.Scan(&l.ID, &l.UserID, &l.Username, &l.ContainerID, &l.Action, &l.Details, &l.CreatedAt); err == nil {
