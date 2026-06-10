@@ -682,10 +682,10 @@ func (s *Store) GetSFTPUserByUsername(username string) (string, string, error) {
 func (s *Store) ListTemplateCategories() []string {
 	rows, err := s.db.Query("SELECT name FROM template_categories ORDER BY name ASC")
 	if err != nil {
-		return nil
+		return []string{}
 	}
 	defer rows.Close()
-	var cats []string
+	cats := make([]string, 0)
 	for rows.Next() {
 		var name string
 		if err := rows.Scan(&name); err == nil {
@@ -712,10 +712,10 @@ func (s *Store) DeleteTemplateCategory(name string) error {
 func (s *Store) ListTemplates() []Template {
 	rows, err := s.db.Query("SELECT id, name, category, COALESCE(description,''), image, COALESCE(tag,''), COALESCE(command,''), COALESCE(env,'[]'), COALESCE(ports,''), COALESCE(memory,''), COALESCE(cpus,''), COALESCE(restart,'no'), COALESCE(network,'bridge'), COALESCE(volumes,''), created_at, COALESCE(user_id,'') FROM templates ORDER BY category, name")
 	if err != nil {
-		return nil
+		return []Template{}
 	}
 	defer rows.Close()
-	var out []Template
+	out := make([]Template, 0)
 	for rows.Next() {
 		var t Template
 		if err := rows.Scan(&t.ID, &t.Name, &t.Category, &t.Description, &t.Image, &t.Tag, &t.Command, &t.Env, &t.Ports, &t.Memory, &t.CPUs, &t.Restart, &t.Network, &t.Volumes, &t.CreatedAt, &t.UserID); err == nil {
@@ -728,10 +728,10 @@ func (s *Store) ListTemplates() []Template {
 func (s *Store) ListTemplatesByCategory(category string) []Template {
 	rows, err := s.db.Query("SELECT id, name, category, COALESCE(description,''), image, COALESCE(tag,''), COALESCE(command,''), COALESCE(env,'[]'), COALESCE(ports,''), COALESCE(memory,''), COALESCE(cpus,''), COALESCE(restart,'no'), COALESCE(network,'bridge'), COALESCE(volumes,''), created_at, COALESCE(user_id,'') FROM templates WHERE category = ? ORDER BY name", category)
 	if err != nil {
-		return nil
+		return []Template{}
 	}
 	defer rows.Close()
-	var out []Template
+	out := make([]Template, 0)
 	for rows.Next() {
 		var t Template
 		if err := rows.Scan(&t.ID, &t.Name, &t.Category, &t.Description, &t.Image, &t.Tag, &t.Command, &t.Env, &t.Ports, &t.Memory, &t.CPUs, &t.Restart, &t.Network, &t.Volumes, &t.CreatedAt, &t.UserID); err == nil {
