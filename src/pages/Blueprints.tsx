@@ -176,13 +176,18 @@ export function BlueprintsPage() {
     setSubmitting(true)
     try {
       const image = tpl.tag && tpl.tag !== 'latest' ? `${tpl.image}:${tpl.tag}` : tpl.image
+      const uniqueSuffix = Date.now().toString(36).slice(-4)
+      const finalName = deployName || `${tpl.name}-${uniqueSuffix}`
+      const finalVolumes = deployVolumes.length > 0
+        ? deployVolumes
+        : makeUniqueVolumes(finalName, (tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : []))
       await createContainer({
         image,
-        name: deployName,
+        name: finalName,
         command: tpl.command || undefined,
         env: deployEnv.map(e => `${e.key}=${e.value}`),
         ports: deployPorts.filter(Boolean).length > 0 ? deployPorts.filter(Boolean) : undefined,
-        volumes: deployVolumes.filter(Boolean).length > 0 ? deployVolumes.filter(Boolean) : undefined,
+        volumes: finalVolumes.filter(Boolean).length > 0 ? finalVolumes.filter(Boolean) : undefined,
         memory: tpl.memory || undefined,
         cpus: tpl.cpus || undefined,
       })
@@ -305,9 +310,33 @@ export function BlueprintsPage() {
                     )}
                   </div>
                 </div>
-                <Button size="sm" className="mt-4 w-full" onClick={() => openDeployModal(tpl)}>
-                  <Rocket size={14} /> Deploy
-                </Button>
+                <div className="mt-4 w-full flex gap-2">
+                  <Button size="sm" className="flex-1" onClick={async () => {
+                    const uniqueSuffix = Date.now().toString(36).slice(-4)
+                    const image = tpl.tag && tpl.tag !== 'latest' ? `${tpl.image}:${tpl.tag}` : tpl.image
+                    try {
+                      const vols = tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : []
+                      await createContainer({
+                        image,
+                        name: `${tpl.name}-${uniqueSuffix}`,
+                        command: tpl.command || undefined,
+                        env: (() => { try { return JSON.parse(tpl.env).map((e: any) => `${e.key}=${e.value}`) } catch { return [] } })(),
+                        ports: tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : undefined,
+                        volumes: makeUniqueVolumes(`${tpl.name}-${uniqueSuffix}`, vols),
+                        memory: tpl.memory || undefined,
+                        cpus: tpl.cpus || undefined,
+                      })
+                      addToast('Container created from template!', 'success')
+                    } catch (err: any) {
+                      addToast(err.message || 'Failed to deploy', 'error')
+                    }
+                  }}>
+                    <Rocket size={14} /> Deploy
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => openDeployModal(tpl)} title="Edit options">
+                    <Plus size={14} />
+                  </Button>
+                </div>
               </div>
             </Card>
           )
