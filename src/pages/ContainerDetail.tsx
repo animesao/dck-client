@@ -64,6 +64,18 @@ export function ContainerDetailPage() {
 
   useEffect(() => { fetchData() }, [id])
 
+  // Poll stats every 5s
+  useEffect(() => {
+    if (!id) return
+    const interval = setInterval(async () => {
+      try {
+        const s = await getContainerStats(id)
+        setStats(s)
+      } catch {} // ignore — container might be stopping
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [id])
+
   const handleAction = async (action: 'start' | 'stop' | 'restart' | 'delete') => {
     if (!id) return
     setActionLoading(true)
@@ -162,19 +174,18 @@ export function ContainerDetailPage() {
       </div>
 
       {/* Stats */}
-      {stats && (
-        <Card>
-          <div className="p-4">
-            <ResourceBar
-              cpu={stats.cpu}
-              memory={stats.memory}
-              memoryUsed={stats.memory_used}
-              memoryLimit={stats.memory_limit}
-              cpuLimit={container.cpus ? parseFloat(container.cpus) : undefined}
-            />
-          </div>
-        </Card>
-      )}
+      <Card>
+        <div className="p-4">
+          <ResourceBar
+            cpu={stats?.cpu ?? 0}
+            memory={stats?.memory ?? 0}
+            memoryUsed={stats?.memory_used}
+            memoryLimit={stats?.memory_limit}
+            cpuLimit={stats?.cpu_limit ?? (container.cpus ? parseFloat(container.cpus) : undefined)}
+            running={container.status === 'running'}
+          />
+        </div>
+      </Card>
 
       {/* Tabs */}
       <Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />

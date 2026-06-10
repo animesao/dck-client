@@ -267,28 +267,37 @@ func (s *Server) handleContainerState(w http.ResponseWriter, r *http.Request, cl
 }
 
 func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	// Basic container stats - memory from cgroup
 	id := r.PathValue("id")
-	cgroupPath := fmt.Sprintf("/sys/fs/cgroup/memory/dck/%s/memory.current", id)
+
+	// Get container state for allocated limits
+	c, err := s.dck.GetContainer(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Container not found")
+		return
+	}
+
 	memUsed := uint64(0)
+	memLimit := uint64(0)
+	cpuPct := 0.0
+
+	// Try reading from cgroup (only available when running)
+	cgroupPath := fmt.Sprintf("/sys/fs/cgroup/memory/dck/%s/memory.current", id)
 	if b, err := os.ReadFile(cgroupPath); err == nil {
-		_, err := fmt.Sscanf(string(b), "%d", &memUsed)
-		if err != nil {
-			memUsed = 0
+		var v uint64
+		if _, err := fmt.Sscanf(string(b), "%d", &v); err == nil {
+			memUsed = v
 		}
 	}
 
-	memLimit := uint64(512 * 1024 * 1024) // Default 512MB
 	limitPath := fmt.Sprintf("/sys/fs/cgroup/memory/dck/%s/memory.max", id)
 	if b, err := os.ReadFile(limitPath); err == nil {
 		var v uint64
-		if _, err := fmt.Sscanf(string(b), "%d", &v); err == nil && v > 0 {
+		if _, err := fmt.Sscanf(string(b), "%d", &v); err == nil && v > 0 && v < ^uint64(0) {
 			memLimit = v
 		}
 	}
 
-	cpuPct := 0.0
-	// CPU usage — try cgroup v1 first, then v2
+	// CPU — cgroup v1 then v2
 	cpuPath := fmt.Sprintf("/sys/fs/cgroup/cpu/dck/%s/cpuacct.usage", id)
 	cpuV2Path := fmt.Sprintf("/sys/fs/cgroup/dck/%s/cpu.stat", id)
 	b, err := os.ReadFile(cpuPath)
@@ -298,7 +307,6 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 			cpuPct = float64(usage) / 1e9 * 100
 		}
 	} else if b, err := os.ReadFile(cpuV2Path); err == nil {
-		// cgroup v2: parse "usage_usec 123456" from cpu.stat
 		for _, line := range strings.Split(string(b), "\n") {
 			if strings.HasPrefix(line, "usage_usec") {
 				var usec uint64
@@ -307,6 +315,11 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 				break
 			}
 		}
+	}
+
+	// Use allocated limits from container state as fallback
+	if memLimit == 0 && c.MemoryLimit > 0 {
+		memLimit = uint64(c.MemoryLimit)
 	}
 
 	memPct := 0.0
@@ -319,6 +332,7 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 		"memory":       memPct,
 		"memory_used":  memUsed,
 		"memory_limit": memLimit,
+		"cpu_limit":    c.CPUCount,
 	})
 }
 

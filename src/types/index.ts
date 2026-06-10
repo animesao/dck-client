@@ -107,6 +107,7 @@ export interface ContainerStats {
   memory: number
   memory_used: number
   memory_limit: number
+  cpu_limit?: number
 }
 
 export interface Blueprint {

@@ -7,6 +7,7 @@ interface ResourceBarProps {
   memoryUsed?: number
   memoryLimit?: number
   cpuLimit?: number
+  running?: boolean
 }
 
 function formatBytes(bytes: number): string {
@@ -17,11 +18,11 @@ function formatBytes(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-export function ResourceBar({ cpu, memory, memoryUsed, memoryLimit, cpuLimit }: ResourceBarProps) {
+export function ResourceBar({ cpu, memory, memoryUsed, memoryLimit, cpuLimit, running }: ResourceBarProps) {
   const cpuPct = Math.min(100, Math.max(0, cpu))
   const memPct = Math.min(100, Math.max(0, memory))
   const memUsedFormatted = memoryUsed !== undefined ? formatBytes(memoryUsed) : '—'
-  const memLimitFormatted = memoryLimit !== undefined && memoryLimit > 0 ? formatBytes(memoryLimit) : '—'
+  const memLimitFormatted = memoryLimit !== undefined && memoryLimit > 0 ? formatBytes(memoryLimit) : 'Unlimited'
 
   return (
     <div className="space-y-4">
@@ -29,12 +30,22 @@ export function ResourceBar({ cpu, memory, memoryUsed, memoryLimit, cpuLimit }: 
         <div>
           <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="flex items-center gap-1.5 text-[#636d7d] font-medium">
-              <Cpu size={13} className="text-indigo-400" />
+              <Cpu size={13} className={running ? 'text-indigo-400' : 'text-[#636d7d]'} />
               CPU
             </span>
-            <span className="text-[#e6edf3] font-mono font-semibold text-sm">{cpuPct.toFixed(1)}%</span>
+            <span className="font-mono font-semibold text-sm">
+              {running ? (
+                <span className="text-[#e6edf3]">{cpuPct.toFixed(1)}%</span>
+              ) : (
+                <span className="text-[#636d7d]">—</span>
+              )}
+            </span>
           </div>
-          <ProgressBar value={cpuPct} size="sm" />
+          {running ? (
+            <ProgressBar value={cpuPct} size="sm" />
+          ) : (
+            <div className="h-2 rounded-full bg-white/[0.04]" />
+          )}
           {cpuLimit !== undefined && cpuLimit > 0 && (
             <div className="mt-1 flex justify-end text-[10px] text-[#636d7d] font-mono">
               {cpuLimit} core{cpuLimit !== 1 ? 's' : ''} allocated
@@ -44,14 +55,24 @@ export function ResourceBar({ cpu, memory, memoryUsed, memoryLimit, cpuLimit }: 
         <div>
           <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="flex items-center gap-1.5 text-[#636d7d] font-medium">
-              <MemoryStick size={13} className="text-indigo-400" />
+              <MemoryStick size={13} className={running ? 'text-indigo-400' : 'text-[#636d7d]'} />
               Memory
             </span>
-            <span className="text-[#e6edf3] font-mono font-semibold text-sm">{memPct.toFixed(1)}%</span>
+            <span className="font-mono font-semibold text-sm">
+              {running ? (
+                <span className="text-[#e6edf3]">{memPct.toFixed(1)}%</span>
+              ) : (
+                <span className="text-[#636d7d]">—</span>
+              )}
+            </span>
           </div>
-          <ProgressBar value={memPct} size="sm" />
+          {running ? (
+            <ProgressBar value={memPct} size="sm" />
+          ) : (
+            <div className="h-2 rounded-full bg-white/[0.04]" />
+          )}
           <div className="mt-1 flex justify-end text-[10px] text-[#636d7d] font-mono">
-            {memUsedFormatted} / {memLimitFormatted}
+            {running ? `${memUsedFormatted} / ` : '— / '}{memLimitFormatted}
           </div>
         </div>
       </div>
