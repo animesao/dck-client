@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
@@ -14,6 +15,12 @@ import (
 	"dck-panel/db"
 	"dck-panel/dck"
 )
+
+func ufwAllowPort(port int) {
+	if err := exec.Command("ufw", "allow", fmt.Sprintf("%d/tcp", port)).Run(); err == nil {
+		log.Printf("Port %d/tcp opened in UFW", port)
+	}
+}
 
 var (
 	port        = flag.Int("port", 443, "HTTP/HTTPS port")
@@ -29,6 +36,11 @@ var (
 
 func main() {
 	flag.Parse()
+
+	ufwAllowPort(*port)
+	if *sftpPort > 0 {
+		ufwAllowPort(*sftpPort)
+	}
 
 	home, _ := os.UserHomeDir()
 
