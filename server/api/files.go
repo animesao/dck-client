@@ -19,6 +19,12 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		if abs == "/" {
 			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
+		// Scope to container's data directory (WorkingDir or default /home/container)
+		dataDir := s.getContainerDataDir(id)
+		dataPath := filepath.Join(root, dataDir)
+		if info, err := os.Stat(dataPath); err == nil && info.IsDir() {
+			return dataPath, nil
+		}
 		return root, nil
 	}
 
@@ -30,10 +36,27 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		if abs == "/" {
 			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
+		// Scope to container's data directory within diff
+		dataDir := s.getContainerDataDir(id)
+		dataPath := filepath.Join(diffPath, dataDir)
+		if info, err := os.Stat(dataPath); err == nil && info.IsDir() {
+			return dataPath, nil
+		}
 		return diffPath, nil
 	}
 
 	return "", fmt.Errorf("container %s filesystem not available", id)
+}
+
+func (s *Server) getContainerDataDir(id string) string {
+	c, err := s.dck.GetContainer(id)
+	if err != nil {
+		return "/home/container"
+	}
+	if c.WorkingDir != "" {
+		return c.WorkingDir
+	}
+	return "/home/container"
 }
 
 func safePath(root, requested string) (string, error) {
