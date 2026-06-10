@@ -174,14 +174,14 @@ export function MainLayout() {
         <header className="h-14 flex items-center justify-between px-3 lg:px-6 bg-[#080b12]/80 backdrop-blur-xl border-b border-white/[0.05] shrink-0 z-10">
           <div className="flex items-center gap-3">
             <button onClick={toggleSidebar} className="btn-ghost p-2 rounded-xl hover:bg-white/[0.04]">
-              <Menu size={18} />
+              {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
             </button>
             <span className="text-sm font-semibold text-[#e6edf3] lg:hidden truncate max-w-[160px]">
               {navItems.find(i => location.pathname === i.to || (i.to !== '/' && location.pathname.startsWith(i.to)))?.label || 'dck'}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate('/settings')} className="btn-ghost p-2 rounded-xl hover:bg-white/[0.04] lg:hidden" title="Settings">
+            <button onClick={() => navigate('/settings')} className="btn-ghost p-2 rounded-xl hover:bg-white/[0.04]" title="Settings">
               <Sliders size={18} />
             </button>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/10">
