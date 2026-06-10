@@ -332,13 +332,13 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 	if cgPrefix == "" {
 		cgPrefix = fmt.Sprintf("/sys/fs/cgroup/dck/%s", id)
 	}
-	cgOK := false
+	cgMemOK := false
 
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "memory.current")); err == nil {
 		var v uint64
 		if _, err := fmt.Sscanf(string(b), "%d", &v); err == nil {
 			memUsed = v
-			cgOK = true
+			cgMemOK = true
 		}
 	}
 
@@ -353,20 +353,25 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 	}
 
 	var cpuUsage uint64
+	cgCPUOK := false
 	if b, err := os.ReadFile(filepath.Join(cgPrefix, "cpu.stat")); err == nil {
 		for _, line := range strings.Split(string(b), "\n") {
 			if strings.HasPrefix(line, "usage_usec") {
 				fmt.Sscanf(line, "usage_usec %d", &cpuUsage)
-				cgOK = true
+				cgCPUOK = true
 				break
 			}
 		}
 	}
 
-	// 2. Fallback to /proc/<pid>/ when cgroup not accessible
-	if !cgOK && c.PID > 0 {
-		memUsed = readProcMem(c.PID)
-		cpuUsage = readProcCPU(c.PID)
+	// 2. Fallback to /proc/<pid>/ when cgroup for that resource isn't accessible
+	if c.PID > 0 {
+		if !cgMemOK {
+			memUsed = readProcMem(c.PID)
+		}
+		if !cgCPUOK {
+			cpuUsage = readProcCPU(c.PID)
+		}
 	}
 
 	// CPU delta calculation
