@@ -44,8 +44,17 @@ export function BlueprintsPage() {
   const [deployTpl, setDeployTpl] = useState<Template | null>(null)
   const [deployName, setDeployName] = useState('')
   const [deployPorts, setDeployPorts] = useState<string[]>([])
+  const [deployVolSrc, setDeployVolSrc] = useState<string[]>([])
   const [deployVolumes, setDeployVolumes] = useState<string[]>([])
   const [deployEnv, setDeployEnv] = useState<{key:string;value:string}[]>([])
+
+  const makeUniqueVolumes = (name: string, vols: string[]) =>
+    vols.map(v => {
+      const parts = v.split(':')
+      if (parts.length >= 2 && !parts[0].includes('/') && !parts[0].includes('.'))
+        return `${name}-${parts[0]}:${parts.slice(1).join(':')}`
+      return v
+    })
 
   const load = () => {
     setLoading(true)
@@ -151,9 +160,12 @@ export function BlueprintsPage() {
 
   const openDeployModal = (tpl: Template) => {
     const envArr = (() => { try { return JSON.parse(tpl.env) } catch { return [] } })() as { key: string; value: string }[]
-    setDeployName(`${tpl.name}-${Date.now().toString(36).slice(-4)}`)
+    const tplVols = tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : []
+    setDeployVolSrc(tplVols)
+    const name = `${tpl.name}-${Date.now().toString(36).slice(-4)}`
+    setDeployName(name)
     setDeployPorts(tpl.ports ? tpl.ports.split(',').map(p => p.trim()).filter(Boolean) : [''])
-    setDeployVolumes(tpl.volumes ? tpl.volumes.split(',').map(v => v.trim()).filter(Boolean) : [''])
+    setDeployVolumes(makeUniqueVolumes(name, tplVols))
     setDeployEnv(Array.isArray(envArr) ? envArr.filter(e => e.key) : [])
     setDeployTpl(tpl)
   }
@@ -332,7 +344,11 @@ export function BlueprintsPage() {
       {/* Deploy Options Modal */}
       <Modal open={!!deployTpl} onClose={() => setDeployTpl(null)} title="Deploy Options" size="lg">
         <div className="space-y-4">
-          <Input label="Container name" value={deployName} onChange={e => setDeployName(e.target.value)} required />
+          <Input label="Container name" value={deployName} onChange={e => {
+            const n = e.target.value
+            setDeployName(n)
+            setDeployVolumes(makeUniqueVolumes(n, deployVolSrc))
+          }} required />
 
           <div>
             <label className="block text-xs font-medium text-[#8b949e] mb-1.5">Volumes</label>
