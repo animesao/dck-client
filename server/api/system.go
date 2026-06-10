@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"dck-panel/dck"
 )
 
 type SystemInfo struct {
@@ -38,6 +40,22 @@ func (s *Server) handleSystem(w http.ResponseWriter, r *http.Request, claims *Us
 func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	info := getSystemInfo()
 	containers, _ := s.dck.ListContainers(true)
+
+	// Filter by user access (admins see all)
+	if claims.Role != "admin" {
+		accessible := s.store.GetUserContainerIDs(claims.Sub)
+		accessMap := make(map[string]bool, len(accessible))
+		for _, id := range accessible {
+			accessMap[id] = true
+		}
+		filtered := make([]dck.Container, 0, len(containers))
+		for _, c := range containers {
+			if accessMap[c.ID] {
+				filtered = append(filtered, c)
+			}
+		}
+		containers = filtered
+	}
 
 	running := 0
 	stopped := 0
