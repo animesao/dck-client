@@ -145,7 +145,10 @@ export function MainLayout() {
 
           {/* User */}
           <div className={`p-3 border-t border-white/[0.05] ${!sidebarOpen && 'lg:px-2'}`}>
-            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl ${!sidebarOpen && 'lg:justify-center'}`}>
+            <button
+              onClick={() => navigate('/settings')}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl w-full text-left transition-colors hover:bg-white/[0.03] ${!sidebarOpen && 'lg:justify-center'}`}
+            >
               <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center shrink-0 border border-indigo-500/10">
                 <span className="text-sm font-semibold text-indigo-300">
                   {user?.username?.charAt(0).toUpperCase()}
@@ -155,14 +158,12 @@ export function MainLayout() {
                 <p className="text-sm font-medium text-[#e6edf3] truncate">{user?.username}</p>
                 <p className="text-[11px] text-[#636d7d]">{user?.role === 'admin' ? 'Administrator' : 'User'}</p>
               </div>
-              <button
-                onClick={handleLogout}
-                className={`text-[#636d7d] hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-500/[0.06] ${!sidebarOpen && 'lg:hidden'}`}
-                title="Logout"
-              >
-                <LogOut size={15} />
-              </button>
-            </div>
+              <LogOut
+                size={15}
+                onClick={(e) => { e.stopPropagation(); handleLogout() }}
+                className={`text-[#636d7d] hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-red-500/[0.06] shrink-0 ${!sidebarOpen && 'lg:hidden'}`}
+              />
+            </button>
           </div>
         </div>
       </aside>
@@ -180,6 +181,9 @@ export function MainLayout() {
             </span>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/settings')} className="btn-ghost p-2 rounded-xl hover:bg-white/[0.04] lg:hidden" title="Settings">
+              <Sliders size={18} />
+            </button>
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/10">
               <span className="status-dot-running" />
               <span className="text-[11px] font-medium text-emerald-400">All systems operational</span>
