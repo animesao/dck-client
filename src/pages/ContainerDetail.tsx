@@ -356,9 +356,16 @@ export function ContainerDetailPage() {
 
         {activeTab === 'logs' && (
           <Card>
-            <pre className="p-5 text-xs font-mono text-[#e6edf3] overflow-x-auto overflow-y-auto max-h-[600px] leading-relaxed whitespace-pre-wrap">
+            <pre className="p-5 text-xs font-mono text-[#e6edf3] overflow-x-auto max-h-[600px] leading-relaxed">
               {logs || 'Loading...'}
             </pre>
+            {logs?.startsWith('Error:') && (
+              <div className="px-5 pb-4">
+                <Button variant="secondary" size="sm" onClick={loadLogs}>
+                  <RefreshCw size={14} /> Retry
+                </Button>
+              </div>
+            )}
           </Card>
         )}
 
@@ -367,6 +374,13 @@ export function ContainerDetailPage() {
             <pre className="p-5 text-xs font-mono text-[#e6edf3] overflow-x-auto max-h-[600px] leading-relaxed">
               {state || 'Loading...'}
             </pre>
+            {state?.startsWith('Error:') && (
+              <div className="px-5 pb-4">
+                <Button variant="secondary" size="sm" onClick={loadState}>
+                  <RefreshCw size={14} /> Retry
+                </Button>
+              </div>
+            )}
           </Card>
         )}
 

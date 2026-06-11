@@ -76,20 +76,26 @@ export async function api<T = unknown>(
   }
 
   const text = await res.text()
-  if (!text) return undefined as T
-
-  try {
-    const data = JSON.parse(text)
-    if (!res.ok) {
-      throw new Error(data.error || data.message || `Request failed: ${res.status}`)
-    }
-    return data as T
-  } catch (e) {
-    if (e instanceof SyntaxError) {
-      throw new Error(`Invalid JSON response: ${text.slice(0, 100)}`)
-    }
-    throw e
+  if (!text) {
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`)
+    return undefined as T
   }
+
+  let data: unknown
+  try {
+    data = JSON.parse(text)
+  } catch {
+    if (!res.ok) {
+      throw new Error(`Request failed (${res.status}): ${text.slice(0, 200)}`)
+    }
+    throw new Error(`Invalid JSON response: ${text.slice(0, 200)}`)
+  }
+
+  if (!res.ok) {
+    throw new Error((data as Record<string, unknown>)?.error as string || (data as Record<string, unknown>)?.message as string || `Request failed: ${res.status}`)
+  }
+
+  return data as T
 }
 
 export function apiUrl(path: string): string {

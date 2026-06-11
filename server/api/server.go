@@ -47,6 +47,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/containers/{id}/logs", s.auth(s.requireContainerAccess(s.handleLogs)))
 	mux.HandleFunc("POST /api/containers/{id}/exec", s.auth(s.requirePerm("console_send")(s.handleExec)))
 	mux.HandleFunc("GET /api/containers/{id}/stats", s.auth(s.requireContainerAccess(s.handleContainerStats)))
+	mux.HandleFunc("GET /api/containers/{id}/state", s.auth(s.requireContainerAccess(s.handleContainerState)))
 	mux.HandleFunc("GET /api/containers/{id}/console", s.auth(s.requireContainerAccess(s.handleConsole)))
 
 	mux.HandleFunc("GET /api/containers/{id}/files", s.auth(s.requirePerm("files_read")(s.handleListFiles)))
@@ -63,6 +64,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/containers/{id}/backups/{backup}/download", s.auth(s.requireContainerAccess(s.handleDownloadBackup)))
 	mux.HandleFunc("DELETE /api/containers/{id}/backups/{backup}", s.auth(s.requirePerm("backup_delete")(s.handleDeleteBackup)))
 
+	mux.HandleFunc("GET /api/containers/{id}/config", s.auth(s.requireContainerAccess(s.handleContainerConfig)))
 	mux.HandleFunc("PUT /api/containers/{id}/config", s.auth(s.requirePerm("container_edit")(s.handleUpdateContainerConfig)))
 	mux.HandleFunc("POST /api/containers/{id}/ports", s.auth(s.admin(s.requirePerm("ports_manage")(s.handleAddContainerPort))))
 	mux.HandleFunc("DELETE /api/containers/{id}/ports/{host_port}", s.auth(s.admin(s.requirePerm("ports_manage")(s.handleRemoveContainerPort))))
@@ -122,6 +124,11 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/containers/{id}/export-template", s.auth(s.requireContainerAccess(s.handleExportContainerTemplate)))
 	mux.HandleFunc("POST /api/template-categories", s.auth(s.handleAddCategory))
 	mux.HandleFunc("DELETE /api/template-categories/{name}", s.auth(s.handleDeleteCategory))
+
+	// Catch-all for unmatched /api/* routes — always return JSON, never plain text "404 page not found"
+	mux.HandleFunc("/api/{path...}", func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "Endpoint not found")
+	})
 
 	return withCORS(s.frontendOrAPI(mux))
 }

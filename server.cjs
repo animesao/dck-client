@@ -826,6 +826,11 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => clearInterval(interval))
 })
 
+// Catch-all for unmatched API routes — always return JSON
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `Endpoint not found: ${req.method} ${req.path}` })
+})
+
 // WebSocket console (mock)
 const WebSocket = require('ws')
 const wss = new WebSocket.Server({ noServer: true })
