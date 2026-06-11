@@ -503,4 +503,4 @@ ufw status
 
 ## License
 
-MIT
+[MIT](LICENSE)
