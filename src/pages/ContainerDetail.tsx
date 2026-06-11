@@ -266,7 +266,7 @@ export function ContainerDetailPage() {
               <div className="p-5 space-y-4">
                 <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Network</h3>
                 <div className="space-y-3">
-                  <InfoRow label="IP Address" value={container.ip || '-'} />
+                  <InfoRow label="Host" value={window.location.hostname} />
                   <InfoRow label="PID" value={container.pid?.toString() || '-'} />
                   <InfoRow label="Memory Limit" value={container.memory || 'Default'} />
                   <InfoRow label="CPU Limit" value={container.cpus || 'Default'} />
