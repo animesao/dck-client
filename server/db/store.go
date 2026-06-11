@@ -190,10 +190,7 @@ func (s *Store) migrate() error {
 	s.db.Exec("ALTER TABLE users ADD COLUMN container_limit INTEGER DEFAULT 0")
 	s.db.Exec("ALTER TABLE users ADD COLUMN memory_limit INTEGER DEFAULT 0") // in MB
 	s.db.Exec("ALTER TABLE users ADD COLUMN cpu_limit REAL DEFAULT 0")
-	s.db.Exec("ALTER TABLE users ADD COLUMN port_limit INTEGER DEFAULT 1")
-
-	// Set default port_limit for users who got it before the default change
-	s.db.Exec("UPDATE users SET port_limit = 1 WHERE port_limit IS NULL OR port_limit = 0")
+	s.db.Exec("ALTER TABLE users ADD COLUMN port_limit INTEGER DEFAULT 0")
 
 	// Add granular permissions column
 	s.db.Exec("ALTER TABLE container_permissions ADD COLUMN permissions TEXT DEFAULT ''")
