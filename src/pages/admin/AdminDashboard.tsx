@@ -14,7 +14,7 @@ import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBad
 import { formatBytes } from '@/utils'
 import { useUIStore } from '@/store/uiStore'
 import type { DashboardStats, Container as ContainerType, UserStats } from '@/types'
-import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield, Clock, Settings2 } from 'lucide-react'
+import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield, Clock, Settings2, Gauge, MemoryStick } from 'lucide-react'
 
 export function AdminDashboardPage() {
   const { isAdmin } = useAuth()
@@ -149,19 +149,57 @@ export function AdminDashboardPage() {
               <h3 className="text-sm font-semibold text-[#e6edf3]">CPU Usage</h3>
             </div>
             <ProgressBar value={stats?.cpu_percent || 0} showLabel />
+            <div className="mt-2 flex items-center gap-2 text-xs text-[#636d7d]">
+              <Server size={12} />
+              {stats?.system?.cpu_model || 'Unknown'} ({stats?.system?.cpu_cores || '?'} cores)
+            </div>
           </div>
         </Card>
         <Card>
           <div className="p-5">
             <div className="flex items-center gap-2 mb-4">
-              <Server size={16} className="text-indigo-400" />
+              <MemoryStick size={16} className="text-indigo-400" />
               <h3 className="text-sm font-semibold text-[#e6edf3]">Memory Usage</h3>
             </div>
             <ProgressBar value={stats?.memory_used || 0} max={stats?.memory_total || 1} showLabel />
-            <div className="mt-2 text-xs text-[#636d7d]">{formatBytes(stats?.memory_used || 0)} / {formatBytes(stats?.memory_total || 0)}</div>
+            <div className="mt-2 flex items-center gap-2 text-xs text-[#636d7d]">
+              <HardDrive size={12} />
+              {formatBytes(stats?.memory_used || 0)} / {formatBytes(stats?.memory_total || 0)}
+            </div>
           </div>
         </Card>
       </div>
+
+      {/* System Info */}
+      <Card>
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-5">
+            <Gauge size={16} className="text-indigo-400" />
+            <h3 className="text-sm font-semibold text-[#e6edf3]">System Information</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+            <div className="space-y-1">
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">OS</p>
+              <p className="text-sm font-medium text-[#e6edf3]">{stats?.system?.os || '-'}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Architecture</p>
+              <p className="text-sm font-medium text-[#e6edf3]">{stats?.system?.arch || '-'}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Kernel</p>
+              <p className="text-sm font-medium text-[#e6edf3]">{stats?.system?.kernel || '-'}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] sm:text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Uptime</p>
+              <p className="text-sm font-medium text-[#e6edf3] flex items-center gap-1.5">
+                <Clock size={14} className="text-indigo-400" />
+                {stats?.system?.uptime || '-'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
 
       <Card>
         <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
