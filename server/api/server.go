@@ -46,6 +46,8 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("POST /api/containers/{id}/restart", s.auth(s.requirePerm("container_restart")(s.handleRestartContainer)))
 	mux.HandleFunc("GET /api/containers/{id}/logs", s.auth(s.requireContainerAccess(s.handleLogs)))
 	mux.HandleFunc("POST /api/containers/{id}/exec", s.auth(s.requirePerm("console_send")(s.handleExec)))
+	mux.HandleFunc("GET /api/containers/{id}/stats", s.auth(s.requireContainerAccess(s.handleContainerStats)))
+	mux.HandleFunc("GET /api/containers/{id}/console", s.auth(s.requireContainerAccess(s.handleConsole)))
 
 	mux.HandleFunc("GET /api/containers/{id}/files", s.auth(s.requirePerm("files_read")(s.handleListFiles)))
 	mux.HandleFunc("GET /api/containers/{id}/files/read", s.auth(s.requirePerm("files_read")(s.handleReadFile)))

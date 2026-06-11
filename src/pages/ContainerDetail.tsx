@@ -236,7 +236,7 @@ export function ContainerDetailPage() {
             cpu={stats?.cpu ?? 0}
             memory={stats?.memory ?? 0}
             memoryUsed={stats?.memory_used}
-            memoryLimit={stats?.memory_limit}
+            memoryLimit={stats?.memory_limit ?? (container.memory ? parseInt(container.memory) : undefined)}
             cpuLimit={stats?.cpu_limit ?? (container.cpus ? parseFloat(container.cpus) : undefined)}
             running={container.status === 'running'}
           />
