@@ -15,6 +15,7 @@ export interface Container {
   pid?: number
   ip?: string
   user_id?: string
+  username?: string
   memory?: string
   cpus?: string
   cmd?: string
@@ -53,6 +54,7 @@ export interface CreateContainerRequest {
   user?: string
   labels?: Record<string, string>
   healthcheck_cmd?: string
+  user_id?: string
   healthcheck_interval?: string
   healthcheck_retries?: number
 }

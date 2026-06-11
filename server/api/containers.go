@@ -42,6 +42,8 @@ type ContainerResp struct {
 	Restart    string          `json:"restart,omitempty"`
 	Cmd        string          `json:"cmd,omitempty"`
 	Entrypoint string          `json:"entrypoint,omitempty"`
+	UserID     string          `json:"user_id,omitempty"`
+	Username   string          `json:"username,omitempty"`
 }
 
 type PortMapResp struct {
@@ -126,7 +128,13 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, cl
 		containers = filtered
 	}
 
-	writeJSON(w, http.StatusOK, containersToResp(containers))
+	resp := containersToResp(containers)
+	if claims.Role == "admin" {
+		for i := range resp {
+			s.enrichContainerOwner(&resp[i])
+		}
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
@@ -136,7 +144,11 @@ func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, clai
 		writeError(w, http.StatusNotFound, "Container not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, containerToResp(c))
+	resp := containerToResp(c)
+	if claims.Role == "admin" {
+		s.enrichContainerOwner(&resp)
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
@@ -151,6 +163,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		CPUs    string   `json:"cpus"`
 		Network string   `json:"network"`
 		Command string   `json:"command"`
+		UserID  string   `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -222,7 +235,11 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	s.store.RecordContainer(claims.Sub, id, req.Name, req.Image)
+	ownerID := claims.Sub
+	if claims.Role == "admin" && req.UserID != "" {
+		ownerID = req.UserID
+	}
+	s.store.RecordContainer(ownerID, id, req.Name, req.Image)
 	s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
 
 	c, err := s.dck.GetContainer(id)
@@ -724,8 +741,69 @@ func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Requ
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// parseMemoryToMB converts a dck memory string to MB.
-// Bare number → MB, "512m" → 512MB, "1g"/"1gb" → 1024MB
+func (s *Server) handleUpdateContainerOwner(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+	var req struct {
+		UserID string `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.UserID == "" {
+		writeError(w, http.StatusBadRequest, "user_id is required")
+		return
+	}
+
+	// Verify target user exists
+	if user := s.store.GetUser(req.UserID); user == nil {
+		writeError(w, http.StatusNotFound, "User not found")
+		return
+	}
+
+	// Get current owner for the activity log
+	currentOwnerID, _ := s.store.GetContainerUserID(id)
+
+	if err := s.store.UpdateContainerOwner(id, req.UserID); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to update container owner")
+		return
+	}
+
+	targetUser := s.store.GetUser(req.UserID)
+	targetName := req.UserID
+	if targetUser != nil {
+		targetName = targetUser.Username
+	}
+
+	logMsg := claims.Username + " changed container owner to " + targetName
+	if currentOwnerID != "" {
+		if oldUser := s.store.GetUser(currentOwnerID); oldUser != nil {
+			logMsg = claims.Username + " changed container owner from " + oldUser.Username + " to " + targetName
+		}
+	}
+	s.store.AddActivityLog(claims.Sub, id, "container_owner_changed", logMsg)
+
+	c, err := s.dck.GetContainer(id)
+	if err != nil {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+		return
+	}
+	resp := containerToResp(c)
+	s.enrichContainerOwner(&resp)
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) enrichContainerOwner(resp *ContainerResp) {
+	userID, err := s.store.GetContainerUserID(resp.ID)
+	if err != nil {
+		return
+	}
+	resp.UserID = userID
+	if user := s.store.GetUser(userID); user != nil {
+		resp.Username = user.Username
+	}
+}
+
 func parseMemoryToMB(s string) int64 {
 	s = strings.TrimSpace(strings.ToLower(s))
 	if s == "" {

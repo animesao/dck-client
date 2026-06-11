@@ -473,6 +473,17 @@ func (s *Store) RecordContainer(userID, containerID, containerName, image string
 		userID, containerID, containerName, image, now)
 }
 
+func (s *Store) GetContainerUserID(containerID string) (string, error) {
+	var userID string
+	err := s.db.QueryRow("SELECT user_id FROM user_containers WHERE container_id = ?", containerID).Scan(&userID)
+	return userID, err
+}
+
+func (s *Store) UpdateContainerOwner(containerID, newUserID string) error {
+	_, err := s.db.Exec("UPDATE user_containers SET user_id = ? WHERE container_id = ?", newUserID, containerID)
+	return err
+}
+
 func (s *Store) RemoveUserContainer(containerID string) {
 	s.db.Exec("DELETE FROM user_containers WHERE container_id = ?", containerID)
 }

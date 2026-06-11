@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { imageConfigs, imageCategories } from '@/data/imageConfigs'
-import type { CreateContainerRequest, Image } from '@/types'
+import type { CreateContainerRequest, Image, User } from '@/types'
 import { Search, ChevronRight, Server, Globe, Database, Code, Gamepad2, Bot, Cpu, Download } from 'lucide-react'
 
 interface CreateContainerModalProps {
   open: boolean
   onClose: () => void
   onSuccess: () => void
+  adminMode?: boolean
+  users?: User[]
 }
 
 const catIcons: Record<string, any> = {
@@ -38,12 +40,13 @@ interface EnvPair {
   value: string
 }
 
-export function CreateContainerModal({ open, onClose, onSuccess }: CreateContainerModalProps) {
+export function CreateContainerModal({ open, onClose, onSuccess, adminMode, users }: CreateContainerModalProps) {
   const addToast = useUIStore(s => s.addToast)
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState<'category' | 'image' | 'config'>('category')
+  const [step, setStep] = useState<'user' | 'category' | 'image' | 'config'>('category')
   const [selectedCat, setSelectedCat] = useState('')
   const [selectedId, setSelectedId] = useState('')
+  const [selectedUserId, setSelectedUserId] = useState('')
   const [search, setSearch] = useState('')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [form, setForm] = useState<CreateContainerRequest>({
@@ -69,6 +72,8 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
 
   useEffect(() => {
     if (!open) return
+    setSelectedUserId('')
+    setStep(adminMode ? 'user' : 'category')
     listImages().then(setAvailableImages).catch(() => {})
   }, [open])
 
@@ -132,7 +137,11 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
       const envArr = envPairs.filter(p => p.key).map(p => `${p.key}=${p.value}`)
       // Build full image with tag
       const image = config ? (selectedTag ? `${config.image}:${selectedTag}` : config.image) : form.image
-      await createContainer({ ...form, image, ports, volumes: [] as string[], env: envArr })
+      const payload = { ...form, image, ports, volumes: [] as string[], env: envArr }
+      if (adminMode && selectedUserId) {
+        payload.user_id = selectedUserId
+      }
+      await createContainer(payload)
       addToast('Container created', 'success')
       onSuccess()
       onClose()
@@ -145,9 +154,10 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
   }
 
   const resetForm = () => {
-    setStep('category')
+    setStep(adminMode ? 'user' : 'category')
     setSelectedCat('')
     setSelectedId('')
+    setSelectedUserId('')
     setSearch('')
     setShowAdvanced(false)
     setForm({
@@ -161,6 +171,33 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
 
   return (
     <Modal open={open} onClose={onClose} title="Create Container" size="lg">
+      {step === 'user' && adminMode && users && (
+        <div>
+          <p className="text-xs text-[#636d7d] mb-3">Select the user to create this container for:</p>
+          <div className="space-y-1 max-h-[55vh] overflow-y-auto">
+            {users.map(u => (
+              <button
+                key={u.id}
+                onClick={() => { setSelectedUserId(u.id); setStep('category') }}
+                className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-center justify-between ${
+                  selectedUserId === u.id
+                    ? 'bg-indigo-500/10 border border-indigo-500/30'
+                    : 'hover:bg-white/[0.04] border border-transparent'
+                }`}
+              >
+                <div>
+                  <p className="text-xs text-[#e6edf3] font-medium">{u.username}</p>
+                  <p className="text-[10px] text-[#636d7d]">{u.role}</p>
+                </div>
+                {selectedUserId === u.id && (
+                  <span className="text-[10px] text-indigo-400">Selected</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {step === 'category' && (
         <div>
           <div className="relative mb-4">
@@ -232,8 +269,8 @@ export function CreateContainerModal({ open, onClose, onSuccess }: CreateContain
 
       {step === 'image' && (
         <div>
-          <button onClick={() => setStep('category')} className="text-xs text-[#636d7d] hover:text-[#e6edf3] mb-3 flex items-center gap-1">
-            ← All categories
+          <button onClick={() => setStep(adminMode ? 'user' : 'category')} className="text-xs text-[#636d7d] hover:text-[#e6edf3] mb-3 flex items-center gap-1">
+            ← {adminMode ? 'Select user' : 'All categories'}
           </button>
           <p className="text-sm font-medium text-[#e6edf3] mb-3">{selectedCat}</p>
           <div className="space-y-1 max-h-[55vh] overflow-y-auto">

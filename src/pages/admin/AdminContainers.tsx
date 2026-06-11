@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listContainers, removeContainer, startContainer, stopContainer, restartContainer } from '@/api/containers'
+import { listContainers, removeContainer, startContainer, stopContainer, restartContainer, changeContainerOwner } from '@/api/containers'
+import { listUsers } from '@/api/admin'
 import { useUIStore } from '@/store/uiStore'
 import { useAuth } from '@/hooks/useAuth'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { PageLoading } from '@/components/ui/Spinner'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
 import { CreateContainerModal } from '@/components/containers/CreateContainerModal'
-import type { Container } from '@/types'
-import { Play, Square, RotateCcw, Trash2, Search, ExternalLink, Plus } from 'lucide-react'
+import type { Container, User } from '@/types'
+import { Play, Square, RotateCcw, Trash2, Search, ExternalLink, Plus, UserCog } from 'lucide-react'
 
 export function AdminContainersPage() {
   const { isAdmin } = useAuth()
@@ -21,11 +23,19 @@ export function AdminContainersPage() {
   const [search, setSearch] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  const [users, setUsers] = useState<User[]>([])
+  const [changeOwnerOpen, setChangeOwnerOpen] = useState(false)
+  const [changeOwnerContainer, setChangeOwnerContainer] = useState<Container | null>(null)
+  const [changeOwnerLoading, setChangeOwnerLoading] = useState(false)
 
   const fetchData = async () => {
     try {
-      const data = await listContainers(true)
+      const [data, userList] = await Promise.all([
+        listContainers(true),
+        listUsers(),
+      ])
       setContainers(data)
+      setUsers(userList)
     } catch {
       addToast('Failed to load containers', 'error')
     } finally {
@@ -47,6 +57,22 @@ export function AdminContainersPage() {
       addToast(err.message || 'Action failed', 'error')
     } finally {
       setActionLoading(null)
+    }
+  }
+
+  const handleChangeOwner = async (userId: string) => {
+    if (!changeOwnerContainer) return
+    setChangeOwnerLoading(true)
+    try {
+      await changeContainerOwner(changeOwnerContainer.id, userId)
+      addToast('Container owner updated', 'success')
+      setChangeOwnerOpen(false)
+      setChangeOwnerContainer(null)
+      fetchData()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to change owner', 'error')
+    } finally {
+      setChangeOwnerLoading(false)
     }
   }
 
@@ -96,6 +122,7 @@ export function AdminContainersPage() {
                   </th>
                   <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Name</th>
                   <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden lg:table-cell">Image</th>
+                  <th className="text-left px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium hidden xl:table-cell">Owner</th>
                   <th className="text-center px-4 py-3 text-[11px] uppercase tracking-wider text-[#636d7d] font-medium">Actions</th>
                 </tr>
               </thead>
@@ -110,6 +137,18 @@ export function AdminContainersPage() {
                       <p className="text-[10px] text-[#636d7d] font-mono">{c.id.slice(0, 19)}</p>
                     </td>
                     <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden lg:table-cell">{c.image}</td>
+                    <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden xl:table-cell">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate max-w-[120px]">{c.username || c.user_id || '—'}</span>
+                        <button
+                          onClick={() => { setChangeOwnerContainer(c); setChangeOwnerOpen(true) }}
+                          className="p-1 rounded hover:bg-white/[0.06] text-[#8b949e] hover:text-indigo-400 opacity-0 group-hover:opacity-100 transition-all"
+                          title="Change Owner"
+                        >
+                          <UserCog size={12} />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => navigate(`/containers/${c.id}`)} className="p-1.5 rounded hover:bg-white/[0.06] text-[#8b949e] hover:text-indigo-400" title="View">
@@ -154,6 +193,15 @@ export function AdminContainersPage() {
                     <span className="truncate max-w-[120px]">{c.image}</span>
                     {c.ports?.length ? <span>· {c.ports.map(p => `${p.host}:${p.container}`).join(', ')}</span> : null}
                   </div>
+                  <div className="flex items-center justify-between text-xs text-[#636d7d]">
+                    <span>Owner: {c.username || c.user_id || '—'}</span>
+                    <button
+                      onClick={() => { setChangeOwnerContainer(c); setChangeOwnerOpen(true) }}
+                      className="text-indigo-400 hover:text-indigo-300"
+                    >
+                      Change
+                    </button>
+                  </div>
                   <div className="flex gap-1">
                     {c.status === 'running' ? (
                       <button onClick={() => handleAction(c.id, 'stop')} disabled={actionLoading === c.id} className="btn-ghost p-1 text-xs">Stop</button>
@@ -174,7 +222,41 @@ export function AdminContainersPage() {
         open={createOpen}
         onClose={() => setCreateOpen(false)}
         onSuccess={() => { setCreateOpen(false); fetchData() }}
+        adminMode
+        users={users}
       />
+
+      <Modal
+        open={changeOwnerOpen}
+        onClose={() => { setChangeOwnerOpen(false); setChangeOwnerContainer(null) }}
+        title="Change Container Owner"
+        size="md"
+      >
+        <p className="text-xs text-[#636d7d] mb-3">
+          Select new owner for <span className="text-[#e6edf3] font-mono">{changeOwnerContainer?.name || changeOwnerContainer?.id?.slice(0, 12)}</span>:
+        </p>
+        <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+          {users.filter(u => u.id !== changeOwnerContainer?.user_id).map(u => (
+            <button
+              key={u.id}
+              onClick={() => handleChangeOwner(u.id)}
+              disabled={changeOwnerLoading}
+              className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-white/[0.04] transition-colors border border-transparent hover:border-white/[0.06] flex items-center justify-between"
+            >
+              <div>
+                <p className="text-xs text-[#e6edf3] font-medium">{u.username}</p>
+                <p className="text-[10px] text-[#636d7d]">{u.role}</p>
+              </div>
+              {changeOwnerLoading && <span className="text-[10px] text-indigo-400">Changing...</span>}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-end mt-4">
+          <Button variant="secondary" size="sm" onClick={() => { setChangeOwnerOpen(false); setChangeOwnerContainer(null) }}>
+            Cancel
+          </Button>
+        </div>
+      </Modal>
     </div>
   )
 }

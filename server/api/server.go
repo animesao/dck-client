@@ -68,6 +68,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("PUT /api/containers/{id}/config", s.auth(s.requirePerm("container_edit")(s.handleUpdateContainerConfig)))
 	mux.HandleFunc("POST /api/containers/{id}/ports", s.auth(s.admin(s.requirePerm("ports_manage")(s.handleAddContainerPort))))
 	mux.HandleFunc("DELETE /api/containers/{id}/ports/{host_port}", s.auth(s.admin(s.requirePerm("ports_manage")(s.handleRemoveContainerPort))))
+	mux.HandleFunc("PUT /api/containers/{id}/owner", s.auth(s.admin(s.handleUpdateContainerOwner)))
 
 	mux.HandleFunc("GET /api/containers/{id}/collaborators", s.auth(s.requirePerm("collaborators")(s.handleListCollaborators)))
 	mux.HandleFunc("POST /api/containers/{id}/collaborators", s.auth(s.requirePerm("collaborators")(s.handleAddCollaborator)))

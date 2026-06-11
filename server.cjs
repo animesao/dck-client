@@ -62,6 +62,14 @@ function authMiddleware(req, res, next) {
   }
 }
 
+function enrichContainer(c) {
+  if (c && c.user_id) {
+    const owner = users.find(u => u.id === c.user_id)
+    c.username = owner ? owner.username : ''
+  }
+  return c
+}
+
 function adminMiddleware(req, res, next) {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ error: 'Forbidden' })
@@ -168,17 +176,17 @@ app.get('/api/containers', authMiddleware, (req, res) => {
   const all = req.query.all === 'true'
   let result = containers
   if (!all) result = result.filter(c => c.status === 'running')
-  res.json(result)
+  res.json(result.map(enrichContainer))
 })
 
 app.get('/api/containers/:id', authMiddleware, (req, res) => {
   const c = containers.find(ct => ct.id === req.params.id)
   if (!c) return res.status(404).json({ error: 'Container not found' })
-  res.json(c)
+  res.json(enrichContainer(c))
 })
 
 app.post('/api/containers', authMiddleware, (req, res) => {
-  const { image, name, ports, volumes, env, restart, memory, cpus, network, command } = req.body
+  const { image, name, ports, volumes, env, restart, memory, cpus, network, command, user_id } = req.body
 
   // Permission checks
   if (req.user.role !== 'admin' && !settings.allow_user_containers) {
@@ -190,6 +198,8 @@ app.post('/api/containers', authMiddleware, (req, res) => {
 
   containerIdCounter++
   const id = crypto.randomBytes(16).toString('hex')
+  const ownerId = req.user.role === 'admin' && user_id ? user_id : req.user.sub
+  const owner = users.find(u => u.id === ownerId)
   const container = {
     id,
     name: name || `container-${containerIdCounter}`,
@@ -202,7 +212,8 @@ app.post('/api/containers', authMiddleware, (req, res) => {
     }),
     pid: Math.floor(Math.random() * 50000) + 1000,
     ip: `10.0.2.${containerIdCounter + 1}`,
-    user_id: req.user.sub,
+    user_id: ownerId,
+    username: owner ? owner.username : '',
     memory: memory || '',
     cpus: cpus || '',
     cmd: command || '',
@@ -210,6 +221,21 @@ app.post('/api/containers', authMiddleware, (req, res) => {
   containers.push(container)
   addActivityLog(req.user.sub, id, 'container_created', `${req.user.username} created container ${container.name}`)
   res.status(201).json(container)
+})
+
+app.put('/api/containers/:id/owner', authMiddleware, adminMiddleware, (req, res) => {
+  const { user_id } = req.body
+  if (!user_id) return res.status(400).json({ error: 'user_id is required' })
+  const targetUser = users.find(u => u.id === user_id)
+  if (!targetUser) return res.status(404).json({ error: 'User not found' })
+  const c = containers.find(ct => ct.id === req.params.id)
+  if (!c) return res.status(404).json({ error: 'Container not found' })
+  const oldUser = users.find(u => u.id === c.user_id)
+  c.user_id = user_id
+  c.username = targetUser.username
+  addActivityLog(req.user.sub, c.id, 'container_owner_changed',
+    `${req.user.username} changed container owner from ${oldUser ? oldUser.username : 'unknown'} to ${targetUser.username}`)
+  res.json(enrichContainer(c))
 })
 
 app.post('/api/containers/:id/start', authMiddleware, (req, res) => {

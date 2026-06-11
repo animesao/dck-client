@@ -60,3 +60,7 @@ export async function addContainerPort(id: string, containerPort: number, hostPo
 export async function removeContainerPort(id: string, hostPort: number): Promise<Container> {
   return api<Container>('DELETE', `/containers/${id}/ports/${hostPort}`)
 }
+
+export async function changeContainerOwner(id: string, userId: string): Promise<Container> {
+  return api<Container>('PUT', `/containers/${id}/owner`, { user_id: userId })
+}
