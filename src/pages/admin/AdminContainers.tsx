@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PageLoading } from '@/components/ui/Spinner'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
+import { CreateContainerModal } from '@/components/containers/CreateContainerModal'
 import type { Container } from '@/types'
-import { Play, Square, RotateCcw, Trash2, Search, ExternalLink } from 'lucide-react'
+import { Play, Square, RotateCcw, Trash2, Search, ExternalLink, Plus } from 'lucide-react'
 
 export function AdminContainersPage() {
   const { isAdmin } = useAuth()
@@ -19,6 +20,7 @@ export function AdminContainersPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
 
   const fetchData = async () => {
     try {
@@ -73,6 +75,9 @@ export function AdminContainersPage() {
               className="pl-8 w-64"
             />
           </div>
+          <Button variant="primary" size="sm" onClick={() => setCreateOpen(true)}>
+            <Plus size={14} /> Create
+          </Button>
         </div>
       </div>
 
@@ -164,6 +169,12 @@ export function AdminContainersPage() {
           </>
         )}
       </Card>
+
+      <CreateContainerModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onSuccess={() => { setCreateOpen(false); fetchData() }}
+      />
     </div>
   )
 }
