@@ -30,17 +30,21 @@ type User struct {
 }
 
 type Settings struct {
-	Registration        bool   `json:"registration"`
-	DckBin              string `json:"dck_bin"`
-	DckData             string `json:"dck_data"`
-	AllowUserContainers bool   `json:"allow_user_containers"`
-	AllowUserPorts      bool   `json:"allow_user_ports"`
-	AllowUserImages     bool   `json:"allow_user_images"`
-	AllowUserTemplates  bool   `json:"allow_user_templates"`
-	AllowUserProjects   bool   `json:"allow_user_projects"`
-	PortRangeStart      int    `json:"port_range_start"`
-	PortRangeEnd        int    `json:"port_range_end"`
-	DisabledFeatures    string `json:"disabled_features"`
+	Registration           bool    `json:"registration"`
+	DckBin                 string  `json:"dck_bin"`
+	DckData                string  `json:"dck_data"`
+	AllowUserContainers    bool    `json:"allow_user_containers"`
+	AllowUserPorts         bool    `json:"allow_user_ports"`
+	AllowUserImages        bool    `json:"allow_user_images"`
+	AllowUserTemplates     bool    `json:"allow_user_templates"`
+	AllowUserProjects      bool    `json:"allow_user_projects"`
+	PortRangeStart         int     `json:"port_range_start"`
+	PortRangeEnd           int     `json:"port_range_end"`
+	DisabledFeatures       string  `json:"disabled_features"`
+	DefaultContainerLimit  int     `json:"default_container_limit"`
+	DefaultMemoryLimit     int64   `json:"default_memory_limit"`
+	DefaultCPULimit        float64 `json:"default_cpu_limit"`
+	DefaultPortLimit       int     `json:"default_port_limit"`
 }
 
 type Store struct {
@@ -216,6 +220,18 @@ func (s *Store) migrate() error {
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('port_range_start', '20000')")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('port_range_end', '30000')")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('disabled_features', '')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_container_limit', '0')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_memory_limit', '0')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_cpu_limit', '0')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_port_limit', '0')")
+	}
+
+	// One-time: reset port_limit=0 for all users who still have 1 (old default)
+	var portReset int
+	s.db.QueryRow("SELECT COUNT(*) FROM settings WHERE key='port_limit_reset'").Scan(&portReset)
+	if portReset == 0 {
+		s.db.Exec("UPDATE users SET port_limit = 0 WHERE port_limit = 1")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('port_limit_reset', '1')")
 	}
 	return nil
 }
@@ -325,18 +341,27 @@ func (s *Store) CreateUser(username, password, role string) (*User, error) {
 		return nil, err
 	}
 
+	settings := s.GetSettings()
+
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err = s.db.Exec("INSERT INTO users (id, username, password, role, created_at) VALUES (?, ?, ?, ?, ?)",
-		id, username, string(hash), role, now)
+	_, err = s.db.Exec(
+		"INSERT INTO users (id, username, password, role, created_at, container_limit, memory_limit, cpu_limit, port_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		id, username, string(hash), role, now,
+		settings.DefaultContainerLimit, settings.DefaultMemoryLimit, settings.DefaultCPULimit, settings.DefaultPortLimit,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
 
 	u := &User{
-		ID:        id,
-		Username:  username,
-		Role:      role,
-		CreatedAt: time.Now().UTC(),
+		ID:             id,
+		Username:       username,
+		Role:           role,
+		CreatedAt:      time.Now().UTC(),
+		ContainerLimit: settings.DefaultContainerLimit,
+		MemoryLimit:    settings.DefaultMemoryLimit,
+		CPULimit:       settings.DefaultCPULimit,
+		PortLimit:      settings.DefaultPortLimit,
 	}
 	return u, nil
 }
@@ -399,6 +424,15 @@ func (s *Store) GetSettings() Settings {
 			settings.PortRangeEnd, _ = strconv.Atoi(value)
 		case "disabled_features":
 			settings.DisabledFeatures = value
+		case "default_container_limit":
+			settings.DefaultContainerLimit, _ = strconv.Atoi(value)
+		case "default_memory_limit":
+			v, _ := strconv.ParseInt(value, 10, 64)
+			settings.DefaultMemoryLimit = v
+		case "default_cpu_limit":
+			settings.DefaultCPULimit, _ = strconv.ParseFloat(value, 64)
+		case "default_port_limit":
+			settings.DefaultPortLimit, _ = strconv.Atoi(value)
 		}
 	}
 	return settings

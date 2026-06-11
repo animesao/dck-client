@@ -209,6 +209,10 @@ export interface AppSettings {
   port_range_start: number
   port_range_end: number
   disabled_features: string
+  default_container_limit: number
+  default_memory_limit: number
+  default_cpu_limit: number
+  default_port_limit: number
 }
 
 export interface VersionInfo {

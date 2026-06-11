@@ -98,6 +98,25 @@ export function AdminSettingsPage() {
 
           <div className="pb-4 border-b border-white/[0.05]">
             <div className="flex items-center gap-2.5 pt-4">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-teal-500/20 to-teal-600/10 flex items-center justify-center border border-teal-500/10">
+                <Settings2 size={18} className="text-teal-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-[#e6edf3]">Default Limits for New Users</h3>
+                <p className="text-xs text-[#636d7d]">Resource limits applied to newly registered users (-1 = ∞, 0 = disabled)</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Input label="Max Containers" type="number" min={-1} value={String(settings?.default_container_limit ?? 0)} onChange={e => setSettings(s => s ? { ...s, default_container_limit: parseInt(e.target.value) || 0 } : s)} />
+            <Input label="Max Memory (MB)" type="number" min={-1} value={String(settings?.default_memory_limit ?? 0)} onChange={e => setSettings(s => s ? { ...s, default_memory_limit: parseInt(e.target.value) || 0 } : s)} />
+            <Input label="Max CPU Cores" type="number" min={-1} step={0.1} value={String(settings?.default_cpu_limit ?? 0)} onChange={e => setSettings(s => s ? { ...s, default_cpu_limit: parseFloat(e.target.value) || 0 } : s)} />
+            <Input label="Max Ports per Container" type="number" min={-1} value={String(settings?.default_port_limit ?? 0)} onChange={e => setSettings(s => s ? { ...s, default_port_limit: parseInt(e.target.value) || 0 } : s)} />
+          </div>
+
+          <div className="pb-4 border-b border-white/[0.05]">
+            <div className="flex items-center gap-2.5 pt-4">
               <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center border border-amber-500/10">
                 <Shield size={18} className="text-amber-400" />
               </div>
