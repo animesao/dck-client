@@ -130,28 +130,28 @@ export function DashboardPage() {
                   used: stats.user_limits.container_count,
                   limit: stats.user_limits.container_limit,
                   usedStr: String(stats.user_limits.container_count),
-                  limitStr: stats.user_limits.container_limit > 0 ? String(stats.user_limits.container_limit) : <Infinity size={14} className="inline" />,
+                  limitStr: stats.user_limits.container_limit === -1 ? <Infinity size={14} className="inline" /> : String(stats.user_limits.container_limit),
                 },
                 {
                   label: 'Memory',
                   used: stats.user_limits.memory_used_mb,
                   limit: stats.user_limits.memory_limit,
                   usedStr: `${stats.user_limits.memory_used_mb}MB`,
-                  limitStr: stats.user_limits.memory_limit > 0 ? `${stats.user_limits.memory_limit}MB` : <Infinity size={14} />,
+                  limitStr: stats.user_limits.memory_limit === -1 ? <Infinity size={14} /> : `${stats.user_limits.memory_limit}MB`,
                 },
                 {
                   label: 'CPU',
                   used: stats.user_limits.cpu_used,
                   limit: stats.user_limits.cpu_limit,
                   usedStr: stats.user_limits.cpu_used.toFixed(1),
-                  limitStr: stats.user_limits.cpu_limit > 0 ? String(stats.user_limits.cpu_limit) : <Infinity size={14} />,
+                  limitStr: stats.user_limits.cpu_limit === -1 ? <Infinity size={14} /> : String(stats.user_limits.cpu_limit),
                 },
                 {
                   label: 'Ports per Container',
                   used: 0,
                   limit: stats.user_limits.port_limit,
                   usedStr: '—',
-                  limitStr: stats.user_limits.port_limit > 0 ? String(stats.user_limits.port_limit) : <Infinity size={14} className="inline" />,
+                  limitStr: stats.user_limits.port_limit === -1 ? <Infinity size={14} className="inline" /> : String(stats.user_limits.port_limit),
                 },
               ].map(item => {
                 const overLimit = item.limit > 0 && item.used > item.limit

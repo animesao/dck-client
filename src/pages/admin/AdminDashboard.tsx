@@ -191,7 +191,7 @@ export function AdminDashboardPage() {
                 </span>
                 <span className="text-xs text-[#e6edf3] w-16 text-center">{u.container_count}</span>
                 <span className={`text-xs w-20 text-center ${u.container_limit > 0 && u.container_count >= u.container_limit ? 'text-red-400' : 'text-[#636d7d]'}`}>
-                  {u.container_limit > 0 ? `${u.container_limit}` : 'Unlimited'}
+                  {u.container_limit === -1 ? '∞' : u.container_limit}
                 </span>
                 <span className="text-xs text-[#636d7d] w-24 text-right flex items-center justify-end gap-1">
                   <Clock size={11} />
@@ -209,31 +209,31 @@ export function AdminDashboardPage() {
       <Modal open={!!editUser} onClose={() => setEditUser(null)} title={`Limits: ${editUser?.username || ''}`}>
         <div className="space-y-4">
           <Input
-            label="Max Containers (0 = unlimited)"
+            label="Max Containers (-1 = ∞, 0 = disabled)"
             type="number"
-            min={0}
+            min={-1}
             value={String(editLimits.container_limit)}
             onChange={e => setEditLimits(l => ({ ...l, container_limit: parseInt(e.target.value) || 0 }))}
           />
           <Input
-            label="Max Memory (MB, 0 = unlimited)"
+            label="Max Memory MB (-1 = ∞, 0 = disabled)"
             type="number"
-            min={0}
+            min={-1}
             value={String(editLimits.memory_limit)}
             onChange={e => setEditLimits(l => ({ ...l, memory_limit: parseInt(e.target.value) || 0 }))}
           />
           <Input
-            label="Max CPU Cores (0 = unlimited)"
+            label="Max CPU Cores (-1 = ∞, 0 = disabled)"
             type="number"
-            min={0}
+            min={-1}
             step={0.1}
             value={String(editLimits.cpu_limit)}
             onChange={e => setEditLimits(l => ({ ...l, cpu_limit: parseFloat(e.target.value) || 0 }))}
           />
           <Input
-            label="Max Ports per Container (0 = unlimited)"
+            label="Max Ports per Container (-1 = ∞, 0 = disabled)"
             type="number"
-            min={0}
+            min={-1}
             value={String(editLimits.port_limit)}
             onChange={e => setEditLimits(l => ({ ...l, port_limit: parseInt(e.target.value) || 0 }))}
           />

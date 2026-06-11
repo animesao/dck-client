@@ -174,28 +174,28 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 	// Resource limit checks for non-admin users
 	if claims.Role != "admin" {
 		if user := s.store.GetUser(claims.Sub); user != nil {
-			if user.ContainerLimit > 0 {
+			if user.ContainerLimit >= 0 {
 				count, _, _ := s.store.GetUserResourceUsage(claims.Sub)
 				if count >= user.ContainerLimit {
 					writeError(w, http.StatusForbidden, fmt.Sprintf("Container limit reached (%d/%d)", count, user.ContainerLimit))
 					return
 				}
 			}
-			if user.MemoryLimit > 0 && req.Memory != "" {
+			if user.MemoryLimit >= 0 && req.Memory != "" {
 				reqMemMB := parseMemoryToMB(req.Memory)
 				if reqMemMB > user.MemoryLimit {
 					writeError(w, http.StatusForbidden, fmt.Sprintf("Memory limit exceeded (%dMB > %dMB)", reqMemMB, user.MemoryLimit))
 					return
 				}
 			}
-			if user.CPULimit > 0 && req.CPUs != "" {
+			if user.CPULimit >= 0 && req.CPUs != "" {
 				reqCPU, err := strconv.ParseFloat(req.CPUs, 64)
 				if err == nil && reqCPU > user.CPULimit {
 					writeError(w, http.StatusForbidden, fmt.Sprintf("CPU limit exceeded (%.1f > %.1f)", reqCPU, user.CPULimit))
 					return
 				}
 			}
-			if user.PortLimit > 0 && len(req.Ports) > user.PortLimit {
+			if user.PortLimit >= 0 && len(req.Ports) > user.PortLimit {
 				writeError(w, http.StatusForbidden, fmt.Sprintf("Port limit exceeded (%d > %d)", len(req.Ports), user.PortLimit))
 				return
 			}
@@ -599,7 +599,7 @@ func (s *Server) handleAddContainerPort(w http.ResponseWriter, r *http.Request, 
 
 	// Port limit only applies to the container owner, not collaborators
 	if s.store.IsContainerOwner(claims.Sub, id) {
-		if user := s.store.GetUser(claims.Sub); user != nil && user.PortLimit > 0 {
+		if user := s.store.GetUser(claims.Sub); user != nil && user.PortLimit >= 0 {
 			if len(c.Ports) >= user.PortLimit {
 				writeError(w, http.StatusForbidden, fmt.Sprintf("Port limit reached (%d/%d)", len(c.Ports), user.PortLimit))
 				return
