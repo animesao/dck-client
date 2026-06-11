@@ -296,7 +296,7 @@ export function AdminDashboardPage() {
                 <ContainerStatusBadge status={c.status} />
                 <span className="text-sm text-[#e6edf3] font-medium flex-1">{c.name || c.id.slice(0, 12)}</span>
                 <span className="text-xs text-[#636d7d] hidden sm:inline">{c.image}</span>
-                <span className="text-xs font-mono text-[#636d7d]">{c.ip || '-'}</span>
+                <span className="text-xs font-mono text-[#636d7d]">window.location.hostname</span>
               </div>
             ))}
           </div>

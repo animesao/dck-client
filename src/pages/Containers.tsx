@@ -170,7 +170,7 @@ export function ContainersPage() {
                         <p className="text-xs text-[#636d7d]">{c.image}</p>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-[#636d7d] font-mono hidden md:table-cell">
-                        {c.ip || '-'}
+                        window.location.hostname
                       </td>
                       <td className="px-4 py-3.5 text-sm text-[#636d7d] hidden md:table-cell">
                         {formatRelativeTime(c.created)}
@@ -235,7 +235,7 @@ export function ContainersPage() {
                     <div className="flex items-center gap-3 text-xs text-[#636d7d]">
                       <span>{c.image}</span>
                       <span>·</span>
-                      <span className="font-mono">{c.ip || '-'}</span>
+                      <span className="font-mono">window.location.hostname</span>
                       <span>·</span>
                       <span>{formatRelativeTime(c.created)}</span>
                     </div>

@@ -152,7 +152,7 @@ export function DashboardPage() {
                       <p className="text-xs text-[#636d7d]">{c.image}</p>
                     </div>
                   </div>
-                  <span className="text-xs font-mono text-[#636d7d]">{c.ip || '-'}</span>
+                  <span className="text-xs font-mono text-[#636d7d]">window.location.hostname</span>
                 </div>
               ))}
           </div>
