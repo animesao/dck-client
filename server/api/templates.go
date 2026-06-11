@@ -35,6 +35,13 @@ func (s *Server) handleListTemplates(w http.ResponseWriter, r *http.Request, cla
 }
 
 func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	if claims.Role != "admin" {
+		settings := s.store.GetSettings()
+		if !settings.AllowUserTemplates {
+			writeError(w, http.StatusForbidden, "Template management is disabled")
+			return
+		}
+	}
 	var req templateImportReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -72,6 +79,13 @@ func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request, cl
 }
 
 func (s *Server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	if claims.Role != "admin" {
+		settings := s.store.GetSettings()
+		if !settings.AllowUserTemplates {
+			writeError(w, http.StatusForbidden, "Template management is disabled")
+			return
+		}
+	}
 	id := r.PathValue("id")
 	if err := s.store.DeleteTemplate(id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -81,6 +95,13 @@ func (s *Server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request, cl
 }
 
 func (s *Server) handleImportTemplate(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	if claims.Role != "admin" {
+		settings := s.store.GetSettings()
+		if !settings.AllowUserTemplates {
+			writeError(w, http.StatusForbidden, "Template management is disabled")
+			return
+		}
+	}
 	var req templateImportReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -176,6 +197,13 @@ func (s *Server) handleExportContainerTemplate(w http.ResponseWriter, r *http.Re
 }
 
 func (s *Server) handleAddCategory(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	if claims.Role != "admin" {
+		settings := s.store.GetSettings()
+		if !settings.AllowUserTemplates {
+			writeError(w, http.StatusForbidden, "Template management is disabled")
+			return
+		}
+	}
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -195,6 +223,13 @@ func (s *Server) handleAddCategory(w http.ResponseWriter, r *http.Request, claim
 }
 
 func (s *Server) handleDeleteCategory(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	if claims.Role != "admin" {
+		settings := s.store.GetSettings()
+		if !settings.AllowUserTemplates {
+			writeError(w, http.StatusForbidden, "Template management is disabled")
+			return
+		}
+	}
 	name := r.PathValue("name")
 	if err := s.store.DeleteTemplateCategory(name); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

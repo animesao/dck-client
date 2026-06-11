@@ -16,3 +16,7 @@ export async function updateUser(id: string, data: Partial<User & { password?: s
 export async function deleteUser(id: string): Promise<void> {
   return api('DELETE', `/admin/users/${id}`)
 }
+
+export async function updateUserLimits(id: string, limits: { container_limit: number; memory_limit: number; cpu_limit: number; port_limit: number }): Promise<User> {
+  return api<User>('PUT', `/admin/users/${id}/limits`, limits)
+}

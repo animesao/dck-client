@@ -70,6 +70,35 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 	images, _ := s.dck.ListImages()
 	userCount, users := s.store.GetUserStats()
 
+	// Add per-user resource limits & usage
+	userLimits := map[string]interface{}{}
+	if user := s.store.GetUser(claims.Sub); user != nil {
+		count, _, _ := s.store.GetUserResourceUsage(claims.Sub)
+		// Only count OWNED containers for resource usage (not collaborator containers)
+		ownedIDs := s.store.GetUserOwnedContainerIDs(claims.Sub)
+		ownedMap := make(map[string]bool, len(ownedIDs))
+		for _, id := range ownedIDs {
+			ownedMap[id] = true
+		}
+		var totalMemMB int64
+		var totalCPU float64
+		for _, c := range containers {
+			if ownedMap[c.ID] && c.Status == "running" {
+				totalMemMB += c.MemoryLimit / 1024 / 1024
+				totalCPU += c.CPUCount
+			}
+		}
+		userLimits = map[string]interface{}{
+			"container_count": count,
+			"container_limit": user.ContainerLimit,
+			"memory_used_mb":  totalMemMB,
+			"memory_limit":    user.MemoryLimit,
+			"cpu_used":        totalCPU,
+			"cpu_limit":       user.CPULimit,
+			"port_limit":      user.PortLimit,
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"system":          info,
 		"containers":      map[string]int{"total": len(containers), "running": running, "stopped": stopped},
@@ -83,6 +112,7 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 		"disk_total":      info.DiskTotal,
 		"users":           userCount,
 		"user_stats":      users,
+		"user_limits":     userLimits,
 	})
 }
 

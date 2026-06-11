@@ -21,6 +21,8 @@ import {
   MemoryStick,
   Globe,
   Box,
+  Shield,
+  Infinity,
 } from 'lucide-react'
 
 export function DashboardPage() {
@@ -112,6 +114,73 @@ export function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      {/* My Limits */}
+      {stats?.user_limits && (
+        <Card>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield size={16} className="text-indigo-400" />
+              <h3 className="text-sm font-semibold text-[#e6edf3]">My Limits</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                {
+                  label: 'Containers',
+                  used: stats.user_limits.container_count,
+                  limit: stats.user_limits.container_limit,
+                  usedStr: String(stats.user_limits.container_count),
+                  limitStr: stats.user_limits.container_limit > 0 ? String(stats.user_limits.container_limit) : <Infinity size={14} className="inline" />,
+                },
+                {
+                  label: 'Memory',
+                  used: stats.user_limits.memory_used_mb,
+                  limit: stats.user_limits.memory_limit,
+                  usedStr: `${stats.user_limits.memory_used_mb}MB`,
+                  limitStr: stats.user_limits.memory_limit > 0 ? `${stats.user_limits.memory_limit}MB` : <Infinity size={14} />,
+                },
+                {
+                  label: 'CPU',
+                  used: stats.user_limits.cpu_used,
+                  limit: stats.user_limits.cpu_limit,
+                  usedStr: stats.user_limits.cpu_used.toFixed(1),
+                  limitStr: stats.user_limits.cpu_limit > 0 ? String(stats.user_limits.cpu_limit) : <Infinity size={14} />,
+                },
+                {
+                  label: 'Ports per Container',
+                  used: 0,
+                  limit: stats.user_limits.port_limit,
+                  usedStr: '—',
+                  limitStr: stats.user_limits.port_limit > 0 ? String(stats.user_limits.port_limit) : <Infinity size={14} className="inline" />,
+                },
+              ].map(item => {
+                const overLimit = item.limit > 0 && item.used > item.limit
+                const pct = item.limit > 0 ? Math.min((item.used / item.limit) * 100, 100) : 0
+                return (
+                  <div key={item.label} className="space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-[#636d7d]">{item.label}</span>
+                      <span className={`font-medium ${overLimit ? 'text-red-400' : 'text-[#e6edf3]'}`}>
+                        {item.usedStr} / {item.limitStr}
+                      </span>
+                    </div>
+                    {item.limit > 0 && (
+                      <ProgressBar
+                        value={pct}
+                        max={100}
+                        size="sm"
+                      />
+                    )}
+                    {overLimit && (
+                      <p className="text-[10px] text-red-400">Over limit!</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Resource Usage */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

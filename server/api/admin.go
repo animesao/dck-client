@@ -94,6 +94,19 @@ func (s *Server) handleAdminUpdateSettings(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, settings)
 }
 
+func (s *Server) handlePublicSettings(w http.ResponseWriter, r *http.Request, _ *UserClaims) {
+	settings := s.store.GetSettings()
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"registration":           settings.Registration,
+		"allow_user_containers":  settings.AllowUserContainers,
+		"allow_user_ports":       settings.AllowUserPorts,
+		"allow_user_images":      settings.AllowUserImages,
+		"allow_user_templates":   settings.AllowUserTemplates,
+		"allow_user_projects":    settings.AllowUserProjects,
+		"disabled_features":      settings.DisabledFeatures,
+	})
+}
+
 func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	settings := s.store.GetSettings()
 	writeJSON(w, http.StatusOK, settings)
@@ -124,4 +137,24 @@ func (s *Server) handleAdminUserStats(w http.ResponseWriter, r *http.Request, cl
 		"total_users": total,
 		"users":       users,
 	})
+}
+
+func (s *Server) handleAdminUpdateUserLimits(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+	var req struct {
+		ContainerLimit int     `json:"container_limit"`
+		MemoryLimit    int64   `json:"memory_limit"`
+		CPULimit       float64 `json:"cpu_limit"`
+		PortLimit      int     `json:"port_limit"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	user := s.store.UpdateUserLimits(id, req.ContainerLimit, req.MemoryLimit, req.CPULimit, req.PortLimit)
+	if user == nil {
+		writeError(w, http.StatusNotFound, "User not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, user)
 }

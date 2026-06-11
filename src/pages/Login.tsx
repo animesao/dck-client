@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { login } from '@/api/auth'
+import { getPublicSettings } from '@/api/settings'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Shield } from 'lucide-react'
@@ -15,6 +16,11 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [registrationOpen, setRegistrationOpen] = useState(false)
+
+  useEffect(() => {
+    getPublicSettings().then(s => setRegistrationOpen(s.registration)).catch(() => {})
+  }, [])
 
   // 2FA state
   const [twofaToken, setTwofaToken] = useState('')
@@ -111,7 +117,7 @@ export function LoginPage() {
         </>
       )}
 
-      {!twofaRequired && (
+      {!twofaRequired && registrationOpen && (
         <p className="text-center text-sm text-[#636d7d]">
           Don't have an account?{' '}
           <Link to="/register" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium">

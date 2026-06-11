@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"dck-panel/dck"
+	"dck-panel/db"
 )
 
 var (
@@ -169,23 +171,153 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(req.Ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command)
+	// Resource limit checks for non-admin users
+	if claims.Role != "admin" {
+		if user := s.store.GetUser(claims.Sub); user != nil {
+			if user.ContainerLimit > 0 {
+				count, _, _ := s.store.GetUserResourceUsage(claims.Sub)
+				if count >= user.ContainerLimit {
+					writeError(w, http.StatusForbidden, fmt.Sprintf("Container limit reached (%d/%d)", count, user.ContainerLimit))
+					return
+				}
+			}
+			if user.MemoryLimit > 0 && req.Memory != "" {
+				reqMemMB := parseMemoryToMB(req.Memory)
+				if reqMemMB > user.MemoryLimit {
+					writeError(w, http.StatusForbidden, fmt.Sprintf("Memory limit exceeded (%dMB > %dMB)", reqMemMB, user.MemoryLimit))
+					return
+				}
+			}
+			if user.CPULimit > 0 && req.CPUs != "" {
+				reqCPU, err := strconv.ParseFloat(req.CPUs, 64)
+				if err == nil && reqCPU > user.CPULimit {
+					writeError(w, http.StatusForbidden, fmt.Sprintf("CPU limit exceeded (%.1f > %.1f)", reqCPU, user.CPULimit))
+					return
+				}
+			}
+			if user.PortLimit > 0 && len(req.Ports) > user.PortLimit {
+				writeError(w, http.StatusForbidden, fmt.Sprintf("Port limit exceeded (%d > %d)", len(req.Ports), user.PortLimit))
+				return
+			}
+		}
+	}
+
+	// Auto-assign 1 port if none specified and user has port limit
+	if len(req.Ports) == 0 && claims.Role != "admin" {
+		if user := s.store.GetUser(claims.Sub); user != nil && user.PortLimit > 0 {
+			req.Ports = []string{""} // signal allocatePorts to pick one
+		}
+	}
+
+	ports, err := allocatePorts(s.dck, s.store, settings, req.Ports)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command)
 	if err != nil {
 		log.Printf("ERROR handleCreateContainer: %v", err)
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	s.store.RecordContainer(claims.Sub, id, req.Name, req.Image)
+	s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
+
 	c, err := s.dck.GetContainer(id)
 	if err != nil {
-		s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
 		writeJSON(w, http.StatusOK, map[string]string{"id": id, "status": "created"})
 		return
 	}
 
-	s.store.RecordContainer(claims.Sub, id, req.Name, req.Image)
-	s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
 	writeJSON(w, http.StatusCreated, c)
+}
+
+func collectUsedPorts(dckClient *dck.Client) map[int]bool {
+	used := map[int]bool{}
+	containers, err := dckClient.ListContainers(true)
+	if err != nil {
+		return used
+	}
+	for _, c := range containers {
+		if c.Status != "running" {
+			continue
+		}
+		for _, p := range c.Ports {
+			used[p.HostPort] = true
+		}
+	}
+	return used
+}
+
+func portIsAvailable(port int) bool {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		return false
+	}
+	ln.Close()
+	return true
+}
+
+func allocatePorts(dckClient *dck.Client, store *db.Store, settings db.Settings, portSpecs []string) ([]string, error) {
+	if len(portSpecs) == 0 || settings.PortRangeStart <= 0 || settings.PortRangeEnd <= 0 {
+		return portSpecs, nil
+	}
+
+	used := collectUsedPorts(dckClient)
+	result := make([]string, 0, len(portSpecs))
+
+	for _, spec := range portSpecs {
+		spec = strings.TrimSpace(spec)
+		if spec == "" {
+			continue
+		}
+
+		if strings.Contains(spec, ":") {
+			// User specified a host port, respect it
+			parts := strings.SplitN(spec, ":", 2)
+			hostPort, err := strconv.Atoi(parts[0])
+			if err == nil && hostPort > 0 {
+				used[hostPort] = true
+			}
+			result = append(result, spec)
+		} else {
+			// No host port, auto-assign from range
+			assigned := false
+			// Strip protocol suffix for parsing
+			clean := spec
+			proto := ""
+			if idx := strings.Index(spec, "/"); idx >= 0 {
+				clean = spec[:idx]
+				proto = spec[idx:]
+			}
+			contPort, err := strconv.Atoi(clean)
+			if err != nil || contPort <= 0 {
+				result = append(result, spec)
+				continue
+			}
+
+			for port := settings.PortRangeStart; port <= settings.PortRangeEnd; port++ {
+				if used[port] {
+					continue
+				}
+				if portIsAvailable(port) {
+					used[port] = true
+					newSpec := fmt.Sprintf("%d:%d%s", port, contPort, proto)
+					result = append(result, newSpec)
+					assigned = true
+					log.Printf("Allocated port %d -> container port %s for %s", port, clean, spec)
+					break
+				}
+			}
+			if !assigned {
+				return nil, fmt.Errorf("no free ports available in range %d-%d for container port %s", settings.PortRangeStart, settings.PortRangeEnd, clean)
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func (s *Server) handleRemoveContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
@@ -195,6 +327,7 @@ func (s *Server) handleRemoveContainer(w http.ResponseWriter, r *http.Request, c
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	s.store.RemoveUserContainer(id)
 	s.store.AddActivityLog(claims.Sub, id, "container_removed", claims.Username+" removed container")
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -436,6 +569,143 @@ func (s *Server) handleContainerConfig(w http.ResponseWriter, r *http.Request, c
 	})
 }
 
+func (s *Server) handleAddContainerPort(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+
+	var req struct {
+		HostPort      int    `json:"host_port"`
+		ContainerPort int    `json:"container_port"`
+		Protocol      string `json:"protocol"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.ContainerPort <= 0 {
+		writeError(w, http.StatusBadRequest, "Container port is required")
+		return
+	}
+	if req.Protocol == "" {
+		req.Protocol = "tcp"
+	}
+
+	c, err := s.dck.GetContainer(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Container not found")
+		return
+	}
+
+	settings := s.store.GetSettings()
+
+	// Port limit only applies to the container owner, not collaborators
+	if s.store.IsContainerOwner(claims.Sub, id) {
+		if user := s.store.GetUser(claims.Sub); user != nil && user.PortLimit > 0 {
+			if len(c.Ports) >= user.PortLimit {
+				writeError(w, http.StatusForbidden, fmt.Sprintf("Port limit reached (%d/%d)", len(c.Ports), user.PortLimit))
+				return
+			}
+		}
+	}
+
+	if req.HostPort <= 0 {
+		used := collectUsedPorts(s.dck)
+		for _, p := range c.Ports {
+			used[p.HostPort] = true
+		}
+		hostPort, err := allocateOnePort(settings, used)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		req.HostPort = hostPort
+	}
+
+	for _, p := range c.Ports {
+		if p.HostPort == req.HostPort {
+			writeError(w, http.StatusConflict, fmt.Sprintf("Host port %d is already mapped", req.HostPort))
+			return
+		}
+	}
+
+	c.Ports = append(c.Ports, dck.PortMap{
+		HostPort:      req.HostPort,
+		ContainerPort: req.ContainerPort,
+		Protocol:      req.Protocol,
+	})
+
+	if err := s.dck.SaveContainer(c); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to save container state")
+		return
+	}
+
+	if c.Status == "running" {
+		if err := s.dck.RestartContainer(id); err != nil {
+			log.Printf("Warning: restart after adding port: %v", err)
+		}
+	}
+
+	s.store.AddActivityLog(claims.Sub, id, "port_added", fmt.Sprintf("%s added port %d:%d/%s", claims.Username, req.HostPort, req.ContainerPort, req.Protocol))
+	writeJSON(w, http.StatusOK, c)
+}
+
+func (s *Server) handleRemoveContainerPort(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+	hostPortStr := r.PathValue("host_port")
+	hostPort, err := strconv.Atoi(hostPortStr)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid host port")
+		return
+	}
+
+	c, err := s.dck.GetContainer(id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Container not found")
+		return
+	}
+
+	found := false
+	for i, p := range c.Ports {
+		if p.HostPort == hostPort {
+			c.Ports = append(c.Ports[:i], c.Ports[i+1:]...)
+			found = true
+			break
+		}
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "Port not found")
+		return
+	}
+
+	if err := s.dck.SaveContainer(c); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to save container state")
+		return
+	}
+
+	if c.Status == "running" {
+		if err := s.dck.RestartContainer(id); err != nil {
+			log.Printf("Warning: restart after removing port: %v", err)
+		}
+	}
+
+	s.store.AddActivityLog(claims.Sub, id, "port_removed", fmt.Sprintf("%s removed port %d", claims.Username, hostPort))
+	writeJSON(w, http.StatusOK, c)
+}
+
+func allocateOnePort(settings db.Settings, used map[int]bool) (int, error) {
+	if settings.PortRangeStart <= 0 || settings.PortRangeEnd <= 0 {
+		return 0, fmt.Errorf("port range not configured")
+	}
+	for port := settings.PortRangeStart; port <= settings.PortRangeEnd; port++ {
+		if used[port] {
+			continue
+		}
+		if portIsAvailable(port) {
+			return port, nil
+		}
+	}
+	return 0, fmt.Errorf("no free ports available in range %d-%d", settings.PortRangeStart, settings.PortRangeEnd)
+}
+
 func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
 
@@ -452,4 +722,37 @@ func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Requ
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// parseMemoryToMB converts a dck memory string to MB.
+// Bare number → MB, "512m" → 512MB, "1g"/"1gb" → 1024MB
+func parseMemoryToMB(s string) int64 {
+	s = strings.TrimSpace(strings.ToLower(s))
+	if s == "" {
+		return 0
+	}
+	if strings.HasSuffix(s, "g") || strings.HasSuffix(s, "gb") {
+		s = strings.TrimSuffix(strings.TrimSuffix(s, "gb"), "g")
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return 0
+		}
+		return n * 1024
+	}
+	if strings.HasSuffix(s, "m") || strings.HasSuffix(s, "mb") {
+		s = strings.TrimSuffix(strings.TrimSuffix(s, "mb"), "m")
+		n, err := strconv.ParseInt(s, 10, 64)
+		if err != nil {
+			return 0
+		}
+		return n
+	}
+	if strings.HasSuffix(s, "k") || strings.HasSuffix(s, "kb") {
+		return 0
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
 }

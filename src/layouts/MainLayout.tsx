@@ -7,33 +7,28 @@ import {
   Image,
   Box,
   FileCode2,
-  Settings,
   BookOpen,
   Users,
   LogOut,
   Menu,
   X,
-  ChevronRight,
-  Activity,
   Shield,
   List,
   Server,
-  UserCog,
   Sliders,
-  FileText,
 } from 'lucide-react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { ToastContainer } from '@/components/ui/Toast'
 
 const navItems = [
-  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/containers', icon: Container, label: 'Containers' },
-  { to: '/images', icon: Image, label: 'Images' },
-  { to: '/blueprints', icon: Box, label: 'Blueprints' },
-  { to: '/projects', icon: FileCode2, label: 'Projects' },
-  { to: '/config', icon: Settings, label: 'Config' },
-  { to: '/guide', icon: BookOpen, label: 'Guide' },
-  { to: '/settings', icon: Sliders, label: 'Settings' },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', feature: '' },
+  { to: '/containers', icon: Container, label: 'Containers', feature: '' },
+  { to: '/images', icon: Image, label: 'Images', feature: 'images' },
+  { to: '/blueprints', icon: Box, label: 'Blueprints', feature: 'blueprints' },
+  { to: '/projects', icon: FileCode2, label: 'Projects', feature: 'projects' },
+  { to: '/config', icon: Sliders, label: 'Config', feature: 'config' },
+  { to: '/guide', icon: BookOpen, label: 'Guide', feature: 'guide' },
+  { to: '/settings', icon: Sliders, label: 'Settings', feature: '' },
 ]
 
 const adminNavItems = [
@@ -48,14 +43,17 @@ export function MainLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, isAdmin, logout } = useAuth()
-  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore()
+  const { sidebarOpen, toggleSidebar, setSidebarOpen, disabledFeatures, loadSettings } = useUIStore()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   useEffect(() => {
     if (window.innerWidth >= 1024) {
       setSidebarOpen(true)
     }
+    loadSettings()
   }, [])
+
+  const filteredNavItems = navItems.filter(item => !item.feature || !disabledFeatures.has(item.feature))
 
   const handleLogout = () => {
     logout()
@@ -89,7 +87,7 @@ export function MainLayout() {
 
           {/* Nav */}
           <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-            {navItems.map(item => {
+            {filteredNavItems.map(item => {
               const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to))
               return (
                 <NavLink
@@ -187,7 +185,7 @@ export function MainLayout() {
               onClick={toggleSidebar}
               className={`text-sm font-semibold text-[#e6edf3] truncate max-w-[160px] cursor-pointer ${sidebarOpen && 'hidden lg:inline'}`}
             >
-              {navItems.find(i => location.pathname === i.to || (i.to !== '/' && location.pathname.startsWith(i.to)))?.label || 'dck'}
+              {filteredNavItems.find(i => location.pathname === i.to || (i.to !== '/' && location.pathname.startsWith(i.to)))?.label || 'dck'}
             </span>
           </div>
           <div className="flex items-center gap-2">

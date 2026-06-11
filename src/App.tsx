@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useAuth } from '@/hooks/useAuth'
+import { useUIStore } from '@/store/uiStore'
 import { MainLayout } from '@/layouts/MainLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { Spinner } from '@/components/ui/Spinner'
@@ -40,6 +41,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     )
   }
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  return <>{children}</>
+}
+
+function FeatureRoute({ feature, children }: { feature: string; children: React.ReactNode }) {
+  const disabledFeatures = useUIStore(s => s.disabledFeatures)
+  if (disabledFeatures.has(feature)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -91,11 +98,11 @@ export default function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/containers" element={<ContainersPage />} />
           <Route path="/containers/:id" element={<ContainerDetailPage />} />
-          <Route path="/images" element={<ImagesPage />} />
-          <Route path="/blueprints" element={<BlueprintsPage />} />
-          <Route path="/projects" element={<ProjectsPage />} />
-          <Route path="/config" element={<ConfigPage />} />
-          <Route path="/guide" element={<GuidePage />} />
+          <Route path="/images" element={<FeatureRoute feature="images"><ImagesPage /></FeatureRoute>} />
+          <Route path="/blueprints" element={<FeatureRoute feature="blueprints"><BlueprintsPage /></FeatureRoute>} />
+          <Route path="/projects" element={<FeatureRoute feature="projects"><ProjectsPage /></FeatureRoute>} />
+          <Route path="/config" element={<FeatureRoute feature="config"><ConfigPage /></FeatureRoute>} />
+          <Route path="/guide" element={<FeatureRoute feature="guide"><GuidePage /></FeatureRoute>} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/containers/:id/files" element={<FileManagerPage />} />
           <Route path="/containers/:id/backups" element={<BackupsPage />} />

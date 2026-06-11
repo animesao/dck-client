@@ -82,6 +82,17 @@ export interface DashboardStats {
   disk_total: number
   users: number
   user_stats: UserStats[]
+  user_limits?: UserLimits
+}
+
+export interface UserLimits {
+  container_count: number
+  container_limit: number
+  memory_used_mb: number
+  memory_limit: number
+  cpu_used: number
+  cpu_limit: number
+  port_limit: number
 }
 
 export interface UserStats {
@@ -91,6 +102,10 @@ export interface UserStats {
   created_at: string
   container_count: number
   last_login?: string
+  container_limit: number
+  memory_limit: number
+  cpu_limit: number
+  port_limit: number
 }
 
 export interface SystemInfo {
@@ -188,6 +203,12 @@ export interface AppSettings {
   registration: boolean
   allow_user_containers: boolean
   allow_user_ports: boolean
+  allow_user_images: boolean
+  allow_user_templates: boolean
+  allow_user_projects: boolean
+  port_range_start: number
+  port_range_end: number
+  disabled_features: string
 }
 
 export interface VersionInfo {
@@ -261,6 +282,7 @@ export interface ContainerPermission {
   username: string
   container_id: string
   permission: 'view' | 'edit' | 'admin'
+  permissions: string
   created_at: string
 }
 

@@ -80,6 +80,8 @@ func main() {
 		DataDir: dckHome,
 	}
 
+	store.PruneStaleUserContainers(filepath.Join(dckHome, "containers"))
+
 	srv := api.NewServer(store, dckClient, dckHome, *serveDir)
 
 	addr := fmt.Sprintf(":%d", *port)

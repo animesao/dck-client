@@ -4,7 +4,7 @@ import {
   getContainer, getContainerLogs, getContainerState,
   getContainerStats, execContainer, removeContainer,
   startContainer, stopContainer, restartContainer,
-  updateContainerConfig,
+  updateContainerConfig, addContainerPort, removeContainerPort,
 } from '@/api/containers'
 import {
   listBackups, createBackup, restoreBackup, deleteBackup, getBackupDownloadUrl, getContainerSFTP, regenerateSFTPPassword,
@@ -27,8 +27,8 @@ import type { BackupEntry } from '@/api/files'
 import { getContainerActivity } from '@/api/activity'
 import { exportContainerAsTemplate } from '@/api/blueprints'
 import type { ContainerPermission, ActivityLog } from '@/types'
-import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Folder, Archive, Users, List, Save, RotateCw, AlertTriangle, Plus, Download, RefreshCw, Key, FileDown } from 'lucide-react'
-import { listCollaborators, addCollaborator, removeCollaborator } from '@/api/collaborators'
+import { Play, Square, RotateCcw, Trash2, ArrowLeft, Terminal, Info, FileText, Activity, Cpu, Folder, Archive, Users, List, Save, RotateCw, AlertTriangle, Plus, Download, RefreshCw, Key, FileDown, Settings, X } from 'lucide-react'
+import { listCollaborators, addCollaborator, removeCollaborator, updateCollaborator } from '@/api/collaborators'
 
 export function ContainerDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -45,6 +45,10 @@ export function ContainerDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [startupCmd, setStartupCmd] = useState('')
   const [savingStartup, setSavingStartup] = useState(false)
+  const [showAddPort, setShowAddPort] = useState(false)
+  const [newPortContainer, setNewPortContainer] = useState('')
+  const [newPortHost, setNewPortHost] = useState('')
+  const [addingPort, setAddingPort] = useState(false)
 
   const fetchData = async () => {
     if (!id) return
@@ -88,6 +92,38 @@ export function ContainerDetailPage() {
       fetchData()
     } catch (err: any) { addToast(err.message || 'Action failed', 'error') }
     finally { setActionLoading(false) }
+  }
+
+  const handleRemovePort = async (hostPort: number) => {
+    if (!id || !confirm(`Remove port ${hostPort}?`)) return
+    try {
+      await removeContainerPort(id, hostPort)
+      addToast('Port removed', 'success')
+      fetchData()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to remove port', 'error')
+    }
+  }
+
+  const handleAddPort = async () => {
+    if (!id || !newPortContainer) return
+    setAddingPort(true)
+    try {
+      const cp = parseInt(newPortContainer)
+      if (isNaN(cp) || cp <= 0) { addToast('Invalid container port', 'error'); return }
+      const hp = newPortHost ? parseInt(newPortHost) : 0
+      if (newPortHost && (isNaN(hp) || hp <= 0)) { addToast('Invalid host port', 'error'); return }
+      await addContainerPort(id, cp, hp || undefined)
+      addToast('Port added', 'success')
+      setShowAddPort(false)
+      setNewPortContainer('')
+      setNewPortHost('')
+      fetchData()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to add port', 'error')
+    } finally {
+      setAddingPort(false)
+    }
   }
 
   const loadLogs = async () => {
@@ -237,22 +273,37 @@ export function ContainerDetailPage() {
                 </div>
               </div>
             </Card>
-            {container.ports?.length > 0 && (
-              <Card>
-                <div className="p-5 space-y-4">
-                  <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Ports</h3>
-                  <div className="space-y-2">
-                    {container.ports.map((p, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
-                        <span className="text-xs font-mono text-[#e6edf3]">{p.host}</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#636d7d]"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                        <span className="text-xs font-mono text-indigo-400">{p.container}/{p.protocol}</span>
+            <Card>
+              <div className="p-5 space-y-4">
+                <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Allocations</h3>
+                <div className="space-y-2">
+                  {(!container.ports || container.ports.length === 0) ? (
+                    <p className="text-xs text-[#636d7d] text-center py-2">No ports allocated</p>
+                  ) : (
+                    container.ports.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-mono text-[#e6edf3]">{p.host}</span>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#636d7d]"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                          <span className="text-xs font-mono text-indigo-400">{p.container}/{p.protocol}</span>
+                        </div>
+                        <button
+                          onClick={() => handleRemovePort(parseInt(p.host))}
+                          className="p-1 rounded hover:bg-red-500/20 text-[#8b949e] hover:text-red-400"
+                        >
+                          <Trash2 size={12} />
+                        </button>
                       </div>
-                    ))}
-                  </div>
+                    ))
+                  )}
                 </div>
-              </Card>
-            )}
+                <div className="pt-1">
+                  <Button variant="secondary" size="sm" onClick={() => setShowAddPort(true)}>
+                    <Plus size={12} /> Add Port
+                  </Button>
+                </div>
+              </div>
+            </Card>
           </div>
         )}
 
@@ -359,6 +410,35 @@ export function ContainerDetailPage() {
 
         {activeTab === 'activity' && id && <ContainerActivityTab containerId={id} />}
       </div>
+
+      <Modal open={showAddPort} onClose={() => setShowAddPort(false)} title="Add Port Allocation">
+        <div className="space-y-4">
+          <Input
+            label="Container Port"
+            type="number"
+            min={1}
+            max={65535}
+            value={newPortContainer}
+            onChange={e => setNewPortContainer(e.target.value)}
+            placeholder="25565"
+          />
+          <Input
+            label="Host Port (leave empty for auto-assign)"
+            type="number"
+            min={1}
+            max={65535}
+            value={newPortHost}
+            onChange={e => setNewPortHost(e.target.value)}
+            placeholder="Auto"
+          />
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setShowAddPort(false)}>Cancel</Button>
+            <Button onClick={handleAddPort} loading={addingPort}>
+              <Plus size={14} /> Add Port
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -515,13 +595,127 @@ function formatSize(bytes: number): string {
 
 // ─── Collaborators Tab ──────────────────────────────────────────
 
+type GranularPerms = {
+  console: boolean
+  console_send: boolean
+  files_read: boolean
+  files_write: boolean
+  files_delete: boolean
+  backup_create: boolean
+  backup_restore: boolean
+  backup_delete: boolean
+  container_start: boolean
+  container_stop: boolean
+  container_restart: boolean
+  container_delete: boolean
+  container_edit: boolean
+  ports_manage: boolean
+  collaborators: boolean
+}
+
+const PERM_GROUPS: { label: string; keys: (keyof GranularPerms)[] }[] = [
+  {
+    label: 'Console',
+    keys: ['console', 'console_send'],
+  },
+  {
+    label: 'Files',
+    keys: ['files_read', 'files_write', 'files_delete'],
+  },
+  {
+    label: 'Backups',
+    keys: ['backup_create', 'backup_restore', 'backup_delete'],
+  },
+  {
+    label: 'Container',
+    keys: ['container_start', 'container_stop', 'container_restart', 'container_delete', 'container_edit'],
+  },
+  {
+    label: 'Other',
+    keys: ['ports_manage', 'collaborators'],
+  },
+]
+
+const PERMISSION_LABELS: Record<keyof GranularPerms, string> = {
+  console: 'View Console',
+  console_send: 'Send Commands',
+  files_read: 'Read Files',
+  files_write: 'Write Files',
+  files_delete: 'Delete Files',
+  backup_create: 'Create Backups',
+  backup_restore: 'Restore Backups',
+  backup_delete: 'Delete Backups',
+  container_start: 'Start',
+  container_stop: 'Stop',
+  container_restart: 'Restart',
+  container_delete: 'Delete',
+  container_edit: 'Edit Config',
+  ports_manage: 'Manage Ports',
+  collaborators: 'Manage Collaborators',
+}
+
+const PERM_COLORS: Record<string, string> = {
+  console: 'from-emerald-500/20 to-emerald-600/10 text-emerald-300 border-emerald-500/20',
+  console_send: 'from-emerald-500/20 to-emerald-600/10 text-emerald-300 border-emerald-500/20',
+  files_read: 'from-sky-500/20 to-sky-600/10 text-sky-300 border-sky-500/20',
+  files_write: 'from-sky-500/20 to-sky-600/10 text-sky-300 border-sky-500/20',
+  files_delete: 'from-rose-500/20 to-rose-600/10 text-rose-300 border-rose-500/20',
+  backup_create: 'from-amber-500/20 to-amber-600/10 text-amber-300 border-amber-500/20',
+  backup_restore: 'from-amber-500/20 to-amber-600/10 text-amber-300 border-amber-500/20',
+  backup_delete: 'from-rose-500/20 to-rose-600/10 text-rose-300 border-rose-500/20',
+  container_start: 'from-green-500/20 to-green-600/10 text-green-300 border-green-500/20',
+  container_stop: 'from-orange-500/20 to-orange-600/10 text-orange-300 border-orange-500/20',
+  container_restart: 'from-yellow-500/20 to-yellow-600/10 text-yellow-300 border-yellow-500/20',
+  container_delete: 'from-red-500/20 to-red-600/10 text-red-300 border-red-500/20',
+  container_edit: 'from-violet-500/20 to-violet-600/10 text-violet-300 border-violet-500/20',
+  ports_manage: 'from-cyan-500/20 to-cyan-600/10 text-cyan-300 border-cyan-500/20',
+  collaborators: 'from-indigo-500/20 to-indigo-600/10 text-indigo-300 border-indigo-500/20',
+}
+
+const PRESET_PERMS: Record<string, Partial<GranularPerms>> = {
+  view: { console: true },
+  edit: { console: true, console_send: true, files_read: true, files_write: true, container_start: true, container_stop: true, container_restart: true, container_edit: true, backup_create: true },
+  admin: { console: true, console_send: true, files_read: true, files_write: true, files_delete: true, backup_create: true, backup_restore: true, backup_delete: true, container_start: true, container_stop: true, container_restart: true, container_delete: true, container_edit: true, ports_manage: true, collaborators: true },
+}
+
+function parsePerms(p: ContainerPermission): GranularPerms {
+  if (p.permissions) {
+    try { return JSON.parse(p.permissions) } catch { /* fall through */ }
+  }
+  return { ...PRESET_PERMS[p.permission] } as GranularPerms
+}
+
+function PermToggle({ checked, onChange, id }: { checked: boolean; onChange: () => void; id: string }) {
+  return (
+    <button
+      id={id}
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border transition-colors duration-200 focus:outline-none ${
+        checked
+          ? 'border-indigo-500 bg-indigo-500/30'
+          : 'border-white/[0.1] bg-white/[0.04]'
+      }`}
+    >
+      <span className={`pointer-events-none inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ${
+        checked ? 'translate-x-3.5' : 'translate-x-0.5'
+      }`} />
+    </button>
+  )
+}
+
 function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
   const addToast = useUIStore(s => s.addToast)
   const [perms, setPerms] = useState<ContainerPermission[]>([])
   const [loading, setLoading] = useState(true)
   const [addUsername, setAddUsername] = useState('')
-  const [addPermission, setAddPermission] = useState<'view' | 'edit' | 'admin'>('view')
+  const [addPreset, setAddPreset] = useState<'view' | 'edit' | 'admin'>('view')
   const [adding, setAdding] = useState(false)
+  const [addGranular, setAddGranular] = useState<GranularPerms>(parsePerms({ permission: 'view' } as ContainerPermission))
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingPerms, setEditingPerms] = useState<GranularPerms | null>(null)
+  const [showAdder, setShowAdder] = useState(false)
 
   const load = async () => {
     setLoading(true)
@@ -537,12 +731,36 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
 
   useEffect(() => { load() }, [containerId])
 
+  const startEditing = (p: ContainerPermission) => {
+    setEditingId(p.user_id)
+    setEditingPerms(parsePerms(p))
+  }
+
+  const cancelEditing = () => {
+    setEditingId(null)
+    setEditingPerms(null)
+  }
+
+  const toggleEditPerm = (key: keyof GranularPerms) => {
+    setEditingPerms(prev => prev ? { ...prev, [key]: !prev[key] } : prev)
+  }
+
+  const resetGranularFromPreset = (preset: 'view' | 'edit' | 'admin') => {
+    setAddGranular({ ...PRESET_PERMS[preset] } as GranularPerms)
+  }
+
+  const toggleGranular = (key: keyof GranularPerms) => {
+    setAddGranular(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
   const handleAdd = async () => {
     if (!addUsername) return
     setAdding(true)
     try {
-      await addCollaborator(containerId, addUsername, addPermission)
+      const permissionsStr = JSON.stringify(addGranular)
+      await addCollaborator(containerId, addUsername, addPreset, permissionsStr)
       setAddUsername('')
+      setShowAdder(false)
       addToast('Collaborator added', 'success')
       load()
     } catch (err: any) {
@@ -562,58 +780,187 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
     }
   }
 
+  const handleSavePerms = async (userId: string) => {
+    if (!editingPerms) return
+    try {
+      const permissionsStr = JSON.stringify(editingPerms)
+      await updateCollaborator(containerId, userId, 'custom', permissionsStr)
+      cancelEditing()
+      addToast('Permissions updated', 'success')
+      load()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to update permissions', 'error')
+    }
+  }
+
+  const enabledCount = (gp: GranularPerms) => (Object.keys(gp) as (keyof GranularPerms)[]).filter(k => gp[k]).length
+  const allCount = Object.keys(PERMISSION_LABELS).length
+
   return (
     <Card>
       <div className="p-5 space-y-4">
-        <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Collaborators</h3>
-
-        <div className="flex gap-2">
-          <Input
-            value={addUsername}
-            onChange={e => setAddUsername(e.target.value)}
-            placeholder="Username"
-            className="flex-1"
-          />
-          <select
-            value={addPermission}
-            onChange={e => setAddPermission(e.target.value as 'view' | 'edit' | 'admin')}
-            className="px-2 py-1.5 rounded-lg bg-[#1c1f26] border border-white/[0.08] text-xs text-[#e6edf3]"
-          >
-            <option value="view">View</option>
-            <option value="edit">Edit</option>
-            <option value="admin">Admin</option>
-          </select>
-          <Button onClick={handleAdd} loading={adding} size="sm">
-            <Plus size={14} /> Add
-          </Button>
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold">Collaborators</h3>
+          {!showAdder && (
+            <Button onClick={() => setShowAdder(true)} size="sm">
+              <Plus size={14} /> Add
+            </Button>
+          )}
         </div>
 
+        {showAdder && (
+          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-[#e6edf3]">New Collaborator</p>
+              <button onClick={() => setShowAdder(false)} className="text-[#8b949e] hover:text-[#e6edf3]">
+                <X size={14} />
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <Input
+                value={addUsername}
+                onChange={e => setAddUsername(e.target.value)}
+                placeholder="Enter username..."
+                className="flex-1"
+                onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              />
+              <Button onClick={handleAdd} loading={adding} size="sm">Invite</Button>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium mb-2">Preset</p>
+              <div className="flex gap-1.5">
+                {(['view', 'edit', 'admin'] as const).map(preset => (
+                  <button
+                    key={preset}
+                    onClick={() => { setAddPreset(preset); resetGranularFromPreset(preset) }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                      addPreset === preset
+                        ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                        : 'bg-white/[0.04] text-[#8b949e] border border-white/[0.06] hover:border-white/[0.12] hover:text-[#e6edf3]'
+                    }`}
+                  >
+                    {preset.charAt(0).toUpperCase() + preset.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <PermGrid perms={addGranular} onToggle={toggleGranular} />
+          </div>
+        )}
+
         {loading ? (
-          <p className="text-xs text-[#636d7d]">Loading...</p>
+          <div className="flex items-center justify-center py-8">
+            <div className="w-5 h-5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin" />
+          </div>
         ) : perms.length === 0 ? (
-          <p className="text-xs text-[#636d7d]">No collaborators</p>
+          <div className="text-center py-8">
+            <Users size={24} className="mx-auto text-[#636d7d] mb-2" />
+            <p className="text-xs text-[#636d7d]">No collaborators yet</p>
+          </div>
         ) : (
           <div className="space-y-2">
-            {perms.map(p => (
-              <div key={p.user_id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
-                <div className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-500/30 to-indigo-600/10 flex items-center justify-center text-xs font-semibold text-indigo-300">
-                    {p.username[0]?.toUpperCase()}
+            {perms.map(p => {
+              const gp = parsePerms(p)
+              const isEditing = editingId === p.user_id
+              return (
+                <div
+                  key={p.user_id}
+                  className={`rounded-xl border transition-all ${
+                    isEditing
+                      ? 'border-indigo-500/30 bg-indigo-500/[0.03]'
+                      : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.04]'
+                  }`}
+                >
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                          {p.username[0]?.toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#e6edf3] truncate">{p.username}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] font-medium text-indigo-300 capitalize bg-indigo-500/10 px-1.5 py-0.5 rounded">{p.permission}</span>
+                            <span className="text-[10px] text-[#636d7d]">{enabledCount(gp)}/{allCount} permissions</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => startEditing(p)}
+                          className="p-1.5 rounded-lg hover:bg-white/[0.08] text-[#8b949e] hover:text-[#e6edf3] transition-colors"
+                          title="Edit permissions"
+                        >
+                          <Settings size={14} />
+                        </button>
+                        <button
+                          onClick={() => handleRemove(p.user_id)}
+                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-[#8b949e] hover:text-red-400 transition-colors"
+                          title="Remove collaborator"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    {!isEditing && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {(Object.keys(PERMISSION_LABELS) as (keyof GranularPerms)[]).map(k =>
+                          gp[k] ? (
+                            <span key={k} className={`px-2 py-0.5 rounded-md text-[10px] font-medium border bg-gradient-to-br ${PERM_COLORS[k]}`}>
+                              {PERMISSION_LABELS[k]}
+                            </span>
+                          ) : null
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <p className="text-sm text-[#e6edf3]">{p.username}</p>
-                    <p className="text-[10px] text-[#636d7d] capitalize">{p.permission}</p>
-                  </div>
+                  {isEditing && editingPerms && (
+                    <div className="px-4 pb-4 border-t border-white/[0.06] pt-3">
+                      <PermGrid perms={editingPerms} onToggle={toggleEditPerm} />
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-white/[0.06]">
+                        <Button onClick={() => handleSavePerms(p.user_id)} size="sm">Save Changes</Button>
+                        <Button onClick={cancelEditing} size="sm" variant="secondary">Cancel</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <button onClick={() => handleRemove(p.user_id)} className="p-1.5 rounded hover:bg-red-500/20 text-[#8b949e] hover:text-red-400">
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>
     </Card>
+  )
+}
+
+function PermGrid({ perms, onToggle }: { perms: GranularPerms; onToggle: (key: keyof GranularPerms) => void }) {
+  return (
+    <div className="space-y-3">
+      {PERM_GROUPS.map(group => (
+        <div key={group.label}>
+          <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium mb-1.5">{group.label}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1">
+            {group.keys.map(k => (
+              <label
+                key={k}
+                className="flex items-center gap-2 py-1 cursor-pointer group"
+              >
+                <PermToggle
+                  checked={perms[k]}
+                  onChange={() => onToggle(k)}
+                  id={`perm-${k}`}
+                />
+                <span className={`text-xs transition-colors ${
+                  perms[k] ? 'text-[#e6edf3]' : 'text-[#636d7d] group-hover:text-[#8b949e]'
+                }`}>
+                  {PERMISSION_LABELS[k]}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

@@ -52,3 +52,11 @@ export async function updateContainerConfig(id: string, config: Record<string, u
 export async function execContainer(id: string, command: string): Promise<ExecResult> {
   return api<ExecResult>('POST', `/containers/${id}/exec`, { command })
 }
+
+export async function addContainerPort(id: string, containerPort: number, hostPort?: number, protocol = 'tcp'): Promise<Container> {
+  return api<Container>('POST', `/containers/${id}/ports`, { container_port: containerPort, host_port: hostPort || 0, protocol })
+}
+
+export async function removeContainerPort(id: string, hostPort: number): Promise<Container> {
+  return api<Container>('DELETE', `/containers/${id}/ports/${hostPort}`)
+}

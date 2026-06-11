@@ -1,6 +1,10 @@
 import { api } from './client'
 import type { AppSettings, VersionInfo, DeployConfig, Category, CategoryPreset, CatalogItem } from '@/types'
 
+export async function getPublicSettings(): Promise<{ registration: boolean; allow_user_containers: boolean; allow_user_ports: boolean; allow_user_images: boolean; allow_user_templates: boolean; allow_user_projects: boolean; disabled_features: string }> {
+  return api('GET', '/public/settings')
+}
+
 export async function getSettings(): Promise<AppSettings> {
   return api<AppSettings>('GET', '/settings')
 }

@@ -3,28 +3,66 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getDashboardStats } from '@/api/dashboard'
 import { listContainers } from '@/api/containers'
+import { updateUserLimits } from '@/api/admin'
 import { Card, CardContent } from '@/components/ui/Card'
 import { PageLoading } from '@/components/ui/Spinner'
 import { ProgressBar } from '@/components/ui/ProgressBar'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
+import { Modal } from '@/components/ui/Modal'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
 import { formatBytes } from '@/utils'
-import type { DashboardStats, Container as ContainerType } from '@/types'
-import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield, Clock } from 'lucide-react'
+import { useUIStore } from '@/store/uiStore'
+import type { DashboardStats, Container as ContainerType, UserStats } from '@/types'
+import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield, Clock, Settings2 } from 'lucide-react'
 
 export function AdminDashboardPage() {
   const { isAdmin } = useAuth()
   const navigate = useNavigate()
+  const addToast = useUIStore(s => s.addToast)
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [allContainers, setAllContainers] = useState<ContainerType[]>([])
   const [loading, setLoading] = useState(true)
+  const [editUser, setEditUser] = useState<UserStats | null>(null)
+  const [editLimits, setEditLimits] = useState({ container_limit: 0, memory_limit: 0, cpu_limit: 0, port_limit: 0 })
+  const [savingLimits, setSavingLimits] = useState(false)
 
-  useEffect(() => {
-    if (!isAdmin) { navigate('/dashboard'); return }
+  const refreshStats = () => {
     Promise.all([getDashboardStats(), listContainers(true)])
       .then(([s, c]) => { setStats(s); setAllContainers(c) })
       .catch(() => {})
-      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    if (!isAdmin) { navigate('/dashboard'); return }
+    refreshStats()
+    setLoading(false)
   }, [])
+
+  const handleEditLimits = (u: UserStats) => {
+    setEditUser(u)
+    setEditLimits({
+      container_limit: u.container_limit || 0,
+      memory_limit: u.memory_limit || 0,
+      cpu_limit: u.cpu_limit || 0,
+      port_limit: u.port_limit || 0,
+    })
+  }
+
+  const handleSaveLimits = async () => {
+    if (!editUser) return
+    setSavingLimits(true)
+    try {
+      await updateUserLimits(editUser.id, editLimits)
+      addToast('Limits updated', 'success')
+      setEditUser(null)
+      refreshStats()
+    } catch (err: any) {
+      addToast(err.message || 'Failed to update limits', 'error')
+    } finally {
+      setSavingLimits(false)
+    }
+  }
 
   if (loading) return <PageLoading />
 
@@ -137,8 +175,10 @@ export function AdminDashboardPage() {
               <span className="w-8" />
               <span className="flex-1">Username</span>
               <span className="w-16 text-center">Role</span>
-              <span className="w-20 text-center">Containers</span>
-              <span className="w-28 text-right">Last Login</span>
+              <span className="w-16 text-center">Containers</span>
+              <span className="w-20 text-center">Limit</span>
+              <span className="w-24 text-right">Last Login</span>
+              <span className="w-10" />
             </div>
             {stats.user_stats.map(u => (
               <div key={u.id} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02] transition-colors">
@@ -149,16 +189,61 @@ export function AdminDashboardPage() {
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-16 text-center ${u.role === 'admin' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10'}`}>
                   {u.role}
                 </span>
-                <span className="text-xs text-[#e6edf3] w-20 text-center">{u.container_count}</span>
-                <span className="text-xs text-[#636d7d] w-28 text-right flex items-center justify-end gap-1">
+                <span className="text-xs text-[#e6edf3] w-16 text-center">{u.container_count}</span>
+                <span className={`text-xs w-20 text-center ${u.container_limit > 0 && u.container_count >= u.container_limit ? 'text-red-400' : 'text-[#636d7d]'}`}>
+                  {u.container_limit > 0 ? `${u.container_limit}` : 'Unlimited'}
+                </span>
+                <span className="text-xs text-[#636d7d] w-24 text-right flex items-center justify-end gap-1">
                   <Clock size={11} />
                   {u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
                 </span>
+                <button onClick={() => handleEditLimits(u)} className="p-1.5 rounded hover:bg-white/10 text-[#8b949e] hover:text-[#e6edf3]">
+                  <Settings2 size={13} />
+                </button>
               </div>
             ))}
           </div>
         )}
       </Card>
+
+      <Modal open={!!editUser} onClose={() => setEditUser(null)} title={`Limits: ${editUser?.username || ''}`}>
+        <div className="space-y-4">
+          <Input
+            label="Max Containers (0 = unlimited)"
+            type="number"
+            min={0}
+            value={String(editLimits.container_limit)}
+            onChange={e => setEditLimits(l => ({ ...l, container_limit: parseInt(e.target.value) || 0 }))}
+          />
+          <Input
+            label="Max Memory (MB, 0 = unlimited)"
+            type="number"
+            min={0}
+            value={String(editLimits.memory_limit)}
+            onChange={e => setEditLimits(l => ({ ...l, memory_limit: parseInt(e.target.value) || 0 }))}
+          />
+          <Input
+            label="Max CPU Cores (0 = unlimited)"
+            type="number"
+            min={0}
+            step={0.1}
+            value={String(editLimits.cpu_limit)}
+            onChange={e => setEditLimits(l => ({ ...l, cpu_limit: parseFloat(e.target.value) || 0 }))}
+          />
+          <Input
+            label="Max Ports per Container (0 = unlimited)"
+            type="number"
+            min={0}
+            value={String(editLimits.port_limit)}
+            onChange={e => setEditLimits(l => ({ ...l, port_limit: parseInt(e.target.value) || 0 }))}
+          />
+          <p className="text-[10px] text-[#636d7d]">Current usage: {editUser?.container_count || 0} containers</p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setEditUser(null)}>Cancel</Button>
+            <Button onClick={handleSaveLimits} loading={savingLimits}>Save Limits</Button>
+          </div>
+        </div>
+      </Modal>
 
       <Card>
         <div className="px-5 py-4 border-b border-white/[0.05]">

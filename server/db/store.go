@@ -5,6 +5,10 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -13,12 +17,16 @@ import (
 )
 
 type User struct {
-	ID        string     `json:"id"`
-	Username  string     `json:"username"`
-	Password  string     `json:"password"`
-	Role      string     `json:"role"`
-	CreatedAt time.Time  `json:"created_at"`
-	LastLogin *time.Time `json:"last_login,omitempty"`
+	ID             string     `json:"id"`
+	Username       string     `json:"username"`
+	Password       string     `json:"password"`
+	Role           string     `json:"role"`
+	CreatedAt      time.Time  `json:"created_at"`
+	LastLogin      *time.Time `json:"last_login,omitempty"`
+	ContainerLimit int        `json:"container_limit"`
+	MemoryLimit    int64      `json:"memory_limit"`
+	CPULimit       float64    `json:"cpu_limit"`
+	PortLimit      int        `json:"port_limit"`
 }
 
 type Settings struct {
@@ -27,6 +35,12 @@ type Settings struct {
 	DckData             string `json:"dck_data"`
 	AllowUserContainers bool   `json:"allow_user_containers"`
 	AllowUserPorts      bool   `json:"allow_user_ports"`
+	AllowUserImages     bool   `json:"allow_user_images"`
+	AllowUserTemplates  bool   `json:"allow_user_templates"`
+	AllowUserProjects   bool   `json:"allow_user_projects"`
+	PortRangeStart      int    `json:"port_range_start"`
+	PortRangeEnd        int    `json:"port_range_end"`
+	DisabledFeatures    string `json:"disabled_features"`
 }
 
 type Store struct {
@@ -55,7 +69,8 @@ type ContainerPermission struct {
 	UserID       string `json:"user_id"`
 	Username     string `json:"username"`
 	ContainerID  string `json:"container_id"`
-	Permission   string `json:"permission"` // "view", "edit", "admin"
+	Permission   string `json:"permission"`   // "view", "edit", "admin" (legacy)
+	Permissions  string `json:"permissions"`  // JSON object for granular permissions
 	CreatedAt    string `json:"created_at"`
 }
 
@@ -171,12 +186,39 @@ func (s *Store) migrate() error {
 			return err
 		}
 	}
+	// Add limit columns (ignore errors if already exist)
+	s.db.Exec("ALTER TABLE users ADD COLUMN container_limit INTEGER DEFAULT 0")
+	s.db.Exec("ALTER TABLE users ADD COLUMN memory_limit INTEGER DEFAULT 0") // in MB
+	s.db.Exec("ALTER TABLE users ADD COLUMN cpu_limit REAL DEFAULT 0")
+	s.db.Exec("ALTER TABLE users ADD COLUMN port_limit INTEGER DEFAULT 1")
+
+	// Set default port_limit for users who got it before the default change
+	s.db.Exec("UPDATE users SET port_limit = 1 WHERE port_limit IS NULL OR port_limit = 0")
+
+	// Add granular permissions column
+	s.db.Exec("ALTER TABLE container_permissions ADD COLUMN permissions TEXT DEFAULT ''")
+
+	// Migrate old memory_limit from bytes to MB (one-time)
+	var migrated int
+	s.db.QueryRow("SELECT COUNT(*) FROM settings WHERE key='memory_limit_migrated'").Scan(&migrated)
+	if migrated == 0 {
+		// Convert values assuming they were set in bytes (divide by 1048576)
+		s.db.Exec("UPDATE users SET memory_limit = memory_limit / 1048576 WHERE memory_limit > 0")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('memory_limit_migrated', '1')")
+	}
+
 	var count int
 	s.db.QueryRow("SELECT COUNT(*) FROM settings").Scan(&count)
 	if count == 0 {
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('registration', 'true')")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('allow_user_containers', 'true')")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('allow_user_ports', 'true')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('allow_user_images', 'true')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('allow_user_templates', 'true')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('allow_user_projects', 'true')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('port_range_start', '20000')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('port_range_end', '30000')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('disabled_features', '')")
 	}
 	return nil
 }
@@ -186,7 +228,7 @@ func scanUser(scanner interface {
 }) (User, error) {
 	var u User
 	var createdAt, lastLogin string
-	err := scanner.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &createdAt, &lastLogin)
+	err := scanner.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &createdAt, &lastLogin, &u.ContainerLimit, &u.MemoryLimit, &u.CPULimit, &u.PortLimit)
 	if err != nil {
 		return u, err
 	}
@@ -200,8 +242,12 @@ func scanUser(scanner interface {
 	return u, nil
 }
 
+func (s *Store) userColumns() string {
+	return "id, username, password, role, created_at, COALESCE(last_login, ''), COALESCE(container_limit, 0), COALESCE(memory_limit, 0), COALESCE(cpu_limit, 0), COALESCE(port_limit, 0)"
+}
+
 func (s *Store) ListUsers() []User {
-	rows, err := s.db.Query("SELECT id, username, password, role, created_at, COALESCE(last_login, '') FROM users ORDER BY created_at ASC")
+	rows, err := s.db.Query(fmt.Sprintf("SELECT %s FROM users ORDER BY created_at ASC", s.userColumns()))
 	if err != nil {
 		return nil
 	}
@@ -219,7 +265,7 @@ func (s *Store) ListUsers() []User {
 }
 
 func (s *Store) GetUser(id string) *User {
-	row := s.db.QueryRow("SELECT id, username, password, role, created_at, COALESCE(last_login, '') FROM users WHERE id = ?", id)
+	row := s.db.QueryRow(fmt.Sprintf("SELECT %s FROM users WHERE id = ?", s.userColumns()), id)
 	u, err := scanUser(row)
 	if err != nil {
 		return nil
@@ -229,12 +275,32 @@ func (s *Store) GetUser(id string) *User {
 }
 
 func (s *Store) GetUserByUsername(username string) *User {
-	row := s.db.QueryRow("SELECT id, username, password, role, created_at, COALESCE(last_login, '') FROM users WHERE username = ?", username)
+	row := s.db.QueryRow(fmt.Sprintf("SELECT %s FROM users WHERE username = ?", s.userColumns()), username)
 	u, err := scanUser(row)
 	if err != nil {
 		return nil
 	}
 	return &u
+}
+
+func (s *Store) UpdateUserLimits(id string, containerLimit int, memoryLimit int64, cpuLimit float64, portLimit int) *User {
+	s.db.Exec("UPDATE users SET container_limit = ?, memory_limit = ?, cpu_limit = ?, port_limit = ? WHERE id = ?", containerLimit, memoryLimit, cpuLimit, portLimit, id)
+	return s.GetUser(id)
+}
+
+func (s *Store) GetUserResourceUsage(userID string) (containerCount int, totalMemory int64, totalCPU float64) {
+	rows, err := s.db.Query("SELECT container_id FROM user_containers WHERE user_id = ?", userID)
+	if err != nil {
+		return 0, 0, 0
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var containerID string
+		rows.Scan(&containerID)
+		containerCount++
+	}
+	return containerCount, 0, 0
 }
 
 func (s *Store) CheckPassword(username, password string) *User {
@@ -330,6 +396,12 @@ func (s *Store) GetSettings() Settings {
 			settings.AllowUserContainers = value == "true"
 		case "allow_user_ports":
 			settings.AllowUserPorts = value == "true"
+		case "port_range_start":
+			settings.PortRangeStart, _ = strconv.Atoi(value)
+		case "port_range_end":
+			settings.PortRangeEnd, _ = strconv.Atoi(value)
+		case "disabled_features":
+			settings.DisabledFeatures = value
 		}
 	}
 	return settings
@@ -343,6 +415,8 @@ func (s *Store) UpdateSettings(updates map[string]interface{}) Settings {
 			strVal = fmt.Sprintf("%t", v)
 		case string:
 			strVal = v
+		case float64:
+			strVal = fmt.Sprintf("%.0f", v)
 		default:
 			continue
 		}
@@ -368,6 +442,43 @@ func (s *Store) RecordContainer(userID, containerID, containerName, image string
 		userID, containerID, containerName, image, now)
 }
 
+func (s *Store) RemoveUserContainer(containerID string) {
+	s.db.Exec("DELETE FROM user_containers WHERE container_id = ?", containerID)
+}
+
+func (s *Store) PruneStaleUserContainers(containerDir string) {
+	log.Printf("PruneStaleUserContainers: scanning %s", containerDir)
+	entries, err := os.ReadDir(containerDir)
+	if err != nil {
+		log.Printf("PruneStaleUserContainers: ReadDir error: %v", err)
+		return
+	}
+	valid := make(map[string]bool)
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".json") {
+			valid[strings.TrimSuffix(e.Name(), ".json")] = true
+		}
+	}
+	log.Printf("PruneStaleUserContainers: found %d valid containers", len(valid))
+	rows, err := s.db.Query("SELECT id, container_id FROM user_containers")
+	if err != nil {
+		log.Printf("PruneStaleUserContainers: Query error: %v", err)
+		return
+	}
+	defer rows.Close()
+	var pruned int
+	for rows.Next() {
+		var id int64
+		var cid string
+		rows.Scan(&id, &cid)
+		if !valid[cid] {
+			s.db.Exec("DELETE FROM user_containers WHERE id = ?", id)
+			pruned++
+		}
+	}
+	log.Printf("PruneStaleUserContainers: pruned %d stale entries", pruned)
+}
+
 func (s *Store) IsContainerOwner(userID, containerID string) bool {
 	var count int
 	s.db.QueryRow("SELECT COUNT(*) FROM user_containers WHERE user_id = ? AND container_id = ?", userID, containerID).Scan(&count)
@@ -382,6 +493,22 @@ func (s *Store) GetUserContainerCount(userID string) int {
 
 func (s *Store) GetUserContainerIDs(userID string) []string {
 	rows, err := s.db.Query("SELECT container_id FROM user_containers WHERE user_id = ? UNION SELECT container_id FROM container_permissions WHERE user_id = ?", userID, userID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func (s *Store) GetUserOwnedContainerIDs(userID string) []string {
+	rows, err := s.db.Query("SELECT container_id FROM user_containers WHERE user_id = ?", userID)
 	if err != nil {
 		return nil
 	}
@@ -441,12 +568,12 @@ func (s *Store) GetUserStats() (int, []UserWithStats) {
 
 // ─── Container Permissions ───────────────────────────────────────
 
-func (s *Store) SetContainerPermission(userID, containerID, permission string) error {
+func (s *Store) SetContainerPermission(userID, containerID, permission, permissions string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := s.db.Exec(`INSERT INTO container_permissions (user_id, container_id, permission, created_at)
-		VALUES (?, ?, ?, ?)
-		ON CONFLICT(user_id, container_id) DO UPDATE SET permission = ?`,
-		userID, containerID, permission, now, permission)
+	_, err := s.db.Exec(`INSERT INTO container_permissions (user_id, container_id, permission, permissions, created_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(user_id, container_id) DO UPDATE SET permission = ?, permissions = ?`,
+		userID, containerID, permission, permissions, now, permission, permissions)
 	return err
 }
 
@@ -457,7 +584,7 @@ func (s *Store) RemoveContainerPermission(userID, containerID string) error {
 
 func (s *Store) ListContainerPermissions(containerID string) []ContainerPermission {
 	rows, err := s.db.Query(`
-		SELECT cp.user_id, u.username, cp.container_id, cp.permission, cp.created_at
+		SELECT cp.user_id, u.username, cp.container_id, cp.permission, COALESCE(cp.permissions, ''), cp.created_at
 		FROM container_permissions cp
 		JOIN users u ON u.id = cp.user_id
 		WHERE cp.container_id = ?`, containerID)
@@ -469,20 +596,19 @@ func (s *Store) ListContainerPermissions(containerID string) []ContainerPermissi
 	var out = make([]ContainerPermission, 0)
 	for rows.Next() {
 		var cp ContainerPermission
-		if err := rows.Scan(&cp.UserID, &cp.Username, &cp.ContainerID, &cp.Permission, &cp.CreatedAt); err == nil {
+		if err := rows.Scan(&cp.UserID, &cp.Username, &cp.ContainerID, &cp.Permission, &cp.Permissions, &cp.CreatedAt); err == nil {
 			out = append(out, cp)
 		}
 	}
 	return out
 }
 
-func (s *Store) GetUserContainerPermission(userID, containerID string) string {
-	var perm string
-	err := s.db.QueryRow("SELECT permission FROM container_permissions WHERE user_id = ? AND container_id = ?", userID, containerID).Scan(&perm)
+func (s *Store) GetUserContainerPermission(userID, containerID string) (permission string, permissions string) {
+	err := s.db.QueryRow("SELECT permission, COALESCE(permissions, '') FROM container_permissions WHERE user_id = ? AND container_id = ?", userID, containerID).Scan(&permission, &permissions)
 	if err != nil {
-		return ""
+		return "", ""
 	}
-	return perm
+	return permission, permissions
 }
 
 // ─── Activity Logs ───────────────────────────────────────────────

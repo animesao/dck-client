@@ -72,7 +72,7 @@ func noAuth(h authHandler) http.HandlerFunc {
 	}
 }
 
-// requireContainerAccess checks if the user owns the container or has at least 'view' permission
+// requireContainerAccess checks if the user owns the container or has any permission
 func (s *Server) requireContainerAccess(next authHandler) authHandler {
 	return func(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 		id := r.PathValue("id")
@@ -84,12 +84,36 @@ func (s *Server) requireContainerAccess(next authHandler) authHandler {
 			next(w, r, claims)
 			return
 		}
-		perm := s.store.GetUserContainerPermission(claims.Sub, id)
-		if perm == "view" || perm == "edit" || perm == "admin" {
+		perm, perms := s.store.GetUserContainerPermission(claims.Sub, id)
+		gp := expandPerms(perm, perms)
+		if gp.Console || gp.ConsoleSend || gp.FilesRead || gp.ContainerStart || gp.ContainerStop || gp.ContainerRestart || gp.ContainerEdit || gp.Collaborators || gp.PortsManage || gp.ContainerDelete {
 			next(w, r, claims)
 			return
 		}
 		writeError(w, http.StatusForbidden, "You do not have permission to access this container")
+	}
+}
+
+// requirePerm checks that the user has a specific container action.
+func (s *Server) requirePerm(action string) func(authHandler) authHandler {
+	return func(next authHandler) authHandler {
+		return func(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+			id := r.PathValue("id")
+			if claims.Role == "admin" {
+				next(w, r, claims)
+				return
+			}
+			if s.store.IsContainerOwner(claims.Sub, id) {
+				next(w, r, claims)
+				return
+			}
+			perm, perms := s.store.GetUserContainerPermission(claims.Sub, id)
+			if hasPerm(perm, perms, action) {
+				next(w, r, claims)
+				return
+			}
+			writeError(w, http.StatusForbidden, "You do not have permission to perform this action")
+		}
 	}
 }
 

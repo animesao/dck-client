@@ -205,7 +205,37 @@ func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memo
 		args = append(args, strings.Fields(cmd)...)
 	}
 	out, err := c.run(args...)
-	return strings.TrimSpace(out), err
+	if err != nil {
+		return "", err
+	}
+	// dck run -d outputs a short ID; find the full ID on disk
+	lines := strings.Fields(strings.TrimSpace(out))
+	if len(lines) == 0 {
+		return "", fmt.Errorf("empty output from dck run")
+	}
+	shortID := lines[len(lines)-1]
+	return c.resolveFullID(shortID)
+}
+
+func (c *Client) resolveFullID(shortID string) (string, error) {
+	cd := c.containersDir()
+	entries, err := os.ReadDir(cd)
+	if err != nil {
+		return shortID, nil // fallback to short ID
+	}
+	// Try exact match first
+	for _, e := range entries {
+		if e.Name() == shortID+".json" {
+			return shortID, nil
+		}
+	}
+	// Prefix match: find the file starting with the short ID
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), shortID) && strings.HasSuffix(e.Name(), ".json") {
+			return strings.TrimSuffix(e.Name(), ".json"), nil
+		}
+	}
+	return shortID, nil // fallback
 }
 
 func (c *Client) StartContainer(id string) error {
@@ -231,6 +261,15 @@ func (c *Client) RemoveContainer(id string, force bool) error {
 	args = append(args, id)
 	_, err := c.run(args...)
 	return err
+}
+
+func (c *Client) SaveContainer(ct *Container) error {
+	statePath := filepath.Join(c.containersDir(), ct.ID+".json")
+	b, err := json.MarshalIndent(ct, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, b, 0644)
 }
 
 func (c *Client) Exec(id string, command string) (string, error) {

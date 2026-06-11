@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { listContainers, removeContainer, stopContainer, startContainer, restartContainer } from '@/api/containers'
 import { useSSE } from '@/hooks/useSSE'
 import { useUIStore } from '@/store/uiStore'
+import { useAuth } from '@/hooks/useAuth'
+import { getPublicSettings } from '@/api/settings'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { PageLoading, Spinner } from '@/components/ui/Spinner'
@@ -25,12 +27,14 @@ import {
 export function ContainersPage() {
   const navigate = useNavigate()
   const addToast = useUIStore(s => s.addToast)
+  const { isAdmin } = useAuth()
   const [containers, setContainers] = useState<Container[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAll, setShowAll] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [canCreate, setCanCreate] = useState(true)
 
   const fetchContainers = async () => {
     try {
@@ -42,6 +46,12 @@ export function ContainersPage() {
   }
 
   useEffect(() => { fetchContainers() }, [showAll])
+
+  useEffect(() => {
+    if (!isAdmin) {
+      getPublicSettings().then(s => setCanCreate(s.allow_user_containers)).catch(() => {})
+    }
+  }, [isAdmin])
 
   useSSE<any>('/events', (data) => {
     if (Array.isArray(data)) {
@@ -85,7 +95,7 @@ export function ContainersPage() {
           <button onClick={fetchContainers} className="btn-ghost p-2" title="Refresh">
             <RefreshCw size={16} />
           </button>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setCreateOpen(true)} disabled={!canCreate} title={!canCreate ? 'Container creation is disabled' : ''}>
             <Plus size={16} /> Create Container
           </Button>
         </div>
@@ -123,9 +133,13 @@ export function ContainersPage() {
                 <ContainerIcon size={28} className="text-[#636d7d]" />
               </div>
               <p className="text-sm text-[#636d7d]">No containers found</p>
-              <Button variant="secondary" size="sm" className="mt-4" onClick={() => setCreateOpen(true)}>
-                Create your first container
-              </Button>
+              {canCreate ? (
+                <Button variant="secondary" size="sm" className="mt-4" onClick={() => setCreateOpen(true)}>
+                  Create your first container
+                </Button>
+              ) : (
+                <p className="text-xs text-[#636d7d] mt-4">Container creation is disabled</p>
+              )}
             </div>
           ) : (
             <>

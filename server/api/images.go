@@ -61,6 +61,13 @@ func (s *Server) scanImageFiles() []string {
 }
 
 func (s *Server) handlePullImage(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	if claims.Role != "admin" {
+		settings := s.store.GetSettings()
+		if !settings.AllowUserImages {
+			writeError(w, http.StatusForbidden, "Image management is disabled")
+			return
+		}
+	}
 	var req struct {
 		Name string `json:"name"`
 	}
@@ -76,6 +83,13 @@ func (s *Server) handlePullImage(w http.ResponseWriter, r *http.Request, claims 
 }
 
 func (s *Server) handleRemoveImage(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	if claims.Role != "admin" {
+		settings := s.store.GetSettings()
+		if !settings.AllowUserImages {
+			writeError(w, http.StatusForbidden, "Image management is disabled")
+			return
+		}
+	}
 	name := r.PathValue("name")
 	tag := r.PathValue("tag")
 	if tag == "" {

@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
 import { register } from '@/api/auth'
+import { getPublicSettings } from '@/api/settings'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -15,6 +16,26 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [registrationOpen, setRegistrationOpen] = useState(true)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    getPublicSettings()
+      .then(s => { setRegistrationOpen(s.registration); setChecking(false) })
+      .catch(() => setChecking(false))
+  }, [])
+
+  if (checking) return null
+
+  if (!registrationOpen) {
+    return (
+      <div className="text-center space-y-3">
+        <h2 className="text-lg font-semibold text-[#e6edf3]">Registration Closed</h2>
+        <p className="text-sm text-[#636d7d]">New user registration is currently disabled.</p>
+        <Link to="/login" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium text-sm">Back to Login</Link>
+      </div>
+    )
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
