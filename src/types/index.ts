@@ -4,6 +4,12 @@ export interface User {
   email: string
   role: string
   created_at: string
+  last_login?: string
+  container_limit: number
+  memory_limit: number
+  cpu_limit: number
+  disk_limit: number
+  port_limit: number
 }
 
 export interface Container {

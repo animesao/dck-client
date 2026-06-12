@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { getDashboardStats } from '@/api/dashboard'
 import { listContainers } from '@/api/containers'
-import { updateUserLimits, listNodes, registerNode, removeNode } from '@/api/admin'
+import { listNodes, registerNode, removeNode } from '@/api/admin'
 import { Card, CardContent } from '@/components/ui/Card'
 import { PageLoading } from '@/components/ui/Spinner'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -14,7 +14,7 @@ import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBad
 import { formatBytes } from '@/utils'
 import { useUIStore } from '@/store/uiStore'
 import type { DashboardStats, Container as ContainerType, UserStats, NodeInfo } from '@/types'
-import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield, Clock, Settings2, Gauge, MemoryStick, Plus, Trash2, ExternalLink, Wifi, WifiOff } from 'lucide-react'
+import { Activity, ContainerIcon, HardDrive, Cpu, Server, Users, Shield, Clock, Gauge, MemoryStick, Plus, Trash2, ExternalLink, Wifi, WifiOff } from 'lucide-react'
 
 export function AdminDashboardPage() {
   const { isAdmin } = useAuth()
@@ -23,9 +23,6 @@ export function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [allContainers, setAllContainers] = useState<ContainerType[]>([])
   const [loading, setLoading] = useState(true)
-  const [editUser, setEditUser] = useState<UserStats | null>(null)
-  const [editLimits, setEditLimits] = useState({ container_limit: 0, memory_limit: 0, cpu_limit: 0, disk_limit: 0, port_limit: 0 })
-  const [savingLimits, setSavingLimits] = useState(false)
   const [nodes, setNodes] = useState<NodeInfo[]>([])
   const [selectedNode, setSelectedNode] = useState<NodeInfo | null>(null)
   const [showNodeModal, setShowNodeModal] = useState(false)
@@ -49,36 +46,6 @@ export function AdminDashboardPage() {
     fetchNodes()
     setLoading(false)
   }, [])
-
-  const handleEditLimits = (u: UserStats) => {
-    setEditUser(u)
-    setEditLimits({
-      container_limit: u.container_limit || 0,
-      memory_limit: u.memory_limit || 0,
-      cpu_limit: u.cpu_limit || 0,
-      disk_limit: u.disk_limit > 0 ? u.disk_limit / (1024 * 1024) : u.disk_limit,
-      port_limit: u.port_limit || 0,
-    })
-  }
-
-  const handleSaveLimits = async () => {
-    if (!editUser) return
-    setSavingLimits(true)
-    try {
-      const payload = {
-        ...editLimits,
-        disk_limit: editLimits.disk_limit > 0 ? editLimits.disk_limit * (1024 * 1024) : editLimits.disk_limit,
-      }
-      await updateUserLimits(editUser.id, payload)
-      addToast('Limits updated', 'success')
-      setEditUser(null)
-      refreshStats()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to update limits', 'error')
-    } finally {
-      setSavingLimits(false)
-    }
-  }
 
   const handleRegisterNode = async () => {
     if (!nodeName || !nodeUrl) return
@@ -391,99 +358,6 @@ export function AdminDashboardPage() {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" onClick={() => setShowNodeModal(false)}>Cancel</Button>
             <Button onClick={handleRegisterNode} loading={registeringNode}>Register</Button>
-          </div>
-        </div>
-      </Modal>
-
-      <Card>
-        <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#e6edf3]">Users</h3>
-        </div>
-        {!stats?.user_stats || stats.user_stats.length === 0 ? (
-          <div className="p-8 text-center text-sm text-[#636d7d]">No users</div>
-        ) : (
-          <div className="divide-y divide-white/[0.04]">
-            <div className="flex items-center gap-3 px-5 py-2 text-xs text-[#636d7d] font-medium">
-              <span className="w-8" />
-              <span className="flex-1">Username</span>
-              <span className="w-16 text-center">Role</span>
-              <span className="w-16 text-center">Containers</span>
-              <span className="w-20 text-center">Cont. Limit</span>
-              <span className="w-20 text-center">Disk Limit</span>
-              <span className="w-24 text-right">Last Login</span>
-              <span className="w-10" />
-            </div>
-            {stats.user_stats.map(u => (
-              <div key={u.id} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02] transition-colors">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10">
-                  <Users size={14} className="text-indigo-400" />
-                </div>
-                <span className="text-sm text-[#e6edf3] font-medium flex-1">{u.username}</span>
-                <span className={`text-xs font-medium px-2 py-0.5 rounded-full w-16 text-center ${u.role === 'admin' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10'}`}>
-                  {u.role}
-                </span>
-                <span className="text-xs text-[#e6edf3] w-16 text-center">{u.container_count}</span>
-                <span className={`text-xs w-20 text-center ${u.container_limit > 0 && u.container_count >= u.container_limit ? 'text-red-400' : 'text-[#636d7d]'}`}>
-                  {u.container_limit === -1 ? '∞' : u.container_limit}
-                </span>
-                <span className="text-xs text-[#636d7d] w-20 text-center">
-                  {u.disk_limit === -1 ? '∞' : u.disk_limit === 0 ? '0' : `${u.disk_limit / (1024 * 1024)} MB`}
-                </span>
-                <span className="text-xs text-[#636d7d] w-24 text-right flex items-center justify-end gap-1">
-                  <Clock size={11} />
-                  {u.last_login ? new Date(u.last_login).toLocaleString() : 'Never'}
-                </span>
-                <button onClick={() => handleEditLimits(u)} className="p-1.5 rounded hover:bg-white/10 text-[#8b949e] hover:text-[#e6edf3]">
-                  <Settings2 size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      <Modal open={!!editUser} onClose={() => setEditUser(null)} title={`Limits: ${editUser?.username || ''}`}>
-        <div className="space-y-4">
-          <Input
-            label="Max Containers (-1 = ∞, 0 = disabled)"
-            type="number"
-            min={-1}
-            value={String(editLimits.container_limit)}
-            onChange={e => setEditLimits(l => ({ ...l, container_limit: parseInt(e.target.value) || 0 }))}
-          />
-          <Input
-            label="Max Memory MB (-1 = ∞, 0 = disabled)"
-            type="number"
-            min={-1}
-            value={String(editLimits.memory_limit)}
-            onChange={e => setEditLimits(l => ({ ...l, memory_limit: parseInt(e.target.value) || 0 }))}
-          />
-          <Input
-            label="Max CPU Cores (-1 = ∞, 0 = disabled)"
-            type="number"
-            min={-1}
-            step={0.1}
-            value={String(editLimits.cpu_limit)}
-            onChange={e => setEditLimits(l => ({ ...l, cpu_limit: parseFloat(e.target.value) || 0 }))}
-          />
-          <Input
-            label="Max Disk per Container (MB, -1 = ∞, 0 = disabled)"
-            type="number"
-            min={-1}
-            value={String(editLimits.disk_limit)}
-            onChange={e => setEditLimits(l => ({ ...l, disk_limit: parseInt(e.target.value) || 0 }))}
-          />
-          <Input
-            label="Max Ports per Container (-1 = ∞, 0 = disabled)"
-            type="number"
-            min={-1}
-            value={String(editLimits.port_limit)}
-            onChange={e => setEditLimits(l => ({ ...l, port_limit: parseInt(e.target.value) || 0 }))}
-          />
-          <p className="text-[10px] text-[#636d7d]">Current usage: {editUser?.container_count || 0} containers</p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" onClick={() => setEditUser(null)}>Cancel</Button>
-            <Button onClick={handleSaveLimits} loading={savingLimits}>Save Limits</Button>
           </div>
         </div>
       </Modal>

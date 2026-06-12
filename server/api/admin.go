@@ -8,18 +8,36 @@ import (
 func (s *Server) handleAdminListUsers(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	users := s.store.ListUsers()
 	type safeUser struct {
-		ID        string `json:"id"`
-		Username  string `json:"username"`
-		Role      string `json:"role"`
-		CreatedAt string `json:"created_at"`
+		ID             string `json:"id"`
+		Username       string `json:"username"`
+		Email          string `json:"email"`
+		Role           string `json:"role"`
+		CreatedAt      string `json:"created_at"`
+		LastLogin      string `json:"last_login"`
+		ContainerLimit int    `json:"container_limit"`
+		MemoryLimit    int64  `json:"memory_limit"`
+		CPULimit       float64 `json:"cpu_limit"`
+		DiskLimit      int64  `json:"disk_limit"`
+		PortLimit      int    `json:"port_limit"`
 	}
 	out := make([]safeUser, 0)
 	for _, u := range users {
+		lastLogin := ""
+		if u.LastLogin != nil {
+			lastLogin = u.LastLogin.Format("2006-01-02T15:04:05Z")
+		}
 		out = append(out, safeUser{
-			ID:        u.ID,
-			Username:  u.Username,
-			Role:      u.Role,
-			CreatedAt: u.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			ID:             u.ID,
+			Username:       u.Username,
+			Email:          u.Email,
+			Role:           u.Role,
+			CreatedAt:      u.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			LastLogin:      lastLogin,
+			ContainerLimit: u.ContainerLimit,
+			MemoryLimit:    u.MemoryLimit,
+			CPULimit:       u.CPULimit,
+			DiskLimit:      u.DiskLimit,
+			PortLimit:      u.PortLimit,
 		})
 	}
 	writeJSON(w, http.StatusOK, out)
