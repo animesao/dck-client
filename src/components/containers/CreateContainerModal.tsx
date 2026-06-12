@@ -68,6 +68,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
 
   const [availableImages, setAvailableImages] = useState<Image[]>([])
   const [pullingTag, setPullingTag] = useState('')
+  const [isInstalled, setIsInstalled] = useState(false)
 
   const config = useMemo(() => imageConfigs.find(c => c.id === selectedId), [selectedId])
 
@@ -75,6 +76,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
     if (!open) return
     setSelectedUserId('')
     setStep(adminMode ? 'user' : 'category')
+    setIsInstalled(false)
     listImages().then(setAvailableImages).catch(() => {})
   }, [open])
 
@@ -110,6 +112,24 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
       c.image.toLowerCase().includes(search.toLowerCase())
     )
   }, [search])
+
+  const selectInstalledImage = (img: Image) => {
+    const tag = img.tag || 'latest'
+    const imageName = img.name.includes(':') ? img.name : img.name + ':' + tag
+    setSelectedId('')
+    setIsInstalled(true)
+    setForm(f => ({
+      ...f,
+      image: imageName,
+      command: '',
+      memory: '',
+      cpus: '',
+    }))
+    setPortStr('')
+    setEnvPairs([])
+    setSelectedTag(tag)
+    setStep('config')
+  }
 
   const selectImage = (id: string) => {
     const cfg = imageConfigs.find(c => c.id === id)
@@ -160,6 +180,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
     setSelectedId('')
     setSelectedUserId('')
     setSearch('')
+    setIsInstalled(false)
     setShowAdvanced(false)
     setForm({
       image: '', name: '', command: '', startup_script: '', ports: [], volumes: [],
@@ -237,6 +258,29 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               </div>
 
               <div className="border-t border-white/[0.06] pt-3">
+                <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium mb-2">Installed Images</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-3">
+
+                  {availableImages.slice(0, 12).map(img => {
+                    const name = img.name.includes('/') ? img.name.split('/').pop()! : img.name
+                    const label = img.tag ? `${name}:${img.tag}` : name
+                    return (
+                      <button
+                        key={img.name + ':' + img.tag}
+                        onClick={() => selectInstalledImage(img)}
+                        className="text-left px-2.5 py-2 rounded-lg text-xs text-[#8b949e] hover:text-[#e6edf3] hover:bg-white/[0.04] transition-colors truncate"
+                      >
+                        {label}
+                      </button>
+                    )
+                  })}
+                  {availableImages.length === 0 && (
+                    <p className="text-xs text-[#636d7d] col-span-full py-1">No images pulled yet</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-white/[0.06] pt-3">
                 <p className="text-[10px] uppercase tracking-wider text-[#636d7d] font-medium mb-2">Quick Select</p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                   {imageConfigs.filter(c => ['minecraft-vanilla', 'node', 'python', 'nginx', 'mysql', 'postgres'].includes(c.id)).map(cfg => (
@@ -290,12 +334,13 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
         </div>
       )}
 
-      {step === 'config' && config && (
+      {step === 'config' && (config || isInstalled) && (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <button onClick={() => { setStep('image'); setSelectedId('') }} className="text-xs text-[#636d7d] hover:text-[#e6edf3] flex items-center gap-1">
+          <button onClick={() => { setStep(isInstalled ? 'category' : 'image'); if (!isInstalled) setSelectedId(''); setIsInstalled(false) }} className="text-xs text-[#636d7d] hover:text-[#e6edf3] flex items-center gap-1">
             ← Change image
           </button>
 
+          {config && (
           <div className="bg-white/[0.04] rounded-lg p-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
               <Cpu size={14} className="text-indigo-400" />
@@ -305,7 +350,21 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               <p className="text-[10px] text-[#636d7d] font-mono">{config.image}{selectedTag ? ':' + selectedTag : ''}</p>
             </div>
           </div>
+          )}
 
+          {isInstalled && (
+          <div className="bg-white/[0.04] rounded-lg p-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center">
+              <Cpu size={14} className="text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-[#e6edf3]">Custom Image</p>
+              <p className="text-[10px] text-[#636d7d] font-mono">{form.image}</p>
+            </div>
+          </div>
+          )}
+
+          {config && (
           <div>
             <label className="block text-xs font-medium text-[#e6edf3] mb-1.5">Version</label>
             {availableTags.length > 0 ? (
@@ -349,6 +408,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               </div>
             )}
           </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-[#e6edf3] mb-1">Startup Command</label>
@@ -356,7 +416,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               type="text"
               value={form.command || ''}
               onChange={e => setForm({ ...form, command: e.target.value })}
-              placeholder={config.command || 'Startup command...'}
+              placeholder={config?.command || 'Startup command...'}
               className="w-full px-3 py-2 rounded-lg bg-[#0d1117] border border-white/[0.08] text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-indigo-500/50"
             />
           </div>
@@ -383,11 +443,11 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               label="Ports (comma-separated)"
               value={portStr}
               onChange={e => setPortStr(e.target.value)}
-              placeholder={config.ports.join(', ')}
+              placeholder={config ? config.ports.join(', ') : '25565'}
             />
           </div>
 
-          {config.env.length > 0 && (
+          {config && config.env.length > 0 && (
             <div>
               <label className="block text-xs font-medium text-[#e6edf3] mb-2">Environment Variables</label>
               <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-1">
@@ -458,13 +518,13 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               label="Memory"
               value={form.memory || ''}
               onChange={e => setForm({ ...form, memory: e.target.value })}
-              placeholder={config.memory || '512m'}
+              placeholder={config?.memory || '512m'}
             />
             <Input
               label="CPUs"
               value={form.cpus || ''}
               onChange={e => setForm({ ...form, cpus: e.target.value })}
-              placeholder={config.cpus || '1'}
+              placeholder={config?.cpus || '1'}
             />
           </div>
 
