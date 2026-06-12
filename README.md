@@ -5,6 +5,13 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/version-1.6.0-blue?style=flat-square">
+  <img src="https://img.shields.io/badge/go-1.26+-00ADD8?style=flat-square&logo=go">
+  <img src="https://img.shields.io/badge/react-18.3-61DAFB?style=flat-square&logo=react">
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square">
+</p>
+
+<p align="center">
   <b>Modern web management panel for <a href="https://github.com/anomalyco/dck">dck</a> container runtime</b><br>
   Full-featured Pterodactyl-like interface for managing containers, files, backups, and system resources.
 </p>
@@ -12,12 +19,13 @@
 ## Features
 
 - **Dashboard** — Real-time system stats (CPU, RAM, Disk, uptime) from `/proc`, container overview
-- **Containers** — Create (with per-image environment presets), start, stop, restart, delete containers via `dck` CLI; includes stopped containers by default
+- **Containers** — Create with startup command + multi-line startup script (overrides CMD), per-image environment presets, start, stop, restart, delete containers via `dck` CLI; includes stopped containers by default
 - **Image Management** — List, pull, and remove container images
 - **File Manager** — Browse, read, edit, upload, download, create, delete files directly in containers (via overlayfs at `~/.dck/overlay/<id>/merged/`)
 - **Backups** — Create and restore full container backups (tar.gz archives)
 - **Console** — Full WebSocket terminal with xterm.js, bridged to `dck` Unix socket (`~/.dck/consoles/<id>.sock`) with binary message support
 - **Exec** — Run arbitrary commands inside containers
+- **Startup Script** — Multi-line startup script editor in container detail page, overrides default CMD; supports DCK_* environment variables
 - **Blueprints** — Pre-configured templates for quick container deployment
 - **Admin Panel** — Multi-user management with roles (admin/user)
 - **JWT Auth** — Secure token-based authentication
@@ -392,7 +400,7 @@ dck-client/
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/containers` | List containers |
-| POST | `/api/containers` | Create container |
+| POST | `/api/containers` | Create container (accepts `startup_script`) |
 | GET | `/api/containers/:id` | Get container |
 | DELETE | `/api/containers/:id` | Remove container |
 | POST | `/api/containers/:id/start` | Start container |
@@ -402,6 +410,8 @@ dck-client/
 | POST | `/api/containers/:id/exec` | Execute command |
 | GET | `/api/containers/:id/state` | Container state |
 | GET | `/api/containers/:id/stats` | Resource stats |
+| GET | `/api/containers/:id/config` | Get container config |
+| PATCH | `/api/containers/:id/config` | Update container config (cmd, `startup_script`) |
 | GET | `/api/containers/:id/console` | WebSocket console |
 
 ### File Manager
