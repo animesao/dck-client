@@ -44,6 +44,7 @@ export function ContainerDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [startupCmd, setStartupCmd] = useState('')
+  const [startupScript, setStartupScript] = useState('')
   const [savingStartup, setSavingStartup] = useState(false)
   const [showAddPort, setShowAddPort] = useState(false)
   const [newPortContainer, setNewPortContainer] = useState('')
@@ -61,6 +62,7 @@ export function ContainerDetailPage() {
       setContainer(c)
       setStats(s)
       setStartupCmd(c.cmd || '')
+      setStartupScript(c.startup_script || '')
     } catch {
       addToast('Container not found', 'error')
       navigate('/containers')
@@ -148,7 +150,7 @@ export function ContainerDetailPage() {
     if (!id) return
     setSavingStartup(true)
     try {
-      await updateContainerConfig(id, { cmd: startupCmd })
+      await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript })
       addToast('Startup command saved', 'success')
     } catch (err: any) {
       addToast(err.message || 'Failed to save startup command', 'error')
@@ -325,6 +327,20 @@ export function ContainerDetailPage() {
                 </div>
                 <p className="text-[10px] text-[#636d7d] mt-2">
                   Changes will take effect on next container start
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold mb-2">Startup Script <span className="text-[#636d7d] font-normal">(overrides command)</span></p>
+                <textarea
+                  value={startupScript}
+                  onChange={e => setStartupScript(e.target.value)}
+                  placeholder="#!/bin/sh&#10;# Your startup script here"
+                  rows={6}
+                  className="w-full px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.08] text-xs font-mono text-[#e6edf3] focus:outline-none focus:border-indigo-500/50 resize-y"
+                />
+                <p className="text-[10px] text-[#636d7d] mt-1">
+                  Multi-line script executed on container start. Leave empty to use the startup command.
                 </p>
               </div>
 

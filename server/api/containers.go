@@ -28,22 +28,23 @@ type cpuSample struct {
 }
 
 type ContainerResp struct {
-	ID         string          `json:"id"`
-	Name       string          `json:"name"`
-	Image      string          `json:"image"`
-	Status     string          `json:"status"`
-	Created    string          `json:"created"`
-	Ports      []PortMapResp   `json:"ports,omitempty"`
-	IP         string          `json:"ip,omitempty"`
-	Pid        int             `json:"pid,omitempty"`
-	Memory     string          `json:"memory,omitempty"`
-	CPUs       string          `json:"cpus,omitempty"`
-	Network    string          `json:"network,omitempty"`
-	Restart    string          `json:"restart,omitempty"`
-	Cmd        string          `json:"cmd,omitempty"`
-	Entrypoint string          `json:"entrypoint,omitempty"`
-	UserID     string          `json:"user_id,omitempty"`
-	Username   string          `json:"username,omitempty"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Image         string          `json:"image"`
+	Status        string          `json:"status"`
+	Created       string          `json:"created"`
+	Ports         []PortMapResp   `json:"ports,omitempty"`
+	IP            string          `json:"ip,omitempty"`
+	Pid           int             `json:"pid,omitempty"`
+	Memory        string          `json:"memory,omitempty"`
+	CPUs          string          `json:"cpus,omitempty"`
+	Network       string          `json:"network,omitempty"`
+	Restart       string          `json:"restart,omitempty"`
+	Cmd           string          `json:"cmd,omitempty"`
+	Entrypoint    string          `json:"entrypoint,omitempty"`
+	StartupScript string          `json:"startup_script,omitempty"`
+	UserID        string          `json:"user_id,omitempty"`
+	Username      string          `json:"username,omitempty"`
 }
 
 type PortMapResp struct {
@@ -90,6 +91,7 @@ func containerToResp(c *dck.Container) ContainerResp {
 		Restart: c.Restart,
 		Cmd:     strings.Join(c.Cmd, " "),
 		Entrypoint: c.Entrypoint,
+		StartupScript: c.StartupScript,
 	}
 }
 
@@ -153,17 +155,18 @@ func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, clai
 
 func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	var req struct {
-		Image   string   `json:"image"`
-		Name    string   `json:"name"`
-		Ports   []string `json:"ports"`
-		Volumes []string `json:"volumes"`
-		Env     []string `json:"env"`
-		Restart string   `json:"restart"`
-		Memory  string   `json:"memory"`
-		CPUs    string   `json:"cpus"`
-		Network string   `json:"network"`
-		Command string   `json:"command"`
-		UserID  string   `json:"user_id"`
+		Image         string   `json:"image"`
+		Name          string   `json:"name"`
+		Ports         []string `json:"ports"`
+		Volumes       []string `json:"volumes"`
+		Env           []string `json:"env"`
+		Restart       string   `json:"restart"`
+		Memory        string   `json:"memory"`
+		CPUs          string   `json:"cpus"`
+		Network       string   `json:"network"`
+		Command       string   `json:"command"`
+		StartupScript string   `json:"startup_script"`
+		UserID        string   `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -228,7 +231,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command)
+	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command, req.StartupScript)
 	if err != nil {
 		log.Printf("ERROR handleCreateContainer: %v", err)
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -727,12 +730,19 @@ func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Requ
 	id := r.PathValue("id")
 
 	var req struct {
-		Cmd *string `json:"cmd,omitempty"`
+		Cmd           *string `json:"cmd,omitempty"`
+		StartupScript *string `json:"startup_script,omitempty"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
 	if req.Cmd != nil {
 		if err := s.dck.UpdateContainerCmd(id, *req.Cmd); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if req.StartupScript != nil {
+		if err := s.dck.UpdateContainerStartupScript(id, *req.StartupScript); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}

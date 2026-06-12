@@ -51,6 +51,7 @@ type Container struct {
 	PID             int                `json:"pid"`
 	Status          string             `json:"status"`
 	Cmd             []string           `json:"cmd"`
+	StartupScript   string             `json:"startup_script,omitempty"`
 	CreatedAt       string             `json:"created_at"`
 	Ports           []PortMap          `json:"ports,omitempty"`
 	Volumes         []VolumeMount      `json:"volumes,omitempty"`
@@ -153,6 +154,24 @@ func (c *Client) localGetContainer(id string) (*Container, error) {
 	return &ct, nil
 }
 
+func (c *Client) UpdateContainerStartupScript(id, script string) error {
+	statePath := filepath.Join(c.containersDir(), id+".json")
+	b, err := os.ReadFile(statePath)
+	if err != nil {
+		return fmt.Errorf("container %s not found", id)
+	}
+	var ct Container
+	if err := json.Unmarshal(b, &ct); err != nil {
+		return err
+	}
+	ct.StartupScript = script
+	b, err = json.MarshalIndent(ct, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, b, 0644)
+}
+
 func (c *Client) UpdateContainerCmd(id, cmd string) error {
 	statePath := filepath.Join(c.containersDir(), id+".json")
 	b, err := os.ReadFile(statePath)
@@ -178,7 +197,7 @@ func (c *Client) UpdateContainerCmd(id, cmd string) error {
 	return nil
 }
 
-func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd string) (string, error) {
+func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript string) (string, error) {
 	args := []string{"run", "-d"}
 	if name != "" {
 		args = append(args, "-n", name)
@@ -203,6 +222,9 @@ func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart,
 	}
 	for _, e := range strings.Fields(env) {
 		args = append(args, "-e", e)
+	}
+	if startupScript != "" {
+		args = append(args, "--startup", startupScript)
 	}
 	args = append(args, image)
 	if cmd != "" {

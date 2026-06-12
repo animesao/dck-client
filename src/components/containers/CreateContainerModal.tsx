@@ -53,6 +53,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
     image: '',
     name: '',
     command: '',
+    startup_script: '',
     ports: [],
     volumes: [],
     env: [],
@@ -161,7 +162,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
     setSearch('')
     setShowAdvanced(false)
     setForm({
-      image: '', name: '', command: '', ports: [], volumes: [],
+      image: '', name: '', command: '', startup_script: '', ports: [], volumes: [],
       env: [], restart: 'no', memory: '', cpus: '', network: 'bridge',
     })
     setPortStr('')
@@ -351,9 +352,24 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
 
           <div>
             <label className="block text-xs font-medium text-[#e6edf3] mb-1">Startup Command</label>
-            <div className="bg-[#0d1117] rounded-lg p-2.5">
-              <code className="text-xs text-[#e6edf3] font-mono">{config.command}</code>
-            </div>
+            <input
+              type="text"
+              value={form.command || ''}
+              onChange={e => setForm({ ...form, command: e.target.value })}
+              placeholder={config.command || 'Startup command...'}
+              className="w-full px-3 py-2 rounded-lg bg-[#0d1117] border border-white/[0.08] text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-indigo-500/50"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-[#e6edf3] mb-1">Startup Script <span className="text-[#636d7d] font-normal">(optional, overrides command)</span></label>
+            <textarea
+              value={form.startup_script || ''}
+              onChange={e => setForm({ ...form, startup_script: e.target.value })}
+              placeholder={'#!/bin/sh\necho "Hello World"\n# Your startup commands here'}
+              rows={4}
+              className="w-full px-3 py-2 rounded-lg bg-[#0d1117] border border-white/[0.08] text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-indigo-500/50 resize-y"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -462,12 +478,6 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
 
           {showAdvanced && (
             <div className="space-y-3 border border-white/[0.08] rounded-lg p-3 bg-white/[0.02]">
-              <Input
-                label="Custom Command (overrides default)"
-                value={form.command || ''}
-                onChange={e => setForm({ ...form, command: e.target.value })}
-                placeholder={config.command}
-              />
               <Input
                 label="Volumes"
                 value={form.volumes?.join(', ') || ''}

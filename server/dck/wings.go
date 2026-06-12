@@ -116,30 +116,39 @@ func (c *Client) wingsGetContainer(id string) (*Container, error) {
 		return nil, err
 	}
 	var state struct {
-		ID     string `json:"id"`
-		Image  string `json:"image"`
-		Status string `json:"status"`
-		Name   string `json:"name"`
+		ID            string `json:"id"`
+		ImageName     string `json:"image_name"`
+		ImageTag      string `json:"image_tag"`
+		Status        string `json:"status"`
+		Name          string `json:"name"`
+		Cmd           []string `json:"cmd"`
+		StartupScript string   `json:"startup_script"`
 	}
 	if err := json.Unmarshal(data, &state); err != nil {
 		return nil, err
 	}
-	imgParts := strings.SplitN(state.Image, ":", 2)
-	tag := "latest"
-	if len(imgParts) == 2 {
-		state.Image = imgParts[0]
-		tag = imgParts[1]
+	imgName := state.ImageName
+	imgTag := state.ImageTag
+	if imgName == "" {
+		imgParts := strings.SplitN(state.ID, ":", 2)
+		imgName = imgParts[0]
+		imgTag = "latest"
+		if len(imgParts) == 2 {
+			imgTag = imgParts[1]
+		}
 	}
 	return &Container{
-		ID:        state.ID,
-		Name:      state.Name,
-		ImageName: state.Image,
-		ImageTag:  tag,
-		Status:    state.Status,
+		ID:            state.ID,
+		Name:          state.Name,
+		ImageName:     imgName,
+		ImageTag:      imgTag,
+		Status:        state.Status,
+		Cmd:           state.Cmd,
+		StartupScript: state.StartupScript,
 	}, nil
 }
 
-func (c *Client) wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd string) (string, error) {
+func (c *Client) wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript string) (string, error) {
 	body := map[string]interface{}{
 		"image":   image,
 		"detach":  true,
@@ -170,6 +179,9 @@ func (c *Client) wingsCreateContainer(image, name, ports, volumes, env, restart,
 	}
 	if cmd != "" {
 		body["cmd"] = strings.Fields(cmd)
+	}
+	if startupScript != "" {
+		body["startup_script"] = startupScript
 	}
 
 	data, err := c.wingsRequest("POST", "/api/containers", body)
@@ -250,11 +262,11 @@ func (c *Client) GetContainer(id string) (*Container, error) {
 	return c.localGetContainer(id)
 }
 
-func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd string) (string, error) {
+func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript string) (string, error) {
 	if c.isWings() {
-		return c.wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd)
+		return c.wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript)
 	}
-	return c.localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd)
+	return c.localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript)
 }
 
 func (c *Client) StartContainer(id string) error {

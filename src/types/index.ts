@@ -21,6 +21,7 @@ export interface Container {
   cmd?: string
   entrypoint?: string
   restart?: string
+  startup_script?: string
 }
 
 export interface PortMap {
@@ -38,6 +39,7 @@ export interface CreateContainerRequest {
   image: string
   name: string
   command?: string
+  startup_script?: string
   ports?: string[]
   volumes?: string[]
   env?: string[]
