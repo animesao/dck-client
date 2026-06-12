@@ -172,9 +172,17 @@ export function AdminUsersPage() {
                 </div>
                 <div className="hidden md:block w-36 text-xs text-[#636d7d] truncate">{u.email || '—'}</div>
                 <div className="w-14 text-center">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${u.role === 'admin' ? 'text-amber-400 bg-amber-500/10' : 'text-blue-400 bg-blue-500/10'}`}>
-                    {u.role}
-                  </span>
+                  <select
+                    className="text-xs bg-white/[0.06] border border-white/[0.1] rounded px-1.5 py-1 text-[#e6edf3] outline-none cursor-pointer"
+                    value={u.role}
+                    onChange={async (e) => {
+                      try { await updateUser(u.id, { role: e.target.value }); addToast('Role updated', 'success'); fetchUsers() }
+                      catch (err: any) { addToast(err.message, 'error') }
+                    }}
+                  >
+                    <option value="user">user</option>
+                    <option value="admin">admin</option>
+                  </select>
                 </div>
                 <div className="hidden md:block w-20 text-center text-xs text-[#636d7d]">—</div>
                 <div className="hidden md:block w-20 text-center text-[10px] text-[#636d7d] font-mono">
