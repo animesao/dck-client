@@ -5,8 +5,8 @@ export async function login(username: string, password: string, twofaCode?: stri
   return api<AuthResponse>('POST', '/auth/login', { username, password, twofa_code: twofaCode, twofa_token: twofaToken })
 }
 
-export async function register(username: string, password: string): Promise<AuthResponse> {
-  return api<AuthResponse>('POST', '/auth/register', { username, password })
+export async function register(username: string, password: string, email: string): Promise<AuthResponse> {
+  return api<AuthResponse>('POST', '/auth/register', { username, password, email })
 }
 
 export async function getMe(): Promise<AuthResponse['user']> {

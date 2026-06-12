@@ -19,6 +19,7 @@ import (
 type User struct {
 	ID             string     `json:"id"`
 	Username       string     `json:"username"`
+	Email          string     `json:"email"`
 	Password       string     `json:"password"`
 	Role           string     `json:"role"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -122,6 +123,7 @@ func (s *Store) migrate() error {
 		`CREATE TABLE IF NOT EXISTS users (
 			id TEXT PRIMARY KEY,
 			username TEXT UNIQUE NOT NULL,
+			email TEXT NOT NULL DEFAULT '',
 			password TEXT NOT NULL,
 			role TEXT NOT NULL DEFAULT 'user',
 			created_at TEXT NOT NULL,
@@ -221,6 +223,9 @@ func (s *Store) migrate() error {
 	// Add node_id column to user_containers
 	s.db.Exec("ALTER TABLE user_containers ADD COLUMN node_id TEXT NOT NULL DEFAULT ''")
 
+	// Add email column to users
+	s.db.Exec("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
+
 	// Migrate old memory_limit from bytes to MB (one-time)
 	var migrated int
 	s.db.QueryRow("SELECT COUNT(*) FROM settings WHERE key='memory_limit_migrated'").Scan(&migrated)
@@ -264,7 +269,7 @@ func scanUser(scanner interface {
 }) (User, error) {
 	var u User
 	var createdAt, lastLogin string
-	err := scanner.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &createdAt, &lastLogin, &u.ContainerLimit, &u.MemoryLimit, &u.CPULimit, &u.DiskLimit, &u.PortLimit)
+	err := scanner.Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.Role, &createdAt, &lastLogin, &u.ContainerLimit, &u.MemoryLimit, &u.CPULimit, &u.DiskLimit, &u.PortLimit)
 	if err != nil {
 		return u, err
 	}
@@ -279,7 +284,7 @@ func scanUser(scanner interface {
 }
 
 func (s *Store) userColumns() string {
-	return "id, username, password, role, created_at, COALESCE(last_login, ''), COALESCE(container_limit, 0), COALESCE(memory_limit, 0), COALESCE(cpu_limit, 0), COALESCE(disk_limit, 0), COALESCE(port_limit, 0)"
+	return "id, username, email, password, role, created_at, COALESCE(last_login, ''), COALESCE(container_limit, 0), COALESCE(memory_limit, 0), COALESCE(cpu_limit, 0), COALESCE(disk_limit, 0), COALESCE(port_limit, 0)"
 }
 
 func (s *Store) ListUsers() []User {
@@ -380,7 +385,7 @@ func (s *Store) CheckPassword(username, password string) *User {
 	return u
 }
 
-func (s *Store) CreateUser(username, password, role string) (*User, error) {
+func (s *Store) CreateUser(username, password, role, email string) (*User, error) {
 	existing := s.GetUserByUsername(username)
 	if existing != nil {
 		return nil, fmt.Errorf("username already exists")
@@ -396,8 +401,8 @@ func (s *Store) CreateUser(username, password, role string) (*User, error) {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err = s.db.Exec(
-		"INSERT INTO users (id, username, password, role, created_at, container_limit, memory_limit, cpu_limit, disk_limit, port_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		id, username, string(hash), role, now,
+		"INSERT INTO users (id, username, email, password, role, created_at, container_limit, memory_limit, cpu_limit, disk_limit, port_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		id, username, email, string(hash), role, now,
 		settings.DefaultContainerLimit, settings.DefaultMemoryLimit, settings.DefaultCPULimit, settings.DefaultDiskLimit, settings.DefaultPortLimit,
 	)
 	if err != nil {
@@ -407,6 +412,7 @@ func (s *Store) CreateUser(username, password, role string) (*User, error) {
 	u := &User{
 		ID:             id,
 		Username:       username,
+		Email:          email,
 		Role:           role,
 		CreatedAt:      time.Now().UTC(),
 		ContainerLimit: settings.DefaultContainerLimit,

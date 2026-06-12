@@ -64,6 +64,7 @@ export function AdminUsersPage() {
                   )}
                 </p>
                 <p className="text-xs text-[#636d7d] font-mono">ID: {u.id.slice(0, 16)}</p>
+                {u.email && <p className="text-xs text-[#636d7d]">{u.email}</p>}
               </div>
               <div className="flex items-center gap-2">
                 <Select
@@ -103,13 +104,14 @@ function CreateUserModal({ open, onClose, onSuccess }: { open: boolean; onClose:
   const addToast = useUIStore(s => s.addToast)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('')
   const [role, setRole] = useState('user')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    try { await createUser(username, password, role); addToast('User created', 'success'); onSuccess(); onClose(); setUsername(''); setPassword(''); setRole('user') }
+    try { await createUser(username, password, role, email); addToast('User created', 'success'); onSuccess(); onClose(); setUsername(''); setPassword(''); setEmail(''); setRole('user') }
     catch (err: any) { addToast(err.message, 'error') }
     finally { setLoading(false) }
   }
@@ -118,6 +120,7 @@ function CreateUserModal({ open, onClose, onSuccess }: { open: boolean; onClose:
     <Modal open={open} onClose={onClose} title="Create User">
       <form onSubmit={handleSubmit} className="space-y-4">
         <Input label="Username" value={username} onChange={e => setUsername(e.target.value)} required />
+        <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
         <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
         <Select label="Role" value={role} onChange={e => setRole(e.target.value)} options={[{ value: 'user', label: 'User' }, { value: 'admin', label: 'Admin' }]} />
         <div className="flex justify-end gap-3 pt-2">

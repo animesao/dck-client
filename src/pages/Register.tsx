@@ -14,6 +14,7 @@ export function RegisterPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [registrationOpen, setRegistrationOpen] = useState(true)
@@ -44,7 +45,7 @@ export function RegisterPage() {
     if (password.length < 6) { setError('Password must be at least 6 characters'); return }
     setLoading(true)
     try {
-      const res = await register(username, password)
+      const res = await register(username, password, email)
       setAuth(res.token, res.user)
       addToast('Account created successfully!', 'success')
       navigate('/dashboard')
@@ -70,6 +71,7 @@ export function RegisterPage() {
       )}
 
       <Input label="Username" type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Choose a username" required autoFocus />
+      <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" required />
       <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Choose a password" required />
       <Input label="Confirm Password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Repeat password" required />
 

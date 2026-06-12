@@ -70,7 +70,7 @@ func main() {
 	if *autoSetup {
 		users := store.ListUsers()
 		if len(users) == 0 {
-			store.CreateUser("admin", "admin", "admin")
+			store.CreateUser("admin", "admin", "admin", "")
 			log.Println("Created default admin user (admin/admin)")
 		}
 	}

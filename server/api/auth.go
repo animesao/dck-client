@@ -93,6 +93,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ *UserC
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -110,7 +111,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ *UserC
 		role = "admin"
 	}
 
-	user, err := s.store.CreateUser(req.Username, req.Password, role)
+	user, err := s.store.CreateUser(req.Username, req.Password, role, req.Email)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
