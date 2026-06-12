@@ -70,8 +70,17 @@ func main() {
 	if *autoSetup {
 		users := store.ListUsers()
 		if len(users) == 0 {
-			store.CreateUser("admin", "admin", "admin", "")
-			log.Println("Created default admin user (admin/admin)")
+			adminUser := os.Getenv("ADMIN_USERNAME")
+			adminPass := os.Getenv("ADMIN_PASSWORD")
+			adminEmail := os.Getenv("ADMIN_EMAIL")
+			if adminUser == "" {
+				adminUser = "admin"
+			}
+			if adminPass == "" {
+				adminPass = "admin"
+			}
+			store.CreateUser(adminUser, adminPass, "admin", adminEmail)
+			log.Printf("Created default admin user (%s/%s)", adminUser, adminPass)
 		}
 	}
 

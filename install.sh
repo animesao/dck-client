@@ -185,6 +185,43 @@ if [[ -z "$TLS_CERT" ]]; then
   TLS_KEY="$CERT_DIR/key.pem"
 fi
 
+# ---- Admin credentials ----
+ADMIN_USER=""
+ADMIN_PASS=""
+ADMIN_EMAIL=""
+if [[ ! -f "$PANEL_DIR/.env" ]]; then
+  echo ""
+  echo -e "${YELLOW}┌─────────────────────────────────────────────┐${NC}"
+  echo -e "${YELLOW}│         Admin Account Setup                   │${NC}"
+  echo -e "${YELLOW}└─────────────────────────────────────────────┘${NC}"
+  echo -e "Create your admin account for the panel."
+  echo ""
+  while [[ -z "$ADMIN_USER" ]]; do
+    read -p "Admin username: " -r ADMIN_USER </dev/tty || true
+  done
+  while [[ -z "$ADMIN_PASS" ]]; do
+    read -s -p "Admin password: " -r ADMIN_PASS </dev/tty || true
+    echo ""
+    if [[ ${#ADMIN_PASS} -lt 4 ]]; then
+      echo -e "${RED}Password must be at least 4 characters${NC}"
+      ADMIN_PASS=""
+    fi
+  done
+  read -p "Admin email (optional): " -r ADMIN_EMAIL </dev/tty || true
+  echo ""
+  cat > "$PANEL_DIR/.env" << ENV
+ADMIN_USERNAME=$ADMIN_USER
+ADMIN_PASSWORD=$ADMIN_PASS
+ADMIN_EMAIL=$ADMIN_EMAIL
+ENV
+  chmod 600 "$PANEL_DIR/.env"
+  log "Admin credentials saved"
+else
+  source "$PANEL_DIR/.env"
+  ADMIN_USER="${ADMIN_USERNAME:-admin}"
+  log "Using existing admin credentials from .env"
+fi
+
 # ---- Systemd service ----
 log "Creating systemd service..."
 cat > /etc/systemd/system/dck-panel.service << SERVICE
@@ -198,6 +235,7 @@ ExecStart=/usr/local/bin/dck-panel --port ${PANEL_PORT} --sftp-port 2222 --tls-c
 Restart=always
 RestartSec=5
 Environment=DCK_HOME=/root/.dck
+EnvironmentFile=${PANEL_DIR}/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -221,10 +259,9 @@ log "╔════════════════════════
 log "║       dck Panel installed successfully!     ║"
 log "╠══════════════════════════════════════════════╣"
 log "║  Panel:  https://${ACCESS}:${PANEL_PORT}           "
-log "║  Login:  admin / admin                      ║"
+log "║  Login:  ${ADMIN_USER} / (your password)         "
 log "║                                              ║"
 log "║  Manage: sudo systemctl status dck-panel     ║"
 log "║  Logs:   sudo journalctl -u dck-panel -f     ║"
 log "╚══════════════════════════════════════════════╝"
 log ""
-warn "CHANGE THE DEFAULT PASSWORD IMMEDIATELY!"
