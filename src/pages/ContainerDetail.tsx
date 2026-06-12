@@ -45,6 +45,7 @@ export function ContainerDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [startupCmd, setStartupCmd] = useState('')
   const [startupScript, setStartupScript] = useState('')
+  const [restartPolicy, setRestartPolicy] = useState('')
   const [savingStartup, setSavingStartup] = useState(false)
   const [showAddPort, setShowAddPort] = useState(false)
   const [newPortContainer, setNewPortContainer] = useState('')
@@ -63,6 +64,7 @@ export function ContainerDetailPage() {
       setStats(s)
       setStartupCmd(c.cmd || '')
       setStartupScript(c.startup_script || '')
+      setRestartPolicy(c.restart || 'no')
     } catch {
       addToast('Container not found', 'error')
       navigate('/containers')
@@ -150,7 +152,7 @@ export function ContainerDetailPage() {
     if (!id) return
     setSavingStartup(true)
     try {
-      await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript })
+      await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript, restart: restartPolicy })
       addToast('Startup command saved', 'success')
     } catch (err: any) {
       addToast(err.message || 'Failed to save startup command', 'error')
@@ -362,9 +364,24 @@ export function ContainerDetailPage() {
 
               <div>
                 <p className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold mb-2">Restart Policy</p>
-                <pre className="px-3 py-2 rounded-lg bg-white/[0.03] text-xs font-mono text-[#8b949e] border border-white/[0.06]">
-                  {container.restart || 'none'}
-                </pre>
+                <div className="flex gap-2">
+                  <select
+                    value={restartPolicy}
+                    onChange={e => setRestartPolicy(e.target.value)}
+                    className="flex-1 px-2 py-1.5 rounded-lg bg-[#1c1f26] border border-white/[0.08] text-xs text-[#e6edf3] focus:outline-none focus:border-indigo-500/50"
+                  >
+                    <option value="no">No</option>
+                    <option value="always">Always</option>
+                    <option value="on-failure">On Failure</option>
+                    <option value="unless-stopped">Unless Stopped</option>
+                  </select>
+                  <Button onClick={handleSaveStartup} loading={savingStartup} size="sm">
+                    <Save size={12} /> Save
+                  </Button>
+                </div>
+                <p className="text-[10px] text-[#636d7d] mt-1">
+                  Changes will take effect on next container start
+                </p>
               </div>
             </div>
           </Card>
