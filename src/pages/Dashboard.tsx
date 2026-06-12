@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { PageLoading } from '@/components/ui/Spinner'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
 import type { DashboardStats } from '@/types'
+import { formatBytes } from '@/utils'
 import {
   HardDrive, Container, ExternalLink,
   Globe, Shield, Infinity, Cpu, Database,
@@ -79,31 +80,29 @@ export function DashboardPage() {
               },
               {
                 label: 'Disk',
-                used: 0,
+                used: stats.user_limits.disk_used,
                 limit: stats.user_limits.disk_limit,
                 icon: Database,
                 color: 'purple',
                 gradient: 'from-purple-500/20 to-purple-600/10',
                 border: 'border-purple-500/10',
                 suffix: 'B',
-                usedLabel: '—',
               },
               {
                 label: 'Ports',
-                used: 0,
+                used: stats.user_limits.port_count,
                 limit: stats.user_limits.port_limit,
                 icon: Globe,
                 color: 'blue',
                 gradient: 'from-blue-500/20 to-blue-600/10',
                 border: 'border-blue-500/10',
-                usedLabel: '—',
               },
             ].map(item => {
               const Icon = item.icon
               const isUnlimited = item.limit === -1 || item.limit === 0
               const overLimit = item.limit > 0 && item.used > item.limit
               const pct = item.limit > 0 ? Math.min((item.used / item.limit) * 100, 100) : 0
-              const usedDisplay = item.usedLabel ?? (item.used + (item.suffix || ''))
+              const usedDisplay = item.label === 'Disk' ? formatBytes(item.used) : (item.used + (item.suffix || ''))
               return (
                 <Card key={item.label} className="card-gradient">
                   <div className="p-5">
@@ -113,7 +112,7 @@ export function DashboardPage() {
                       </div>
                       <div>
                         <p className={`text-xl font-bold ${overLimit ? 'text-red-400' : `text-${item.color}-400`}`}>
-                          {item.label === 'CPU' ? item.used.toFixed(1) : item.used}{item.suffix || ''}
+                          {item.label === 'CPU' ? item.used.toFixed(1) : usedDisplay}
                         </p>
                         <p className="text-xs text-[#636d7d] font-medium">{item.label}</p>
                       </div>
@@ -121,7 +120,7 @@ export function DashboardPage() {
                     <div className="flex items-center justify-between text-xs mb-2">
                       <span className="text-[#636d7d]">Limit</span>
                       <span className="text-[#8b949e] font-mono">
-                        {isUnlimited ? <Infinity size={12} className="inline" /> : item.limit + (item.suffix || '')}
+                        {isUnlimited ? <Infinity size={12} className="inline" /> : (item.label === 'Disk' ? formatBytes(item.limit) : item.limit + (item.suffix || ''))}
                       </span>
                     </div>
                     {item.limit > 0 && (

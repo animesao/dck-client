@@ -98,7 +98,9 @@ export interface UserLimits {
   memory_limit: number
   cpu_used: number
   cpu_limit: number
+  disk_used: number
   disk_limit: number
+  port_count: number
   port_limit: number
 }
 

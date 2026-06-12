@@ -82,10 +82,18 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 		}
 		var totalMemMB int64
 		var totalCPU float64
+		var totalDisk int64
+		var totalPorts int
 		for _, c := range containers {
-			if ownedMap[c.ID] && c.Status == "running" {
-				totalMemMB += c.MemoryLimit / 1024 / 1024
-				totalCPU += c.CPUCount
+			if ownedMap[c.ID] {
+				if c.Status == "running" {
+					totalMemMB += c.MemoryLimit / 1024 / 1024
+					totalCPU += c.CPUCount
+				}
+				if c.DiskLimit > 0 {
+					totalDisk += c.DiskLimit
+				}
+				totalPorts += len(c.Ports)
 			}
 		}
 		userLimits = map[string]interface{}{
@@ -95,7 +103,9 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 			"memory_limit":    user.MemoryLimit,
 			"cpu_used":        totalCPU,
 			"cpu_limit":       user.CPULimit,
+			"disk_used":       totalDisk,
 			"disk_limit":      user.DiskLimit,
+			"port_count":      totalPorts,
 			"port_limit":      user.PortLimit,
 		}
 	}
