@@ -28,6 +28,7 @@ import { BackupsPage } from '@/pages/Backups'
 import { AdminDashboardPage } from '@/pages/admin/AdminDashboard'
 import { AdminContainersPage } from '@/pages/admin/AdminContainers'
 import { AdminUsersPage } from '@/pages/admin/AdminUsers'
+import { AdminRolesPage } from '@/pages/admin/AdminRoles'
 import { AdminActivityPage } from '@/pages/admin/AdminActivity'
 import { AdminSettingsPage } from '@/pages/admin/AdminSettings'
 
@@ -111,6 +112,7 @@ export default function App() {
           <Route path="/admin" element={<AdminRoute><AdminDashboardPage /></AdminRoute>} />
           <Route path="/admin/containers" element={<AdminRoute><AdminContainersPage /></AdminRoute>} />
           <Route path="/admin/users" element={<AdminRoute><AdminUsersPage /></AdminRoute>} />
+          <Route path="/admin/roles" element={<AdminRoute><AdminRolesPage /></AdminRoute>} />
           <Route path="/admin/activity" element={<AdminRoute><AdminActivityPage /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettingsPage /></AdminRoute>} />
 

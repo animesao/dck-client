@@ -15,7 +15,7 @@ func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request, cla
 		return
 	}
 
-	if !settings.AllowEmailChange && claims.Role != "admin" {
+	if !settings.AllowEmailChange && !s.isAdminRole(claims.Role) {
 		writeError(w, http.StatusForbidden, "Email change is disabled by administrator")
 		return
 	}

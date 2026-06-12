@@ -35,6 +35,7 @@ const adminNavItems = [
   { to: '/admin', icon: Shield, label: 'Dashboard', exact: true },
   { to: '/admin/containers', icon: Server, label: 'Containers' },
   { to: '/admin/users', icon: Users, label: 'Users' },
+  { to: '/admin/roles', icon: Shield, label: 'Roles' },
   { to: '/admin/activity', icon: List, label: 'Activity' },
   { to: '/admin/settings', icon: Sliders, label: 'Settings' },
 ]
@@ -161,7 +162,10 @@ export function MainLayout() {
               </div>
               <div className={`flex-1 min-w-0 transition-all duration-200 ${!sidebarOpen && 'lg:w-0 lg:overflow-hidden lg:opacity-0'}`}>
                 <p className="text-sm font-medium text-[#e6edf3] truncate">{user?.username}</p>
-                <p className="text-[11px] text-[#636d7d]">{user?.role === 'admin' ? 'Administrator' : 'User'}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: user?.role_color || '#636d7d' }} />
+                  <p className="text-[11px] text-[#636d7d]" style={{ color: user?.role_color || '#636d7d' }}>{user?.role || 'User'}</p>
+                </div>
               </div>
               <LogOut
                 size={15}

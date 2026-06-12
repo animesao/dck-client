@@ -58,7 +58,7 @@ func (s *Server) auth(next authHandler) http.HandlerFunc {
 
 func (s *Server) admin(next authHandler) authHandler {
 	return func(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-		if claims.Role != "admin" {
+		if !s.isAdminRole(claims.Role) {
 			writeError(w, http.StatusForbidden, "Forbidden")
 			return
 		}
@@ -72,11 +72,18 @@ func noAuth(h authHandler) http.HandlerFunc {
 	}
 }
 
-// requireContainerAccess checks if the user owns the container or has any permission
+func (s *Server) isAdminRole(roleName string) bool {
+	if roleName == "admin" {
+		return true
+	}
+	role := s.store.GetRoleByName(roleName)
+	return role != nil && role.IsAdmin
+}
+
 func (s *Server) requireContainerAccess(next authHandler) authHandler {
 	return func(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 		id := r.PathValue("id")
-		if claims.Role == "admin" {
+		if s.isAdminRole(claims.Role) {
 			next(w, r, claims)
 			return
 		}
@@ -99,7 +106,7 @@ func (s *Server) requirePerm(action string) func(authHandler) authHandler {
 	return func(next authHandler) authHandler {
 		return func(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 			id := r.PathValue("id")
-			if claims.Role == "admin" {
+			if s.isAdminRole(claims.Role) {
 				next(w, r, claims)
 				return
 			}

@@ -42,7 +42,7 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 	containers, _ := s.dck.ListContainers(true)
 
 	// Filter by user access (admins see all)
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		accessible := s.store.GetUserContainerIDs(claims.Sub)
 		accessMap := make(map[string]bool, len(accessible))
 		for _, id := range accessible {

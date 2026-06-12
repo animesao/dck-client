@@ -105,7 +105,7 @@ func (s *Server) handleContainerActions(w http.ResponseWriter, r *http.Request, 
 	allActions := allContainerActions()
 
 	// Admins and owners get everything
-	if claims.Role == "admin" || s.store.IsContainerOwner(claims.Sub, containerID) {
+	if s.isAdminRole(claims.Role) || s.store.IsContainerOwner(claims.Sub, containerID) {
 		result := make(map[string]bool)
 		for _, a := range allActions {
 			result[a] = true

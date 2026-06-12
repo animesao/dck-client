@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listUsers, createUser, updateUser, deleteUser, updateUserLimits } from '@/api/admin'
+import { listUsers, createUser, updateUser, deleteUser, updateUserLimits, listRoles } from '@/api/admin'
 import { useUIStore } from '@/store/uiStore'
 import { useAuth } from '@/hooks/useAuth'
 import { Card, CardContent } from '@/components/ui/Card'
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { PageLoading } from '@/components/ui/Spinner'
-import type { User } from '@/types'
+import type { User, Role } from '@/types'
 import { Plus, Trash2, Shield, Search, ChevronLeft, ChevronRight, Settings2, Key, Mail, Clock } from 'lucide-react'
 
 const PAGE_SIZE = 10
@@ -17,6 +17,7 @@ export function AdminUsersPage() {
   const { isAdmin, user: currentUser } = useAuth()
   const addToast = useUIStore(s => s.addToast)
   const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -33,8 +34,9 @@ export function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const data = await listUsers()
+      const [data, r] = await Promise.all([listUsers(), listRoles()])
       setUsers(data)
+      setRoles(r)
     } catch { addToast('Failed to load users', 'error') }
     finally { setLoading(false) }
   }
@@ -172,17 +174,21 @@ export function AdminUsersPage() {
                 </div>
                 <div className="hidden md:block w-36 text-xs text-[#636d7d] truncate">{u.email || '—'}</div>
                 <div className="w-14 text-center">
-                  <select
-                    className="text-xs bg-white/[0.06] border border-white/[0.1] rounded px-1.5 py-1 text-[#e6edf3] outline-none cursor-pointer"
-                    value={u.role}
-                    onChange={async (e) => {
-                      try { await updateUser(u.id, { role: e.target.value }); addToast('Role updated', 'success'); fetchUsers() }
-                      catch (err: any) { addToast(err.message, 'error') }
-                    }}
-                  >
-                    <option value="user">user</option>
-                    <option value="admin">admin</option>
-                  </select>
+                  <div className="relative inline-block">
+                    <select
+                      className="text-xs bg-white/[0.06] border border-white/[0.1] rounded pl-1.5 pr-5 py-1 text-[#e6edf3] outline-none cursor-pointer appearance-none"
+                      style={{ borderLeftColor: roles.find(r => r.name === u.role)?.color || '#636d7d', borderLeftWidth: 3 }}
+                      value={u.role}
+                      onChange={async (e) => {
+                        try { await updateUser(u.id, { role: e.target.value }); addToast('Role updated', 'success'); fetchUsers() }
+                        catch (err: any) { addToast(err.message, 'error') }
+                      }}
+                    >
+                      {roles.map(r => (
+                        <option key={r.name} value={r.name}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="hidden md:block w-20 text-center text-xs text-[#636d7d]">—</div>
                 <div className="hidden md:block w-20 text-center text-[10px] text-[#636d7d] font-mono">
@@ -299,11 +305,14 @@ export function AdminUsersPage() {
 
 function CreateUserModal({ open, onClose, onSuccess }: { open: boolean; onClose: () => void; onSuccess: () => void }) {
   const addToast = useUIStore(s => s.addToast)
+  const [roles, setRoles] = useState<Role[]>([])
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('user')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => { if (open) listRoles().then(setRoles).catch(() => {}) }, [open])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -319,7 +328,19 @@ function CreateUserModal({ open, onClose, onSuccess }: { open: boolean; onClose:
         <Input label="Username" value={username} onChange={e => setUsername(e.target.value)} required />
         <Input label="Email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
         <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-        <Select label="Role" value={role} onChange={e => setRole(e.target.value)} options={[{ value: 'user', label: 'User' }, { value: 'admin', label: 'Admin' }]} />
+        <div>
+          <label className="block text-xs text-[#636d7d] mb-1.5 font-medium">Role</label>
+          <select
+            className="w-full bg-white/[0.06] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-[#e6edf3] outline-none cursor-pointer"
+            style={{ borderLeftColor: roles.find(r => r.name === role)?.color || '#636d7d', borderLeftWidth: 3 }}
+            value={role}
+            onChange={e => setRole(e.target.value)}
+          >
+            {roles.map(r => (
+              <option key={r.name} value={r.name}>{r.name}</option>
+            ))}
+          </select>
+        </div>
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
           <Button type="submit" loading={loading}>Create User</Button>

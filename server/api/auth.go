@@ -61,6 +61,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 	s.store.UpdateLastLogin(user.ID)
 	s.store.AddActivityLog(user.ID, "", "login", user.Username+" logged in")
 
+	roleColor := "#636d7d"
+	if role := s.store.GetRoleByName(user.Role); role != nil {
+		roleColor = role.Color
+	}
+
 	token, err := s.generateToken(user.ID, user.Username, user.Role)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "Failed to generate token")
@@ -69,7 +74,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request, _ *UserClai
 
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"token": token,
-		"user":  user,
+		"user": map[string]interface{}{
+			"id":         user.ID,
+			"username":   user.Username,
+			"email":      user.Email,
+			"role":       user.Role,
+			"role_color": roleColor,
+			"created_at": user.CreatedAt,
+		},
 	})
 }
 
@@ -125,9 +137,21 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request, _ *UserC
 		return
 	}
 
+	roleColor := "#636d7d"
+	if role := s.store.GetRoleByName(user.Role); role != nil {
+		roleColor = role.Color
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"token": token,
-		"user":  user,
+		"user": map[string]interface{}{
+			"id":         user.ID,
+			"username":   user.Username,
+			"email":      user.Email,
+			"role":       user.Role,
+			"role_color": roleColor,
+			"created_at": user.CreatedAt,
+		},
 	})
 }
 
@@ -137,7 +161,18 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request, claims *UserCl
 		writeError(w, http.StatusNotFound, "User not found")
 		return
 	}
-	writeJSON(w, http.StatusOK, user)
+	roleColor := "#636d7d"
+	if role := s.store.GetRoleByName(user.Role); role != nil {
+		roleColor = role.Color
+	}
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"id":         user.ID,
+		"username":   user.Username,
+		"email":      user.Email,
+		"role":       user.Role,
+		"role_color": roleColor,
+		"created_at": user.CreatedAt,
+	})
 }
 
 func (s *Server) generateToken(userID, username, role string) (string, error) {

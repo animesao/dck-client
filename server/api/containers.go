@@ -149,7 +149,7 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, cl
 	}
 
 	// Filter by user access (admins see all)
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		accessible := s.store.GetUserContainerIDs(claims.Sub)
 		accessMap := make(map[string]bool, len(accessible))
 		for _, id := range accessible {
@@ -165,7 +165,7 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, cl
 	}
 
 	resp := s.containersToResp(containers)
-	if claims.Role == "admin" {
+	if s.isAdminRole(claims.Role) {
 		for i := range resp {
 			s.enrichContainerOwner(&resp[i])
 		}
@@ -196,7 +196,7 @@ func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, clai
 		return
 	}
 	resp := containerToResp(c)
-	if claims.Role == "admin" {
+	if s.isAdminRole(claims.Role) {
 		s.enrichContainerOwner(&resp)
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -232,19 +232,19 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 	settings := s.store.GetSettings()
 
 	// Permission check: only admins can create containers if disabled for users
-	if claims.Role != "admin" && !settings.AllowUserContainers {
+	if !s.isAdminRole(claims.Role) && !settings.AllowUserContainers {
 		writeError(w, http.StatusForbidden, "Container creation is restricted to admins")
 		return
 	}
 
 	// Permission check: only admins can expose ports if disabled for users
-	if claims.Role != "admin" && !settings.AllowUserPorts && len(req.Ports) > 0 {
+	if !s.isAdminRole(claims.Role) && !settings.AllowUserPorts && len(req.Ports) > 0 {
 		writeError(w, http.StatusForbidden, "Port mapping is restricted to admins")
 		return
 	}
 
 	// Resource limit checks for non-admin users
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		if user := s.store.GetUser(claims.Sub); user != nil {
 			if user.ContainerLimit >= 0 {
 				count, _, _ := s.store.GetUserResourceUsage(claims.Sub)
@@ -281,7 +281,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 	}
 
 	// Auto-assign 1 port if none specified and user has port limit
-	if len(req.Ports) == 0 && claims.Role != "admin" {
+	if len(req.Ports) == 0 && !s.isAdminRole(claims.Role) {
 		if user := s.store.GetUser(claims.Sub); user != nil && user.PortLimit > 0 {
 			req.Ports = []string{""} // signal allocatePorts to pick one
 		}
@@ -289,7 +289,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 
 	// Determine target node
 	var targetNode *db.Node
-	if claims.Role == "admin" && req.NodeID != "" {
+	if s.isAdminRole(claims.Role) && req.NodeID != "" {
 		targetNode = s.getNode(req.NodeID)
 		if targetNode == nil {
 			writeError(w, http.StatusBadRequest, "Node not found")
@@ -322,7 +322,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		}
 
 		ownerID := claims.Sub
-		if claims.Role == "admin" && req.UserID != "" {
+		if s.isAdminRole(claims.Role) && req.UserID != "" {
 			ownerID = req.UserID
 		}
 		s.store.RecordContainer(ownerID, id, req.Name, req.Image, targetNode.ID)
@@ -350,7 +350,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		}
 
 		ownerID := claims.Sub
-		if claims.Role == "admin" && req.UserID != "" {
+		if s.isAdminRole(claims.Role) && req.UserID != "" {
 			ownerID = req.UserID
 		}
 		s.store.RecordContainer(ownerID, id, req.Name, req.Image, "")

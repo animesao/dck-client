@@ -59,6 +59,12 @@ type Node struct {
 	CreatedAt string `json:"created_at"`
 }
 
+type Role struct {
+	Name    string `json:"name"`
+	Color   string `json:"color"`
+	IsAdmin bool   `json:"is_admin"`
+}
+
 type Store struct {
 	db *sql.DB
 }
@@ -205,6 +211,11 @@ func (s *Store) migrate() error {
 			user_id TEXT,
 			FOREIGN KEY (user_id) REFERENCES users(id)
 		)`,
+		`CREATE TABLE IF NOT EXISTS roles (
+			name TEXT PRIMARY KEY,
+			color TEXT NOT NULL DEFAULT '#6366f1',
+			is_admin INTEGER NOT NULL DEFAULT 0
+		)`,
 	}
 	for _, q := range queries {
 		if _, err := s.db.Exec(q); err != nil {
@@ -262,6 +273,11 @@ func (s *Store) migrate() error {
 		s.db.Exec("UPDATE users SET port_limit = 0 WHERE port_limit = 1")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('port_limit_reset', '1')")
 	}
+
+	// Default roles
+	s.db.Exec("INSERT OR IGNORE INTO roles (name, color, is_admin) VALUES ('admin', '#6366f1', 1)")
+	s.db.Exec("INSERT OR IGNORE INTO roles (name, color, is_admin) VALUES ('user', '#3b82f6', 0)")
+
 	return nil
 }
 
@@ -370,6 +386,51 @@ func (s *Store) ListNodes() ([]Node, error) {
 
 func (s *Store) RemoveNode(id string) error {
 	_, err := s.db.Exec("DELETE FROM nodes WHERE id = ?", id)
+	return err
+}
+
+// ─── Roles ───────────────────────────────────────────────────────
+
+func (s *Store) ListRoles() []Role {
+	rows, err := s.db.Query("SELECT name, color, is_admin FROM roles ORDER BY is_admin DESC, name ASC")
+	if err != nil {
+		return []Role{}
+	}
+	defer rows.Close()
+	out := make([]Role, 0)
+	for rows.Next() {
+		var r Role
+		var isAdmin int
+		if err := rows.Scan(&r.Name, &r.Color, &isAdmin); err == nil {
+			r.IsAdmin = isAdmin == 1
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+func (s *Store) GetRoleByName(name string) *Role {
+	row := s.db.QueryRow("SELECT name, color, is_admin FROM roles WHERE name = ?", name)
+	var r Role
+	var isAdmin int
+	if err := row.Scan(&r.Name, &r.Color, &isAdmin); err != nil {
+		return nil
+	}
+	r.IsAdmin = isAdmin == 1
+	return &r
+}
+
+func (s *Store) CreateRole(name, color string, isAdmin bool) error {
+	isAdminInt := 0
+	if isAdmin {
+		isAdminInt = 1
+	}
+	_, err := s.db.Exec("INSERT INTO roles (name, color, is_admin) VALUES (?, ?, ?)", name, color, isAdminInt)
+	return err
+}
+
+func (s *Store) DeleteRole(name string) error {
+	_, err := s.db.Exec("DELETE FROM roles WHERE name NOT IN ('admin', 'user') AND name = ?", name)
 	return err
 }
 

@@ -22,7 +22,7 @@ func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request, cla
 }
 
 func (s *Server) handleDeployProject(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserProjects {
 			writeError(w, http.StatusForbidden, "Project deployment is disabled")

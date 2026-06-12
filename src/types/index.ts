@@ -3,6 +3,7 @@ export interface User {
   username: string
   email: string
   role: string
+  role_color?: string
   created_at: string
   last_login?: string
   container_limit: number
@@ -10,6 +11,12 @@ export interface User {
   cpu_limit: number
   disk_limit: number
   port_limit: number
+}
+
+export interface Role {
+  name: string
+  color: string
+  is_admin: boolean
 }
 
 export interface Container {

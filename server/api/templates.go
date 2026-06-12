@@ -35,7 +35,7 @@ func (s *Server) handleListTemplates(w http.ResponseWriter, r *http.Request, cla
 }
 
 func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserTemplates {
 			writeError(w, http.StatusForbidden, "Template management is disabled")
@@ -79,7 +79,7 @@ func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request, cl
 }
 
 func (s *Server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserTemplates {
 			writeError(w, http.StatusForbidden, "Template management is disabled")
@@ -95,7 +95,7 @@ func (s *Server) handleDeleteTemplate(w http.ResponseWriter, r *http.Request, cl
 }
 
 func (s *Server) handleImportTemplate(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserTemplates {
 			writeError(w, http.StatusForbidden, "Template management is disabled")
@@ -197,7 +197,7 @@ func (s *Server) handleExportContainerTemplate(w http.ResponseWriter, r *http.Re
 }
 
 func (s *Server) handleAddCategory(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserTemplates {
 			writeError(w, http.StatusForbidden, "Template management is disabled")
@@ -223,7 +223,7 @@ func (s *Server) handleAddCategory(w http.ResponseWriter, r *http.Request, claim
 }
 
 func (s *Server) handleDeleteCategory(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserTemplates {
 			writeError(w, http.StatusForbidden, "Template management is disabled")

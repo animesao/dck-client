@@ -104,6 +104,12 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/admin/settings", s.auth(s.admin(s.handleAdminGetSettings)))
 	mux.HandleFunc("PUT /api/admin/settings", s.auth(s.admin(s.handleAdminUpdateSettings)))
 
+	// Roles
+	mux.HandleFunc("GET /api/admin/roles", s.auth(s.admin(s.handleAdminListRoles)))
+	mux.HandleFunc("POST /api/admin/roles", s.auth(s.admin(s.handleAdminCreateRole)))
+	mux.HandleFunc("DELETE /api/admin/roles/{name}", s.auth(s.admin(s.handleAdminDeleteRole)))
+	mux.HandleFunc("GET /api/admin/user-roles", s.auth(s.admin(s.handleAdminGetUserRoles)))
+
 	mux.HandleFunc("GET /api/settings", s.auth(s.handleGetSettings))
 	mux.HandleFunc("PUT /api/settings", s.auth(s.admin(s.handleUpdateSettings)))
 

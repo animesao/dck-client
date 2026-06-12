@@ -98,6 +98,75 @@ func (s *Server) handleAdminDeleteUser(w http.ResponseWriter, r *http.Request, c
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ─── Roles ───────────────────────────────────────────────────────
+
+func (s *Server) handleAdminListRoles(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	roles := s.store.ListRoles()
+	writeJSON(w, http.StatusOK, roles)
+}
+
+func (s *Server) handleAdminCreateRole(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	var req struct {
+		Name    string `json:"name"`
+		Color   string `json:"color"`
+		IsAdmin bool   `json:"is_admin"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.Name == "" {
+		writeError(w, http.StatusBadRequest, "Role name required")
+		return
+	}
+	if s.store.GetRoleByName(req.Name) != nil {
+		writeError(w, http.StatusConflict, "Role already exists")
+		return
+	}
+	if err := s.store.CreateRole(req.Name, req.Color, req.IsAdmin); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to create role")
+		return
+	}
+	writeJSON(w, http.StatusCreated, s.store.GetRoleByName(req.Name))
+}
+
+func (s *Server) handleAdminDeleteRole(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	name := r.PathValue("name")
+	if name == "admin" || name == "user" {
+		writeError(w, http.StatusBadRequest, "Cannot delete default roles")
+		return
+	}
+	if err := s.store.DeleteRole(name); err != nil {
+		writeError(w, http.StatusInternalServerError, "Failed to delete role")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) handleAdminGetUserRoles(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	users := s.store.ListUsers()
+	type userWithRole struct {
+		ID        string `json:"id"`
+		Username  string `json:"username"`
+		Role      string `json:"role"`
+		RoleColor string `json:"role_color"`
+	}
+	out := make([]userWithRole, 0)
+	for _, u := range users {
+		color := "#636d7d"
+		if role := s.store.GetRoleByName(u.Role); role != nil {
+			color = role.Color
+		}
+		out = append(out, userWithRole{
+			ID:        u.ID,
+			Username:  u.Username,
+			Role:      u.Role,
+			RoleColor: color,
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (s *Server) handleAdminGetSettings(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	settings := s.store.GetSettings()
 	writeJSON(w, http.StatusOK, settings)

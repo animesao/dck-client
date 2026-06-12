@@ -61,7 +61,7 @@ func (s *Server) scanImageFiles() []string {
 }
 
 func (s *Server) handlePullImage(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserImages {
 			writeError(w, http.StatusForbidden, "Image management is disabled")
@@ -83,7 +83,7 @@ func (s *Server) handlePullImage(w http.ResponseWriter, r *http.Request, claims 
 }
 
 func (s *Server) handleRemoveImage(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
-	if claims.Role != "admin" {
+	if !s.isAdminRole(claims.Role) {
 		settings := s.store.GetSettings()
 		if !settings.AllowUserImages {
 			writeError(w, http.StatusForbidden, "Image management is disabled")
