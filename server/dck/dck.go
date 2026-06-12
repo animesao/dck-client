@@ -172,6 +172,24 @@ func (c *Client) UpdateContainerStartupScript(id, script string) error {
 	return os.WriteFile(statePath, b, 0644)
 }
 
+func (c *Client) UpdateContainerRestart(id, restart string) error {
+	statePath := filepath.Join(c.containersDir(), id+".json")
+	b, err := os.ReadFile(statePath)
+	if err != nil {
+		return fmt.Errorf("container %s not found", id)
+	}
+	var ct Container
+	if err := json.Unmarshal(b, &ct); err != nil {
+		return err
+	}
+	ct.Restart = restart
+	b, err = json.MarshalIndent(ct, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, b, 0644)
+}
+
 func (c *Client) UpdateContainerCmd(id, cmd string) error {
 	statePath := filepath.Join(c.containersDir(), id+".json")
 	b, err := os.ReadFile(statePath)
