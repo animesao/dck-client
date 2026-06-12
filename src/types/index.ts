@@ -251,6 +251,7 @@ export interface AppSettings {
   default_cpu_limit: number
   default_disk_limit: number
   default_port_limit: number
+  allow_email_change: boolean
 }
 
 export interface VersionInfo {

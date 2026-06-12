@@ -150,6 +150,16 @@ export function AdminSettingsPage() {
             </div>
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm text-[#e6edf3]">Allow users to change email</p>
+                <p className="text-[11px] text-[#636d7d]">When disabled, only admins can update user emails</p>
+              </div>
+              <Switch
+                checked={settings?.allow_email_change ?? false}
+                onChange={checked => setSettings(s => s ? { ...s, allow_email_change: checked } : s)}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm text-[#e6edf3]">Allow users to manage images</p>
                 <p className="text-[11px] text-[#636d7d]">When disabled, only admins can pull or remove images</p>
               </div>

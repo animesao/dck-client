@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useUIStore } from '@/store/uiStore'
-import { changePassword, getTwoFactorStatus, setupTwoFactor, verifyTwoFactor, disableTwoFactor, getTwoFactorQrUrl } from '@/api/auth'
+import { changePassword, getTwoFactorStatus, setupTwoFactor, verifyTwoFactor, disableTwoFactor, getTwoFactorQrUrl, updateProfile } from '@/api/auth'
 import { getUserActivity } from '@/api/activity'
-import { getVersion } from '@/api/settings'
+import { getVersion, getSettings } from '@/api/settings'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -37,13 +37,28 @@ export function SettingsPage() {
   // Version
   const [version, setVersion] = useState<VersionInfo | null>(null)
 
+  // Email
+  const [emailEnabled, setEmailEnabled] = useState(false)
+  const [emailValue, setEmailValue] = useState('')
+  const [emailLoading, setEmailLoading] = useState(false)
+
   useEffect(() => {
     Promise.all([
       getTwoFactorStatus().then(r => setTwoFAEnabled(r.enabled)).catch(() => {}),
       getUserActivity(20).then(setActivity).catch(() => {}),
       getVersion().then(setVersion).catch(() => {}),
+      getSettings().then(s => { setEmailEnabled(s.allow_email_change); setEmailValue(s.allow_email_change ? (user?.email || '') : '') }).catch(() => {}),
     ]).finally(() => setLoading(false))
   }, [])
+
+  const handleUpdateEmail = async () => {
+    setEmailLoading(true)
+    try {
+      await updateProfile({ email: emailValue })
+      addToast('Email updated', 'success')
+    } catch (err: any) { addToast(err.message || 'Failed to update email', 'error') }
+    finally { setEmailLoading(false) }
+  }
 
   const handleChangePassword = async () => {
     if (!oldPwd || !newPwd) return
@@ -132,6 +147,21 @@ export function SettingsPage() {
             <span className="text-xs text-[#636d7d]">Signed in as</span>
             <span className="text-xs text-[#e6edf3] font-medium">{user?.username}</span>
           </div>
+
+          {emailEnabled && (
+            <div className="flex items-center gap-2">
+              <input
+                className="flex-1 bg-white/[0.06] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-[#e6edf3] outline-none placeholder:text-[#636d7d]"
+                type="email"
+                value={emailValue}
+                onChange={e => setEmailValue(e.target.value)}
+                placeholder="your@email.com"
+              />
+              <Button onClick={handleUpdateEmail} loading={emailLoading} size="sm">
+                Save Email
+              </Button>
+            </div>
+          )}
 
           <div>
             <Button variant="danger" size="sm" onClick={handleLogout}>

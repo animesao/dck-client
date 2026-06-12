@@ -5,6 +5,25 @@ import (
 	"net/http"
 )
 
+func (s *Server) handleUpdateProfile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	settings := s.store.GetSettings()
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if !settings.AllowEmailChange && claims.Role != "admin" {
+		writeError(w, http.StatusForbidden, "Email change is disabled by administrator")
+		return
+	}
+
+	s.store.UpdateUser(claims.Sub, map[string]string{"email": req.Email})
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Profile updated"})
+}
+
 func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	var req struct {
 		OldPassword string `json:"old_password"`

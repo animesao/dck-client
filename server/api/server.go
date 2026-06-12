@@ -87,6 +87,7 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("POST /api/auth/2fa/verify", s.auth(s.handleTwoFactorVerify))
 	mux.HandleFunc("POST /api/auth/2fa/disable", s.auth(s.handleTwoFactorDisable))
 
+	mux.HandleFunc("PUT /api/auth/profile", s.auth(s.handleUpdateProfile))
 	mux.HandleFunc("PUT /api/auth/password", s.auth(s.handleChangePassword))
 
 	mux.HandleFunc("GET /api/images", s.auth(s.handleListImages))

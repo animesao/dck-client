@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { PageLoading } from '@/components/ui/Spinner'
 import type { User } from '@/types'
-import { Plus, Trash2, Shield } from 'lucide-react'
+import { Plus, Trash2, Shield, Pencil } from 'lucide-react'
 
 export function AdminUsersPage() {
   const { isAdmin, user: currentUser } = useAuth()
@@ -17,6 +17,8 @@ export function AdminUsersPage() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingEmail, setEditingEmail] = useState<string | null>(null)
+  const [editEmailValue, setEditEmailValue] = useState('')
 
   const fetchUsers = async () => {
     try {
@@ -64,7 +66,34 @@ export function AdminUsersPage() {
                   )}
                 </p>
                 <p className="text-xs text-[#636d7d] font-mono">ID: {u.id.slice(0, 16)}</p>
-                {u.email && <p className="text-xs text-[#636d7d]">{u.email}</p>}
+                <div className="flex items-center gap-1">
+                  {editingEmail === u.id ? (
+                    <input
+                      autoFocus
+                      className="text-xs bg-white/[0.06] border border-white/[0.1] rounded px-1.5 py-0.5 text-[#e6edf3] outline-none w-40"
+                      value={editEmailValue}
+                      onChange={e => setEditEmailValue(e.target.value)}
+                      onBlur={async () => {
+                        try { await updateUser(u.id, { email: editEmailValue }); addToast('Email updated', 'success'); fetchUsers() }
+                        catch (err: any) { addToast(err.message, 'error') }
+                        setEditingEmail(null)
+                      }}
+                      onKeyDown={async e => {
+                        if (e.key === 'Enter') { e.currentTarget.blur() }
+                        if (e.key === 'Escape') { setEditingEmail(null) }
+                      }}
+                    />
+                  ) : (
+                    <button
+                      className="text-xs text-[#636d7d] hover:text-[#e6edf3] transition-colors cursor-pointer text-left truncate max-w-[200px] group flex items-center gap-1"
+                      onClick={() => { setEditingEmail(u.id); setEditEmailValue(u.email || '') }}
+                      title="Click to edit email"
+                    >
+                      <span>{u.email || '—'}</span>
+                      <Pencil size={10} className="opacity-0 group-hover:opacity-60 transition-opacity flex-shrink-0" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Select

@@ -13,6 +13,10 @@ export async function getMe(): Promise<AuthResponse['user']> {
   return api<AuthResponse['user']>('GET', '/auth/me')
 }
 
+export async function updateProfile(data: { email?: string }): Promise<void> {
+  return api<void>('PUT', '/auth/profile', data)
+}
+
 export async function changePassword(oldPassword: string, newPassword: string): Promise<void> {
   return api<void>('PUT', '/auth/password', { old_password: oldPassword, new_password: newPassword })
 }

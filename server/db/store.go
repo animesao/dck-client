@@ -48,6 +48,7 @@ type Settings struct {
 	DefaultCPULimit        float64 `json:"default_cpu_limit"`
 	DefaultDiskLimit       int64   `json:"default_disk_limit"`
 	DefaultPortLimit       int     `json:"default_port_limit"`
+	AllowEmailChange       bool    `json:"allow_email_change"`
 }
 
 type Node struct {
@@ -439,6 +440,9 @@ func (s *Store) UpdateUser(id string, updates map[string]string) *User {
 	if role, ok := updates["role"]; ok && role != "" {
 		s.db.Exec("UPDATE users SET role = ? WHERE id = ?", role, id)
 	}
+	if email, ok := updates["email"]; ok {
+		s.db.Exec("UPDATE users SET email = ? WHERE id = ?", email, id)
+	}
 
 	return s.GetUser(id)
 }
@@ -493,6 +497,8 @@ func (s *Store) GetSettings() Settings {
 		case "default_disk_limit":
 			v, _ := strconv.ParseInt(value, 10, 64)
 			settings.DefaultDiskLimit = v
+		case "allow_email_change":
+			settings.AllowEmailChange = value == "true"
 		}
 	}
 	return settings
