@@ -158,28 +158,28 @@ export function DashboardPage() {
                   used: stats.user_limits.container_count,
                   limit: stats.user_limits.container_limit,
                   usedStr: String(stats.user_limits.container_count),
-                  limitStr: stats.user_limits.container_limit === -1 ? <Infinity size={14} className="inline" /> : String(stats.user_limits.container_limit),
+                  isUnlimited: stats.user_limits.container_limit === -1 || stats.user_limits.container_limit === 0,
                 },
                 {
                   label: 'Memory',
                   used: stats.user_limits.memory_used_mb,
                   limit: stats.user_limits.memory_limit,
                   usedStr: `${stats.user_limits.memory_used_mb}MB`,
-                  limitStr: stats.user_limits.memory_limit === -1 ? <Infinity size={14} /> : `${stats.user_limits.memory_limit}MB`,
+                  isUnlimited: stats.user_limits.memory_limit === -1 || stats.user_limits.memory_limit === 0,
                 },
                 {
                   label: 'CPU',
                   used: stats.user_limits.cpu_used,
                   limit: stats.user_limits.cpu_limit,
                   usedStr: stats.user_limits.cpu_used.toFixed(1),
-                  limitStr: stats.user_limits.cpu_limit === -1 ? <Infinity size={14} /> : String(stats.user_limits.cpu_limit),
+                  isUnlimited: stats.user_limits.cpu_limit === -1 || stats.user_limits.cpu_limit === 0,
                 },
                 {
                   label: 'Ports per Container',
                   used: 0,
                   limit: stats.user_limits.port_limit,
                   usedStr: '—',
-                  limitStr: stats.user_limits.port_limit === -1 ? <Infinity size={14} className="inline" /> : String(stats.user_limits.port_limit),
+                  isUnlimited: stats.user_limits.port_limit === -1 || stats.user_limits.port_limit === 0,
                 },
               ].map(item => {
                 const overLimit = item.limit > 0 && item.used > item.limit
@@ -189,7 +189,7 @@ export function DashboardPage() {
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-[#636d7d]">{item.label}</span>
                       <span className={`font-medium ${overLimit ? 'text-red-400' : 'text-[#e6edf3]'}`}>
-                        {item.usedStr} / {item.limitStr}
+                        {item.usedStr} / {item.isUnlimited ? <Infinity size={14} className="inline" /> : item.limit + (item.label === 'Memory' ? 'MB' : '')}
                       </span>
                     </div>
                     {item.limit > 0 && (
