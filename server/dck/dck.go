@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -296,6 +295,9 @@ func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart,
 	if cpus != "" {
 		args = append(args, "--cpus", cpus)
 	}
+	if disk != "" {
+		args = append(args, "--disk", disk)
+	}
 	if network != "" {
 		args = append(args, "--network", network)
 	}
@@ -328,19 +330,6 @@ func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart,
 	fullID, err := c.resolveFullID(shortID)
 	if err != nil {
 		return "", err
-	}
-	// Save disk limit directly in container JSON
-	if disk != "" {
-		if d, err := strconv.ParseInt(disk, 10, 64); err == nil {
-			statePath := filepath.Join(c.containersDir(), fullID+".json")
-			b, _ := os.ReadFile(statePath)
-			var ct Container
-			if json.Unmarshal(b, &ct) == nil {
-				ct.DiskLimit = d
-				b, _ = json.MarshalIndent(ct, "", "  ")
-				os.WriteFile(statePath, b, 0644)
-			}
-		}
 	}
 	return fullID, nil
 }
