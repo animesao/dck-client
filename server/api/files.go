@@ -18,6 +18,17 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		return "", fmt.Errorf("container %s not found", id)
 	}
 
+	overlayBase := filepath.Dir(s.dck.OverlayPath(id))
+
+	// When disk limit is set, the writable layer lives inside the data mount
+	upperDir := filepath.Join(overlayBase, "upper")
+	if c.DiskLimit > 0 {
+		dataDir := filepath.Join(overlayBase, "data")
+		if info, err := os.Stat(dataDir); err == nil && info.IsDir() {
+			upperDir = filepath.Join(dataDir, "upper")
+		}
+	}
+
 	// If container is running, use merged overlay (full filesystem view)
 	if c.Status == "running" {
 		root := s.dck.OverlayPath(id)
@@ -34,16 +45,15 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		}
 	}
 
-	// Fall back to upper layer (persists when container is stopped)
-	upperPath := s.dck.OverlayDiffPath(id)
-	info, err := os.Stat(upperPath)
+	// Fall back to writable layer (persists when container is stopped)
+	info, err := os.Stat(upperDir)
 	if err == nil && info.IsDir() {
-		abs, _ := filepath.Abs(upperPath)
+		abs, _ := filepath.Abs(upperDir)
 		if abs == "/" {
 			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
 		dataDir := s.getContainerDataDir(c)
-		dataPath := filepath.Join(upperPath, dataDir)
+		dataPath := filepath.Join(upperDir, dataDir)
 		os.MkdirAll(dataPath, 0755)
 		return dataPath, nil
 	}
