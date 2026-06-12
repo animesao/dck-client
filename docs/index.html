@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dck — Modern Container Runtime</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrapper">
+    <aside class="sidebar">
+      <a href="/dck-client/" class="sidebar-logo">
+        <img src="logo.png" alt="dck">
+        <span>dck</span>
+      </a>
+      <nav>
+        <span class="nav-label">Docs</span>
+        <a href="/dck-client/" class="active">Home</a>
+        <a href="/dck-client/install.html">Installation</a>
+        <a href="/dck-client/commands.html">Commands</a>
+        <a href="/dck-client/wings.html">dck-wings</a>
+        <span class="nav-label">Releases</span>
+        <a href="/dck-client/changelog.html">Changelog</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <section class="hero">
+        <img src="logo.png" alt="dck">
+        <h1>dck Container Runtime</h1>
+        <p>Lightweight, secure, and easy-to-use container runtime with a modern web panel for managing containers, files, backups, and system resources.</p>
+        <div class="hero-btns">
+          <a href="/dck-client/install.html" class="btn btn-primary">Get Started</a>
+          <a href="/dck-client/commands.html" class="btn btn-secondary">View Commands</a>
+        </div>
+      </section>
+
+      <h2>Why dck?</h2>
+      <div class="cards">
+        <div class="card">
+          <span class="icon">⚡</span>
+          <h3>Lightweight</h3>
+          <p>Single binary, no dependencies, minimal resource overhead. Written in Go for maximum performance.</p>
+        </div>
+        <div class="card">
+          <span class="icon">🔒</span>
+          <h3>Secure</h3>
+          <p>Rootless by design, seccomp profiles, capabilities dropping, and resource isolation via cgroups.</p>
+        </div>
+        <div class="card">
+          <span class="icon">🌐</span>
+          <h3>Web Panel</h3>
+          <p>Full-featured Pterodactyl-like interface with file manager, console, backups, and user management.</p>
+        </div>
+        <div class="card">
+          <span class="icon">📦</span>
+          <h3>Game Servers</h3>
+          <p>Pre-configured presets for Minecraft, Rust, SRCDS, and more. Perfect for game hosting.</p>
+        </div>
+        <div class="card">
+          <span class="icon">🔄</span>
+          <h3>OverlayFS</h3>
+          <p>Efficient container storage using overlay filesystem with instant snapshots and low disk usage.</p>
+        </div>
+        <div class="card">
+          <span class="icon">🔧</span>
+          <h3>REST API</h3>
+          <p>dck-wings provides a full REST API for remote management with WebSocket console support.</p>
+        </div>
+      </div>
+
+      <h2>Quick Start</h2>
+      <pre><code><span class="comment"># Install dck (Ubuntu/Debian)</span>
+curl -fsSL https:<span class="keyword">//</span>github.com<span class="keyword">/</span>anomalyco<span class="keyword">/</span>dck<span class="keyword">/</span>releases<span class="keyword">/</span>latest<span class="keyword">/</span>download<span class="keyword">/</span>dck-linux-amd64 <span class="keyword">-o</span> <span class="keyword">/</span>usr<span class="keyword">/</span>local<span class="keyword">/</span>bin<span class="keyword">/</span>dck
+chmod +x <span class="keyword">/</span>usr<span class="keyword">/</span>local<span class="keyword">/</span>bin<span class="keyword">/</span>dck
+
+<span class="comment"># Create and start a container</span>
+dck create nginx:latest --name myweb
+dck start myweb
+
+<span class="comment"># List running containers</span>
+dck ps</code></pre>
+
+      <div class="info">
+        Full documentation and source code available on <a href="https://github.com/anomalyco/dck">GitHub</a>.
+        Web panel source: <a href="https://github.com/animesao/dck-client">dck-client</a>.
+      </div>
+
+      <footer>
+        dck is licensed under MIT &mdash; Built with Go
+      </footer>
+    </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

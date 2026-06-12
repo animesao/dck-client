@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dck-wings — dck</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrapper">
+    <aside class="sidebar">
+      <a href="/dck-client/" class="sidebar-logo">
+        <img src="logo.png" alt="dck">
+        <span>dck</span>
+      </a>
+      <nav>
+        <span class="nav-label">Docs</span>
+        <a href="/dck-client/">Home</a>
+        <a href="/dck-client/install.html">Installation</a>
+        <a href="/dck-client/commands.html">Commands</a>
+        <a href="/dck-client/wings.html" class="active">dck-wings</a>
+        <span class="nav-label">Releases</span>
+        <a href="/dck-client/changelog.html">Changelog</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <h1>dck-wings</h1>
+      <p>REST API agent for remote container management. Acts as an intermediary between the dck panel and the dck runtime, providing an HTTP API for all container operations.</p>
+
+      <div class="info">
+        <strong>Architecture:</strong> Panel → Wings (HTTP/REST) → dck (CLI) &mdash; all on the same machine. Wings provides secure, authenticated access to container management.
+      </div>
+
+      <h2>Quick Start</h2>
+      <pre><code><span class="comment"># Download and install</span>
+curl -fsSL https:<span class="keyword">//</span>github.com<span class="keyword">/</span>animesao<span class="keyword">/</span>dck-wings<span class="keyword">/</span>releases<span class="keyword">/</span>latest<span class="keyword">/</span>download<span class="keyword">/</span>dck-wings-linux-amd64 <span class="keyword">-o</span> <span class="keyword">/</span>usr<span class="keyword">/</span>local<span class="keyword">/</span>bin<span class="keyword">/</span>dck-wings
+chmod +x <span class="keyword">/</span>usr<span class="keyword">/</span>local<span class="keyword">/</span>bin<span class="keyword">/</span>dck-wings
+
+<span class="comment"># Generate API key and start</span>
+WINGS_KEY=$(openssl rand -hex 32)
+dck-wings --api-key <span class="string">"$WINGS_KEY"</span> --port 8080</code></pre>
+
+      <h2>Install as System Service</h2>
+      <pre><code><span class="comment"># Using the built-in installer</span>
+dck-wings --install --api-key <span class="string">"$(openssl rand -hex 32)"</span>
+
+<span class="comment"># Start and enable</span>
+systemctl start dck-wings
+systemctl enable dck-wings</code></pre>
+
+      <h2>Configuration</h2>
+      <p>dck-wings reads config from <code>/etc/dck-wings/config.toml</code> or CLI flags:</p>
+      <table>
+        <tr><th>Flag</th><th>Env</th><th>Default</th><th>Description</th></tr>
+        <tr><td><code>--port</code></td><td><code>PORT</code></td><td><code>8080</code></td><td>HTTP server port</td></tr>
+        <tr><td><code>--host</code></td><td><code>HOST</code></td><td><code>127.0.0.1</code></td><td>Bind address</td></tr>
+        <tr><td><code>--api-key</code></td><td><code>API_KEY</code></td><td><code>—</code></td><td>Authentication key (required)</td></tr>
+        <tr><td><code>--dck-bin</code></td><td><code>DCK_BIN</code></td><td><code>dck</code></td><td>Path to dck binary</td></tr>
+        <tr><td><code>--dck-home</code></td><td><code>DCK_HOME</code></td><td><code>~/.dck</code></td><td>dck data directory</td></tr>
+      </table>
+
+      <h2>Integrate with dck Panel</h2>
+      <p>Set these environment variables on the panel server:</p>
+      <pre><code><span class="comment"># In /etc/dck-panel.env or systemd Environment=</span>
+DECK_WINGS_URL=http:<span class="keyword">//</span>localhost:8080
+DECK_WINGS_API_KEY=your-generated-key</code></pre>
+
+      <p>When these variables are set, the panel will route all container and image operations through the wings API. File operations, console, and backups continue to work through the local filesystem.</p>
+
+      <h2>API Reference</h2>
+
+      <h3>Authentication</h3>
+      <p>All requests require either an <code>Authorization: Bearer &lt;key&gt;</code> header or <code>?api_key=&lt;key&gt;</code> query parameter.</p>
+
+      <h3>Containers</h3>
+      <table>
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>GET</code></td><td><code>/api/containers</code></td><td>List containers (add <code>?all=1</code> for stopped)</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers</code></td><td>Create a container</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/containers/:id/state</code></td><td>Get container state</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/start</code></td><td>Start container</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/stop</code></td><td>Stop container</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/restart</code></td><td>Restart container</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/remove</code></td><td>Remove container (<code>?force=1</code>)</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/containers/:id/logs</code></td><td>Get container logs</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/exec</code></td><td>Execute command</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/containers/:id/stats</code></td><td>Resource usage stats</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/containers/:id/console</code></td><td>WebSocket console terminal</td></tr>
+      </table>
+
+      <h3>Files</h3>
+      <table>
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>GET</code></td><td><code>/api/containers/:id/files?path=...</code></td><td>List directory</td></tr>
+        <tr><td><code>GET</code></td><td><code>/api/containers/:id/files/read?path=...</code></td><td>Read file content</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/files/write</code></td><td>Write file</td></tr>
+        <tr><td><code>DELETE</code></td><td><code>/api/containers/:id/files?path=...</code></td><td>Delete file/directory</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/files/mkdir</code></td><td>Create directory</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/files/rename</code></td><td>Rename file/directory</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/containers/:id/files/upload</code></td><td>Upload file (multipart)</td></tr>
+      </table>
+
+      <h3>Images</h3>
+      <table>
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>GET</code></td><td><code>/api/images</code></td><td>List images</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/images</code></td><td>Pull image</td></tr>
+        <tr><td><code>DELETE</code></td><td><code>/api/images/:name</code></td><td>Remove image</td></tr>
+      </table>
+
+      <h3>System</h3>
+      <table>
+        <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+        <tr><td><code>POST</code></td><td><code>/api/system/prune</code></td><td>Remove all stopped containers</td></tr>
+        <tr><td><code>POST</code></td><td><code>/api/system/stop-all</code></td><td>Stop all running containers</td></tr>
+      </table>
+
+      <footer>
+        <a href="/dck-client/">Home</a> &middot; <a href="/dck-client/install.html">Installation</a> &middot; <a href="/dck-client/changelog.html">Changelog</a>
+      </footer>
+    </main>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
