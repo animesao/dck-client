@@ -114,7 +114,7 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 		"system":          info,
 		"containers":      map[string]int{"total": len(containers), "running": running, "stopped": stopped},
 		"images":          len(images),
-		"containers_list": containersToResp(containers),
+		"containers_list": s.containersToResp(containers),
 		"cpu_percent":     info.CPUPercent,
 		"memory_percent":  info.MemoryPct,
 		"memory_used":     info.MemoryUsed,

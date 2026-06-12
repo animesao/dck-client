@@ -23,6 +23,7 @@ export interface Container {
   entrypoint?: string
   restart?: string
   startup_script?: string
+  node_id?: string
 }
 
 export interface PortMap {
@@ -58,6 +59,7 @@ export interface CreateContainerRequest {
   labels?: Record<string, string>
   healthcheck_cmd?: string
   user_id?: string
+  node_id?: string
   healthcheck_interval?: string
   healthcheck_retries?: number
   disk?: string
@@ -102,6 +104,26 @@ export interface UserLimits {
   disk_limit: number
   port_count: number
   port_limit: number
+}
+
+export interface NodeInfo {
+  id: string
+  name: string
+  url: string
+  created_at: string
+  online: boolean
+  version?: string
+  hostname?: string
+  cpu_model?: string
+  cpu_cores?: number
+  cpu_percent?: number
+  mem_total?: number
+  mem_used?: number
+  mem_percent?: number
+  disk_total?: number
+  disk_used?: number
+  disk_percent?: number
+  uptime?: string
 }
 
 export interface UserStats {

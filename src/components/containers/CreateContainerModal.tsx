@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from 'react'
 import { createContainer } from '@/api/containers'
 import { listImages, pullImage } from '@/api/images'
+import { listNodes } from '@/api/admin'
 import { useUIStore } from '@/store/uiStore'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { imageConfigs, imageCategories } from '@/data/imageConfigs'
-import type { CreateContainerRequest, Image, User } from '@/types'
+import type { CreateContainerRequest, Image, User, NodeInfo } from '@/types'
 import { parseSize } from '@/utils'
 import { Search, ChevronRight, Server, Globe, Database, Code, Gamepad2, Bot, Cpu, Download } from 'lucide-react'
 
@@ -44,7 +45,7 @@ interface EnvPair {
 export function CreateContainerModal({ open, onClose, onSuccess, adminMode, users }: CreateContainerModalProps) {
   const addToast = useUIStore(s => s.addToast)
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState<'user' | 'category' | 'image' | 'config'>('category')
+  const [step, setStep] = useState<'user' | 'node' | 'category' | 'image' | 'config'>('category')
   const [selectedCat, setSelectedCat] = useState('')
   const [selectedId, setSelectedId] = useState('')
   const [selectedUserId, setSelectedUserId] = useState('')
@@ -71,15 +72,21 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
   const [availableImages, setAvailableImages] = useState<Image[]>([])
   const [pullingTag, setPullingTag] = useState('')
   const [isInstalled, setIsInstalled] = useState(false)
+  const [nodes, setNodes] = useState<NodeInfo[]>([])
+  const [selectedNodeId, setSelectedNodeId] = useState('')
 
   const config = useMemo(() => imageConfigs.find(c => c.id === selectedId), [selectedId])
 
   useEffect(() => {
     if (!open) return
     setSelectedUserId('')
+    setSelectedNodeId('')
     setStep(adminMode ? 'user' : 'category')
     setIsInstalled(false)
     listImages().then(setAvailableImages).catch(() => {})
+    if (adminMode) {
+      listNodes().then(setNodes).catch(() => {})
+    }
   }, [open])
 
   const availableTags = useMemo(() => {
@@ -165,6 +172,9 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
       if (adminMode && selectedUserId) {
         payload.user_id = selectedUserId
       }
+      if (selectedNodeId) {
+        payload.node_id = selectedNodeId
+      }
       await createContainer(payload)
       addToast('Container created', 'success')
       onSuccess()
@@ -182,6 +192,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
     setSelectedCat('')
     setSelectedId('')
     setSelectedUserId('')
+    setSelectedNodeId('')
     setSearch('')
     setIsInstalled(false)
     setShowAdvanced(false)
@@ -199,11 +210,11 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
       {step === 'user' && adminMode && users && (
         <div>
           <p className="text-xs text-[#636d7d] mb-3">Select the user to create this container for:</p>
-          <div className="space-y-1 max-h-[55vh] overflow-y-auto">
+          <div className="space-y-1 max-h-[30vh] overflow-y-auto">
             {users.map(u => (
               <button
                 key={u.id}
-                onClick={() => { setSelectedUserId(u.id); setStep('category') }}
+                onClick={() => { setSelectedUserId(u.id); setStep('node') }}
                 className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-center justify-between ${
                   selectedUserId === u.id
                     ? 'bg-indigo-500/10 border border-indigo-500/30'
@@ -219,6 +230,49 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
                 )}
               </button>
             ))}
+          </div>
+          <div className="flex justify-end mt-3">
+            <Button onClick={() => setStep('node')}>Continue →</Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'node' && adminMode && (
+        <div>
+          <p className="text-xs text-[#636d7d] mb-3">Target Node (optional, leave empty for auto-select):</p>
+          <div className="space-y-1 max-h-[30vh] overflow-y-auto">
+            <button
+              onClick={() => setSelectedNodeId('')}
+              className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors text-xs ${
+                selectedNodeId === ''
+                  ? 'bg-indigo-500/10 border border-indigo-500/30 text-indigo-400'
+                  : 'hover:bg-white/[0.04] border border-transparent text-[#8b949e]'
+              }`}
+            >
+              Auto (pick best node)
+            </button>
+            {nodes.map(n => (
+              <button
+                key={n.id}
+                onClick={() => setSelectedNodeId(n.id)}
+                className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-center justify-between text-xs ${
+                  selectedNodeId === n.id
+                    ? 'bg-indigo-500/10 border border-indigo-500/30'
+                    : 'hover:bg-white/[0.04] border border-transparent'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={n.online ? 'text-emerald-400' : 'text-red-400'}>
+                    {n.online ? '●' : '○'}
+                  </span>
+                  <span className="text-[#e6edf3]">{n.name}</span>
+                </div>
+                <span className="text-[#636d7d]">{n.online ? 'Online' : 'Offline'}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-end mt-3">
+            <Button onClick={() => setStep('category')}>Continue →</Button>
           </div>
         </div>
       )}
@@ -317,8 +371,8 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
 
       {step === 'image' && (
         <div>
-          <button onClick={() => setStep(adminMode ? 'user' : 'category')} className="text-xs text-[#636d7d] hover:text-[#e6edf3] mb-3 flex items-center gap-1">
-            ← {adminMode ? 'Select user' : 'All categories'}
+          <button onClick={() => setStep(adminMode ? 'node' : 'category')} className="text-xs text-[#636d7d] hover:text-[#e6edf3] mb-3 flex items-center gap-1">
+            ← {adminMode ? 'Select node' : 'All categories'}
           </button>
           <p className="text-sm font-medium text-[#e6edf3] mb-3">{selectedCat}</p>
           <div className="space-y-1 max-h-[55vh] overflow-y-auto">

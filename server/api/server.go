@@ -113,6 +113,11 @@ func (s *Server) Router() http.Handler {
 	mux.HandleFunc("GET /api/dashboard/stats", s.auth(s.handleDashboardStats))
 	mux.HandleFunc("GET /api/version", s.auth(s.handleVersion))
 
+	// Nodes
+	mux.HandleFunc("POST /api/admin/nodes", s.auth(s.admin(s.handleRegisterNode)))
+	mux.HandleFunc("GET /api/admin/nodes", s.auth(s.admin(s.handleListNodes)))
+	mux.HandleFunc("DELETE /api/admin/nodes/{id}", s.auth(s.admin(s.handleRemoveNode)))
+
 	mux.HandleFunc("GET /api/public/settings", noAuth(s.handlePublicSettings))
 
 	mux.HandleFunc("GET /api/containers/{id}/sftp", s.auth(s.requireContainerAccess(s.handleContainerSFTP)))

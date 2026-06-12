@@ -49,6 +49,14 @@ type Settings struct {
 	DefaultPortLimit       int     `json:"default_port_limit"`
 }
 
+type Node struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	APIKey    string `json:"api_key,omitempty"`
+	CreatedAt string `json:"created_at"`
+}
+
 type Store struct {
 	db *sql.DB
 }
@@ -130,6 +138,7 @@ func (s *Store) migrate() error {
 			container_name TEXT NOT NULL,
 			image TEXT NOT NULL,
 			created_at TEXT NOT NULL,
+			node_id TEXT NOT NULL DEFAULT '',
 			FOREIGN KEY (user_id) REFERENCES users(id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS container_permissions (
@@ -167,6 +176,13 @@ func (s *Store) migrate() error {
 			name TEXT UNIQUE NOT NULL,
 			created_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS nodes (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			url TEXT NOT NULL,
+			api_key TEXT NOT NULL,
+			created_at TEXT NOT NULL
+		)`,
 		`CREATE TABLE IF NOT EXISTS templates (
 			id TEXT PRIMARY KEY,
 			name TEXT NOT NULL,
@@ -201,6 +217,9 @@ func (s *Store) migrate() error {
 
 	// Add granular permissions column
 	s.db.Exec("ALTER TABLE container_permissions ADD COLUMN permissions TEXT DEFAULT ''")
+
+	// Add node_id column to user_containers
+	s.db.Exec("ALTER TABLE user_containers ADD COLUMN node_id TEXT NOT NULL DEFAULT ''")
 
 	// Migrate old memory_limit from bytes to MB (one-time)
 	var migrated int
@@ -318,6 +337,34 @@ func (s *Store) GetUserResourceUsage(userID string) (containerCount int, totalMe
 		containerCount++
 	}
 	return containerCount, 0, 0
+}
+
+func (s *Store) AddNode(id, name, url, apiKey string) error {
+	_, err := s.db.Exec("INSERT INTO nodes (id, name, url, api_key, created_at) VALUES (?, ?, ?, ?, ?)",
+		id, name, url, apiKey, time.Now().UTC().Format(time.RFC3339))
+	return err
+}
+
+func (s *Store) ListNodes() ([]Node, error) {
+	rows, err := s.db.Query("SELECT id, name, url, api_key, created_at FROM nodes ORDER BY name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var nodes []Node
+	for rows.Next() {
+		var n Node
+		if err := rows.Scan(&n.ID, &n.Name, &n.URL, &n.APIKey, &n.CreatedAt); err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, n)
+	}
+	return nodes, nil
+}
+
+func (s *Store) RemoveNode(id string) error {
+	_, err := s.db.Exec("DELETE FROM nodes WHERE id = ?", id)
+	return err
 }
 
 func (s *Store) CheckPassword(username, password string) *User {
@@ -474,10 +521,16 @@ func (s *Store) UpdateLastLogin(id string) {
 	s.db.Exec("UPDATE users SET last_login = ? WHERE id = ?", now, id)
 }
 
-func (s *Store) RecordContainer(userID, containerID, containerName, image string) {
+func (s *Store) RecordContainer(userID, containerID, containerName, image, nodeID string) {
 	now := time.Now().UTC().Format(time.RFC3339)
-	s.db.Exec("INSERT INTO user_containers (user_id, container_id, container_name, image, created_at) VALUES (?, ?, ?, ?, ?)",
-		userID, containerID, containerName, image, now)
+	s.db.Exec("INSERT INTO user_containers (user_id, container_id, container_name, image, created_at, node_id) VALUES (?, ?, ?, ?, ?, ?)",
+		userID, containerID, containerName, image, now, nodeID)
+}
+
+func (s *Store) GetContainerNodeID(containerID string) string {
+	var nodeID string
+	s.db.QueryRow("SELECT node_id FROM user_containers WHERE container_id = ?", containerID).Scan(&nodeID)
+	return nodeID
 }
 
 func (s *Store) GetContainerUserID(containerID string) (string, error) {

@@ -47,6 +47,7 @@ type ContainerResp struct {
 	StartupScript string          `json:"startup_script,omitempty"`
 	UserID        string          `json:"user_id,omitempty"`
 	Username      string          `json:"username,omitempty"`
+	NodeID        string          `json:"node_id,omitempty"`
 }
 
 type PortMapResp struct {
@@ -98,23 +99,53 @@ func containerToResp(c *dck.Container) ContainerResp {
 	}
 }
 
-func containersToResp(containers []dck.Container) []ContainerResp {
+func (s *Server) containersToResp(containers []dck.Container) []ContainerResp {
 	out := make([]ContainerResp, len(containers))
 	for i, c := range containers {
-		out[i] = containerToResp(&c)
+		resp := containerToResp(&c)
+		resp.NodeID = s.store.GetContainerNodeID(c.ID)
+		out[i] = resp
 	}
 	return out
 }
 
 func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	all := r.URL.Query().Get("all") == "true"
+
+	// Collect from local dck
 	containers, err := s.dck.ListContainers(all)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
+		containers = []dck.Container{}
 	}
 	if containers == nil {
 		containers = []dck.Container{}
+	}
+
+	seen := make(map[string]bool, len(containers))
+	for _, c := range containers {
+		seen[c.ID] = true
+	}
+
+	// Collect from all nodes
+	nodes, _ := s.store.ListNodes()
+	for _, n := range nodes {
+		nodeContainers, err := s.nodeListContainers(&n, all)
+		if err != nil {
+			continue
+		}
+		for _, nc := range nodeContainers {
+			id, _ := nc["id"].(string)
+			if id == "" || seen[id] {
+				continue
+			}
+			seen[id] = true
+			containers = append(containers, dck.Container{
+				ID:        id,
+				Name:      getStringField(nc, "name"),
+				ImageName: getStringField(nc, "image"),
+				Status:    getStringField(nc, "status"),
+			})
+		}
 	}
 
 	// Filter by user access (admins see all)
@@ -133,7 +164,7 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, cl
 		containers = filtered
 	}
 
-	resp := containersToResp(containers)
+	resp := s.containersToResp(containers)
 	if claims.Role == "admin" {
 		for i := range resp {
 			s.enrichContainerOwner(&resp[i])
@@ -144,6 +175,21 @@ func (s *Server) handleListContainers(w http.ResponseWriter, r *http.Request, cl
 
 func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
+	if node := s.getContainerNode(id); node != nil {
+		state, err := s.nodeGetContainerState(node, id)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "Container not found")
+			return
+		}
+		resp := ContainerResp{
+			ID:     id,
+			Name:   getStringField(state, "name"),
+			Image:  getStringField(state, "image_name"),
+			Status: getStringField(state, "status"),
+		}
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
 	c, err := s.dck.GetContainer(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Container not found")
@@ -154,6 +200,11 @@ func (s *Server) handleGetContainer(w http.ResponseWriter, r *http.Request, clai
 		s.enrichContainerOwner(&resp)
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+func getStringField(m map[string]interface{}, key string) string {
+	v, _ := m[key].(string)
+	return v
 }
 
 func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
@@ -171,6 +222,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		StartupScript string   `json:"startup_script"`
 		Disk          string   `json:"disk"`
 		UserID        string   `json:"user_id"`
+		NodeID        string   `json:"node_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
@@ -235,33 +287,83 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		}
 	}
 
-	ports, err := allocatePorts(s.dck, s.store, settings, req.Ports)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
-		return
+	// Determine target node
+	var targetNode *db.Node
+	if claims.Role == "admin" && req.NodeID != "" {
+		targetNode = s.getNode(req.NodeID)
+		if targetNode == nil {
+			writeError(w, http.StatusBadRequest, "Node not found")
+			return
+		}
+	}
+	if targetNode == nil {
+		var reqMem int64
+		if req.Memory != "" {
+			reqMem = parseMemoryToMB(req.Memory)
+		}
+		var reqDisk int64
+		if d, err := strconv.ParseInt(req.Disk, 10, 64); err == nil {
+			reqDisk = d
+		}
+		targetNode = s.pickBestNode(reqMem, reqDisk)
 	}
 
-	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command, req.StartupScript, req.Disk)
-	if err != nil {
-		log.Printf("ERROR handleCreateContainer: %v", err)
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
+	if targetNode != nil {
+		// Forward to node
+		ports := strings.Join(req.Ports, " ")
+		volumes := strings.Join(req.Volumes, " ")
+		env := strings.Join(req.Env, " ")
 
-	ownerID := claims.Sub
-	if claims.Role == "admin" && req.UserID != "" {
-		ownerID = req.UserID
-	}
-	s.store.RecordContainer(ownerID, id, req.Name, req.Image)
-	s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
+		id, err := s.nodeCreateContainer(targetNode, req.Image, req.Name, ports, volumes, env, req.Restart, req.Memory, req.CPUs, req.Network, req.Command, req.StartupScript, req.Disk)
+		if err != nil {
+			log.Printf("ERROR nodeCreateContainer: %v", err)
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 
-	c, err := s.dck.GetContainer(id)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]string{"id": id, "status": "created"})
-		return
-	}
+		ownerID := claims.Sub
+		if claims.Role == "admin" && req.UserID != "" {
+			ownerID = req.UserID
+		}
+		s.store.RecordContainer(ownerID, id, req.Name, req.Image, targetNode.ID)
+		s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name+" on node "+targetNode.Name)
 
-	writeJSON(w, http.StatusCreated, c)
+		writeJSON(w, http.StatusCreated, map[string]interface{}{
+			"id":      id,
+			"name":    req.Name,
+			"node_id": targetNode.ID,
+			"node":    targetNode.Name,
+		})
+	} else {
+		// Fallback to local creation
+		ports, err := allocatePorts(s.dck, s.store, settings, req.Ports)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+
+		id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command, req.StartupScript, req.Disk)
+		if err != nil {
+			log.Printf("ERROR handleCreateContainer: %v", err)
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+
+		ownerID := claims.Sub
+		if claims.Role == "admin" && req.UserID != "" {
+			ownerID = req.UserID
+		}
+		s.store.RecordContainer(ownerID, id, req.Name, req.Image, "")
+		s.store.AddActivityLog(claims.Sub, id, "container_created", claims.Username+" created container "+req.Name)
+
+		c, err := s.dck.GetContainer(id)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]string{"id": id, "status": "created"})
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, c)
+	}
 }
 
 func collectUsedPorts(dckClient dck.ClientInterface) map[int]bool {
@@ -353,9 +455,16 @@ func allocatePorts(dckClient dck.ClientInterface, store *db.Store, settings db.S
 func (s *Server) handleRemoveContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
 	force := r.URL.Query().Get("force") == "true"
-	if err := s.dck.RemoveContainer(id, force); err != nil {
-		writeError(w, http.StatusInternalServerError, err.Error())
-		return
+	if node := s.getContainerNode(id); node != nil {
+		if err := s.nodeRemoveContainer(node, id, force); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else {
+		if err := s.dck.RemoveContainer(id, force); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
 	}
 	s.store.RemoveUserContainer(id)
 	s.store.AddActivityLog(claims.Sub, id, "container_removed", claims.Username+" removed container")
@@ -364,7 +473,12 @@ func (s *Server) handleRemoveContainer(w http.ResponseWriter, r *http.Request, c
 
 func (s *Server) handleStartContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	if err := s.dck.StartContainer(id); err != nil {
+	if node := s.getContainerNode(id); node != nil {
+		if err := s.nodeContainerAction(node, id, "start"); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else if err := s.dck.StartContainer(id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -374,7 +488,12 @@ func (s *Server) handleStartContainer(w http.ResponseWriter, r *http.Request, cl
 
 func (s *Server) handleStopContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	if err := s.dck.StopContainer(id); err != nil {
+	if node := s.getContainerNode(id); node != nil {
+		if err := s.nodeContainerAction(node, id, "stop"); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else if err := s.dck.StopContainer(id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -384,7 +503,12 @@ func (s *Server) handleStopContainer(w http.ResponseWriter, r *http.Request, cla
 
 func (s *Server) handleRestartContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	if err := s.dck.RestartContainer(id); err != nil {
+	if node := s.getContainerNode(id); node != nil {
+		if err := s.nodeContainerAction(node, id, "restart"); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else if err := s.dck.RestartContainer(id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -394,6 +518,15 @@ func (s *Server) handleRestartContainer(w http.ResponseWriter, r *http.Request, 
 
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
+	if node := s.getContainerNode(id); node != nil {
+		logs, err := s.nodeLogs(node, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"logs": logs})
+		return
+	}
 	logs, err := s.dck.Logs(id)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -416,6 +549,19 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request, claims *User
 		return
 	}
 
+	if node := s.getContainerNode(id); node != nil {
+		output, err := s.nodeExec(node, id, req.Command)
+		exitCode := 0
+		if err != nil {
+			exitCode = 1
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"output":    output,
+			"exit_code": exitCode,
+		})
+		return
+	}
+
 	output, err := s.dck.Exec(id, req.Command)
 	exitCode := 0
 	if err != nil {
@@ -429,7 +575,16 @@ func (s *Server) handleExec(w http.ResponseWriter, r *http.Request, claims *User
 
 func (s *Server) handleContainerState(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	// Read state JSON directly
+	if node := s.getContainerNode(id); node != nil {
+		state, err := s.nodeGetContainerState(node, id)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "Container not found")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{"state": state})
+		return
+	}
+	// Read state JSON directly (local)
 	path := s.dck.ContainerStatePath(id)
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -481,6 +636,16 @@ func readProcCPU(pid int) uint64 {
 
 func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
+
+	if node := s.getContainerNode(id); node != nil {
+		stats, err := s.nodeGetContainerStats(node, id)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "Container not found")
+			return
+		}
+		writeJSON(w, http.StatusOK, stats)
+		return
+	}
 
 	c, err := s.dck.GetContainer(id)
 	if err != nil {
