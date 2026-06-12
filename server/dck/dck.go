@@ -11,9 +11,13 @@ import (
 )
 
 type Client struct {
-	BinPath string
-	DataDir string
+	BinPath      string
+	DataDir      string
+	WingsURL     string
+	WingsAPIKey  string
 }
+
+var _ ClientInterface = (*Client)(nil)
 
 type PortMap struct {
 	HostPort      int    `json:"host_port"`
@@ -95,7 +99,7 @@ func (c *Client) imagesDir() string {
 	return filepath.Join(c.DataDir, "images")
 }
 
-func (c *Client) ListContainers(all bool) ([]Container, error) {
+func (c *Client) localListContainers(all bool) ([]Container, error) {
 	cd := c.containersDir()
 	log.Printf("DEBUG ListContainers: dir=%s all=%v", cd, all)
 	entries, err := os.ReadDir(cd)
@@ -130,7 +134,7 @@ func (c *Client) ListContainers(all bool) ([]Container, error) {
 	return containers, nil
 }
 
-func (c *Client) GetContainer(id string) (*Container, error) {
+func (c *Client) localGetContainer(id string) (*Container, error) {
 	statePath := filepath.Join(c.containersDir(), id+".json")
 	b, err := os.ReadFile(statePath)
 	if err != nil {
@@ -174,7 +178,7 @@ func (c *Client) UpdateContainerCmd(id, cmd string) error {
 	return nil
 }
 
-func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd string) (string, error) {
+func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd string) (string, error) {
 	args := []string{"run", "-d"}
 	if name != "" {
 		args = append(args, "-n", name)
@@ -238,22 +242,22 @@ func (c *Client) resolveFullID(shortID string) (string, error) {
 	return shortID, nil // fallback
 }
 
-func (c *Client) StartContainer(id string) error {
+func (c *Client) localStartContainer(id string) error {
 	_, err := c.run("start", id)
 	return err
 }
 
-func (c *Client) StopContainer(id string) error {
+func (c *Client) localStopContainer(id string) error {
 	_, err := c.run("stop", id)
 	return err
 }
 
-func (c *Client) RestartContainer(id string) error {
+func (c *Client) localRestartContainer(id string) error {
 	_, err := c.run("restart", id)
 	return err
 }
 
-func (c *Client) RemoveContainer(id string, force bool) error {
+func (c *Client) localRemoveContainer(id string, force bool) error {
 	args := []string{"rm"}
 	if force {
 		args = append(args, "-f")
@@ -272,19 +276,19 @@ func (c *Client) SaveContainer(ct *Container) error {
 	return os.WriteFile(statePath, b, 0644)
 }
 
-func (c *Client) Exec(id string, command string) (string, error) {
+func (c *Client) localExec(id string, command string) (string, error) {
 	args := []string{"exec", id}
 	args = append(args, strings.Fields(command)...)
 	out, err := c.run(args...)
 	return out, err
 }
 
-func (c *Client) Logs(id string) (string, error) {
+func (c *Client) localLogs(id string) (string, error) {
 	out, err := c.run("logs", id)
 	return out, err
 }
 
-func (c *Client) ListImages() ([]string, error) {
+func (c *Client) localListImages() ([]string, error) {
 	var images []string
 	root := c.imagesDir()
 	namespaces, err := os.ReadDir(root)
@@ -326,12 +330,12 @@ func (c *Client) ListImages() ([]string, error) {
 	return images, nil
 }
 
-func (c *Client) PullImage(name string) error {
+func (c *Client) localPullImage(name string) error {
 	_, err := c.run("pull", name)
 	return err
 }
 
-func (c *Client) RemoveImage(name string) error {
+func (c *Client) localRemoveImage(name string) error {
 	_, err := c.run("rmi", name)
 	return err
 }

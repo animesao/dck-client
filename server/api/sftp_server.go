@@ -130,7 +130,7 @@ func (s *Server) handleSFTPConn(conn net.Conn, config *ssh.ServerConfig) {
 	}
 }
 
-func serveSFTPForContainer(channel ssh.Channel, dckClient *dck.Client, containerID string) {
+func serveSFTPForContainer(channel ssh.Channel, dckClient dck.ClientInterface, containerID string) {
 	root, err := containerDataRoot(dckClient, containerID)
 	if err != nil {
 		log.Printf("[sftp] container %s filesystem not available: %v", containerID[:12], err)
@@ -277,7 +277,7 @@ func (l listerAt) ListAt(ls []os.FileInfo, offset int64) (int, error) {
 	return n, io.EOF
 }
 
-func containerDataRoot(dckClient *dck.Client, containerID string) (string, error) {
+func containerDataRoot(dckClient dck.ClientInterface, containerID string) (string, error) {
 	c, err := dckClient.GetContainer(containerID)
 	if err != nil {
 		return "", fmt.Errorf("container %s not found", containerID)

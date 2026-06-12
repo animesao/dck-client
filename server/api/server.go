@@ -10,15 +10,15 @@ import (
 )
 
 type Server struct {
-	store    *db.Store
-	dck      *dck.Client
-	dckHome  string
-	serveDir string
+	store     *db.Store
+	dck       dck.ClientInterface
+	dckHome   string
+	serveDir  string
 	jwtSecret string
-	sftpPort string
+	sftpPort  string
 }
 
-func NewServer(store *db.Store, dckClient *dck.Client, dckHome, serveDir string) *Server {
+func NewServer(store *db.Store, dckClient dck.ClientInterface, dckHome, serveDir string) *Server {
 	return &Server{
 		store:    store,
 		dck:      dckClient,

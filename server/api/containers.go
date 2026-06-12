@@ -251,7 +251,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 	writeJSON(w, http.StatusCreated, c)
 }
 
-func collectUsedPorts(dckClient *dck.Client) map[int]bool {
+func collectUsedPorts(dckClient dck.ClientInterface) map[int]bool {
 	used := map[int]bool{}
 	containers, err := dckClient.ListContainers(true)
 	if err != nil {
@@ -277,7 +277,7 @@ func portIsAvailable(port int) bool {
 	return true
 }
 
-func allocatePorts(dckClient *dck.Client, store *db.Store, settings db.Settings, portSpecs []string) ([]string, error) {
+func allocatePorts(dckClient dck.ClientInterface, store *db.Store, settings db.Settings, portSpecs []string) ([]string, error) {
 	if len(portSpecs) == 0 || settings.PortRangeStart <= 0 || settings.PortRangeEnd <= 0 {
 		return portSpecs, nil
 	}

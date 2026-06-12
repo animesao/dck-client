@@ -76,8 +76,14 @@ func main() {
 	}
 
 	dckClient := &dck.Client{
-		BinPath: *dckBin,
-		DataDir: dckHome,
+		BinPath:     *dckBin,
+		DataDir:     dckHome,
+		WingsURL:    os.Getenv("DECK_WINGS_URL"),
+		WingsAPIKey: os.Getenv("DECK_WINGS_API_KEY"),
+	}
+
+	if dckClient.WingsURL != "" {
+		log.Printf("Using dck-wings at %s", dckClient.WingsURL)
 	}
 
 	store.PruneStaleUserContainers(filepath.Join(dckHome, "containers"))
