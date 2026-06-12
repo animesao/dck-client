@@ -145,65 +145,96 @@ export function DashboardPage() {
 
       {/* My Limits */}
       {stats?.user_limits && (
-        <Card>
-          <div className="p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Shield size={16} className="text-indigo-400" />
-              <h3 className="text-sm font-semibold text-[#e6edf3]">My Limits</h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                {
-                  label: 'Containers',
-                  used: stats.user_limits.container_count,
-                  limit: stats.user_limits.container_limit,
-                  usedStr: String(stats.user_limits.container_count),
-                  isUnlimited: stats.user_limits.container_limit === -1 || stats.user_limits.container_limit === 0,
-                },
-                {
-                  label: 'Memory',
-                  used: stats.user_limits.memory_used_mb,
-                  limit: stats.user_limits.memory_limit,
-                  usedStr: `${stats.user_limits.memory_used_mb}MB`,
-                  isUnlimited: stats.user_limits.memory_limit === -1 || stats.user_limits.memory_limit === 0,
-                },
-                {
-                  label: 'CPU',
-                  used: stats.user_limits.cpu_used,
-                  limit: stats.user_limits.cpu_limit,
-                  usedStr: stats.user_limits.cpu_used.toFixed(1),
-                  isUnlimited: stats.user_limits.cpu_limit === -1 || stats.user_limits.cpu_limit === 0,
-                },
-                {
-                  label: 'Ports per Container',
-                  used: 0,
-                  limit: stats.user_limits.port_limit,
-                  usedStr: '—',
-                  isUnlimited: stats.user_limits.port_limit === -1 || stats.user_limits.port_limit === 0,
-                },
-              ].map(item => {
-                const overLimit = item.limit > 0 && item.used > item.limit
-                const pct = item.limit > 0 ? Math.min((item.used / item.limit) * 100, 100) : 0
-                return (
-                  <div key={item.label} className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#636d7d]">{item.label}</span>
-                      <span className={`font-medium ${overLimit ? 'text-red-400' : 'text-[#e6edf3]'}`}>
-                        {item.usedStr} / {item.isUnlimited ? <Infinity size={14} className="inline" /> : item.limit + (item.label === 'Memory' ? 'MB' : '')}
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <Shield size={16} className="text-indigo-400" />
+            <h3 className="text-sm font-semibold text-[#e6edf3]">My Limits</h3>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                label: 'Containers',
+                used: stats.user_limits.container_count,
+                limit: stats.user_limits.container_limit,
+                icon: Container,
+                color: 'indigo',
+                gradient: 'from-indigo-500/20 to-indigo-600/10',
+                border: 'border-indigo-500/10',
+              },
+              {
+                label: 'Memory',
+                used: stats.user_limits.memory_used_mb,
+                limit: stats.user_limits.memory_limit,
+                suffix: 'MB',
+                icon: HardDrive,
+                color: 'emerald',
+                gradient: 'from-emerald-500/20 to-emerald-600/10',
+                border: 'border-emerald-500/10',
+              },
+              {
+                label: 'CPU',
+                used: stats.user_limits.cpu_used,
+                limit: stats.user_limits.cpu_limit,
+                icon: Cpu,
+                color: 'amber',
+                gradient: 'from-amber-500/20 to-amber-600/10',
+                border: 'border-amber-500/10',
+              },
+              {
+                label: 'Ports',
+                used: 0,
+                limit: stats.user_limits.port_limit,
+                icon: Globe,
+                color: 'blue',
+                gradient: 'from-blue-500/20 to-blue-600/10',
+                border: 'border-blue-500/10',
+                usedLabel: '—',
+              },
+            ].map(item => {
+              const Icon = item.icon
+              const isUnlimited = item.limit === -1 || item.limit === 0
+              const overLimit = item.limit > 0 && item.used > item.limit
+              const pct = item.limit > 0 ? Math.min((item.used / item.limit) * 100, 100) : 0
+              const usedDisplay = item.usedLabel ?? (item.used + (item.suffix || ''))
+              return (
+                <Card key={item.label} className="card-gradient">
+                  <div className="p-5">
+                    <div className="flex items-center gap-4 mb-3">
+                      <div className={`w-10 h-10 rounded-2xl bg-gradient-to-br ${item.gradient} flex items-center justify-center border ${item.border}`}>
+                        <Icon size={18} className={`text-${item.color}-400`} />
+                      </div>
+                      <div>
+                        <p className={`text-xl font-bold ${overLimit ? 'text-red-400' : `text-${item.color}-400`}`}>
+                          {item.label === 'CPU' ? item.used.toFixed(1) : item.used}{item.suffix || ''}
+                        </p>
+                        <p className="text-xs text-[#636d7d] font-medium">{item.label}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-[#636d7d]">Limit</span>
+                      <span className="text-[#8b949e] font-mono">
+                        {isUnlimited ? <Infinity size={12} className="inline" /> : item.limit + (item.suffix || '')}
                       </span>
                     </div>
                     {item.limit > 0 && (
-                      <ProgressBar value={pct} max={100} size="sm" />
+                      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-amber-500' : `bg-${item.color}-500`
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
                     )}
                     {overLimit && (
-                      <p className="text-[10px] text-red-400">Over limit!</p>
+                      <p className="text-[10px] text-red-400 mt-1">Over limit!</p>
                     )}
                   </div>
-                )
-              })}
-            </div>
+                </Card>
+              )
+            })}
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Running Containers */}
