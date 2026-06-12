@@ -47,7 +47,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function FeatureRoute({ feature, children }: { feature: string; children: React.ReactNode }) {
   const disabledFeatures = useUIStore(s => s.disabledFeatures)
-  if (disabledFeatures.has(feature)) return <Navigate to="/dashboard" replace />
+  const { isAdmin } = useAuth()
+  if (!isAdmin && disabledFeatures.has(feature)) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 

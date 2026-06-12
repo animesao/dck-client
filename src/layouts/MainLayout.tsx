@@ -54,7 +54,7 @@ export function MainLayout() {
     loadSettings()
   }, [])
 
-  const filteredNavItems = navItems.filter(item => !item.feature || !disabledFeatures.has(item.feature))
+  const filteredNavItems = navItems.filter(item => !item.feature || !!isAdmin || !disabledFeatures.has(item.feature))
 
   const handleLogout = () => {
     logout()
