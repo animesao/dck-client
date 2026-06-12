@@ -11,6 +11,7 @@ type ClientInterface interface {
 	SaveContainer(ct *Container) error
 	UpdateContainerCmd(id, cmd string) error
 	UpdateContainerStartupScript(id, script string) error
+	UpdateContainerRestart(id, restart string) error
 	Exec(id string, command string) (string, error)
 	Logs(id string) (string, error)
 
