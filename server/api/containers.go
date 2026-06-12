@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -566,12 +567,36 @@ func (s *Server) handleContainerStats(w http.ResponseWriter, r *http.Request, cl
 		memPct = float64(memUsed) / float64(memLimit) * 100
 	}
 
+	// Disk stats
+	diskTotal := uint64(0)
+	diskUsed := uint64(0)
+	diskPct := 0.0
+	overlayBase := filepath.Dir(s.dck.OverlayPath(id))
+	if c.DiskLimit > 0 {
+		dataPath := filepath.Join(overlayBase, "data")
+		if info, err := os.Stat(dataPath); err == nil && info.IsDir() {
+			diskTotal, diskUsed, diskPct = getDiskInfo(dataPath)
+		}
+	} else {
+		// Use du for actual per-container disk usage of the writable layer
+		upperPath := s.dck.OverlayDiffPath(id)
+		if info, err := os.Stat(upperPath); err == nil && info.IsDir() {
+			out, err := exec.Command("du", "-sb", upperPath).Output()
+			if err == nil {
+				fmt.Sscanf(string(out), "%d", &diskUsed)
+			}
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]interface{}{
 		"cpu":          cpuPct,
 		"memory":       memPct,
 		"memory_used":  memUsed,
 		"memory_limit": memLimit,
 		"cpu_limit":    c.CPUCount,
+		"disk_used":    diskUsed,
+		"disk_total":   diskTotal,
+		"disk_percent": diskPct,
 	})
 }
 

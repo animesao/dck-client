@@ -131,6 +131,9 @@ export interface ContainerStats {
   memory_used: number
   memory_limit: number
   cpu_limit?: number
+  disk_used?: number
+  disk_total?: number
+  disk_percent?: number
 }
 
 export interface Blueprint {

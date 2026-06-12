@@ -23,7 +23,7 @@ import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBad
 import { ContainerConsole } from '@/components/containers/ContainerConsole'
 import { ResourceBar } from '@/components/containers/ResourceBar'
 import { FileBrowser } from '@/components/containers/FileBrowser'
-import { formatDate, formatBytes, parseSize } from '@/utils'
+import { formatDate, formatBytes } from '@/utils'
 import type { Container, ContainerStats, Image } from '@/types'
 import type { BackupEntry } from '@/api/files'
 import { getContainerActivity } from '@/api/activity'
@@ -49,7 +49,6 @@ export function ContainerDetailPage() {
   const [startupScript, setStartupScript] = useState('')
   const [restartPolicy, setRestartPolicy] = useState('')
   const [containerImage, setContainerImage] = useState('')
-  const [diskLimit, setDiskLimit] = useState('')
   const [availableImages, setAvailableImages] = useState<Image[]>([])
   const [savingStartup, setSavingStartup] = useState(false)
   const [showAddPort, setShowAddPort] = useState(false)
@@ -71,7 +70,6 @@ export function ContainerDetailPage() {
       setStartupScript(c.startup_script || '')
       setRestartPolicy(c.restart || 'no')
       setContainerImage(c.image || '')
-      setDiskLimit(c.disk ? c.disk.toString() : '')
       listImages().then(setAvailableImages).catch(() => {})
     } catch {
       addToast('Container not found', 'error')
@@ -160,8 +158,7 @@ export function ContainerDetailPage() {
     if (!id) return
     setSavingStartup(true)
     try {
-      const disk = diskLimit ? parseSize(diskLimit) : 0
-      await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript, restart: restartPolicy, image: containerImage, disk })
+      await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript, restart: restartPolicy, image: containerImage })
       addToast('Startup command saved', 'success')
     } catch (err: any) {
       addToast(err.message || 'Failed to save startup command', 'error')
@@ -251,6 +248,10 @@ export function ContainerDetailPage() {
             memoryUsed={stats?.memory_used}
             memoryLimit={stats?.memory_limit ?? (container.memory ? parseInt(container.memory) : undefined)}
             cpuLimit={stats?.cpu_limit ?? (container.cpus ? parseFloat(container.cpus) : undefined)}
+            diskUsed={stats?.disk_used}
+            diskTotal={stats?.disk_total}
+            diskPercent={stats?.disk_percent}
+            diskLimit={container.disk ? container.disk : undefined}
             running={container.status === 'running'}
           />
         </div>
@@ -440,21 +441,6 @@ export function ContainerDetailPage() {
                 <pre className="px-3 py-2 rounded-lg bg-white/[0.03] text-xs font-mono text-[#8b949e] border border-white/[0.06]">
                   {container.disk ? formatBytes(container.disk) : 'No limit'}
                 </pre>
-                <div className="flex gap-2 mt-2">
-                  <input
-                    type="text"
-                    value={diskLimit}
-                    onChange={e => setDiskLimit(e.target.value)}
-                    placeholder="e.g. 1G, 512M, 2T"
-                    className="flex-1 px-3 py-2 rounded-lg bg-[#0d1117] border border-white/[0.08] text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-indigo-500/50"
-                  />
-                  <Button onClick={handleSaveStartup} loading={savingStartup} size="sm">
-                    <Save size={12} /> Save
-                  </Button>
-                </div>
-                <p className="text-[10px] text-[#636d7d] mt-1">
-                  Examples: 1G, 512M, 2T. Changes take effect on next container start.
-                </p>
               </div>
             </div>
           </Card>
