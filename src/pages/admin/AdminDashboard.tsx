@@ -141,7 +141,7 @@ export function AdminDashboardPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card>
           <div className="p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -165,6 +165,19 @@ export function AdminDashboardPage() {
             <div className="mt-2 flex items-center gap-2 text-xs text-[#636d7d]">
               <HardDrive size={12} />
               {formatBytes(stats?.memory_used || 0)} / {formatBytes(stats?.memory_total || 0)}
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <HardDrive size={16} className="text-amber-400" />
+              <h3 className="text-sm font-semibold text-[#e6edf3]">Disk Usage</h3>
+            </div>
+            <ProgressBar value={stats?.disk_used || 0} max={stats?.disk_total || 1} showLabel />
+            <div className="mt-2 flex items-center gap-2 text-xs text-[#636d7d]">
+              <HardDrive size={12} />
+              {formatBytes(stats?.disk_used || 0)} / {formatBytes(stats?.disk_total || 0)}
             </div>
           </div>
         </Card>

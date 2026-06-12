@@ -2,6 +2,21 @@ export function cn(...inputs: (string | undefined | null | false)[]) {
   return inputs.filter(Boolean).join(' ')
 }
 
+export function parseSize(str: string | number): number {
+  if (typeof str === 'number') return str
+  if (!str) return 0
+  const s = str.trim().toUpperCase()
+  const match = s.match(/^(\d+(?:\.\d+)?)\s*(B|KB|MB|GB|TB|K|M|G|T)?$/)
+  if (!match) return parseInt(s) || 0
+  const val = parseFloat(match[1])
+  const unit = match[2] || 'B'
+  const units: Record<string, number> = {
+    B: 1, K: 1024, KB: 1024, M: 1024 ** 2, MB: 1024 ** 2,
+    G: 1024 ** 3, GB: 1024 ** 3, T: 1024 ** 4, TB: 1024 ** 4,
+  }
+  return Math.round(val * (units[unit] || 1))
+}
+
 export function formatBytes(bytes: number): string {
   if (!bytes || bytes === 0) return '0 B'
   const units = ['B', 'KB', 'MB', 'GB', 'TB']

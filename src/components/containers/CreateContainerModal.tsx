@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/Input'
 import { Modal } from '@/components/ui/Modal'
 import { imageConfigs, imageCategories } from '@/data/imageConfigs'
 import type { CreateContainerRequest, Image, User } from '@/types'
+import { parseSize } from '@/utils'
 import { Search, ChevronRight, Server, Globe, Database, Code, Gamepad2, Bot, Cpu, Download } from 'lucide-react'
 
 interface CreateContainerModalProps {
@@ -159,7 +160,8 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
       const envArr = envPairs.filter(p => p.key).map(p => `${p.key}=${p.value}`)
       // Build full image with tag
       const image = config ? (selectedTag ? `${config.image}:${selectedTag}` : config.image) : form.image
-      const payload = { ...form, image, ports, volumes: [] as string[], env: envArr }
+      const disk = form.disk ? parseSize(form.disk).toString() : ''
+      const payload = { ...form, disk, image, ports, volumes: [] as string[], env: envArr }
       if (adminMode && selectedUserId) {
         payload.user_id = selectedUserId
       }
@@ -528,10 +530,10 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               placeholder={config?.cpus || '1'}
             />
             <Input
-              label="Disk (bytes)"
+              label="Disk"
               value={form.disk || ''}
               onChange={e => setForm({ ...form, disk: e.target.value })}
-              placeholder="e.g. 1073741824 (1GB)"
+              placeholder="e.g. 1G, 512M, 2T"
             />
           </div>
 
