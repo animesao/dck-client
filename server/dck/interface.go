@@ -3,7 +3,7 @@ package dck
 type ClientInterface interface {
 	ListContainers(all bool) ([]Container, error)
 	GetContainer(id string) (*Container, error)
-	CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript string) (string, error)
+	CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript, disk string) (string, error)
 	StartContainer(id string) error
 	StopContainer(id string) error
 	RestartContainer(id string) error
@@ -12,6 +12,9 @@ type ClientInterface interface {
 	UpdateContainerCmd(id, cmd string) error
 	UpdateContainerStartupScript(id, script string) error
 	UpdateContainerRestart(id, restart string) error
+	UpdateContainerImage(id, image string) error
+	UpdateContainerDisk(id string, limit int64) error
+	ReinstallContainer(id, image string) error
 	Exec(id string, command string) (string, error)
 	Logs(id string) (string, error)
 

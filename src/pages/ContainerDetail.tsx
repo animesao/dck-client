@@ -9,6 +9,8 @@ import {
 import {
   listBackups, createBackup, restoreBackup, deleteBackup, getBackupDownloadUrl, getContainerSFTP, regenerateSFTPPassword,
 } from '@/api/files'
+import { listImages } from '@/api/images'
+import { reinstallContainer } from '@/api/containers'
 import type { ContainerSFTPInfo } from '@/api/files'
 import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
@@ -22,7 +24,7 @@ import { ContainerConsole } from '@/components/containers/ContainerConsole'
 import { ResourceBar } from '@/components/containers/ResourceBar'
 import { FileBrowser } from '@/components/containers/FileBrowser'
 import { formatDate } from '@/utils'
-import type { Container, ContainerStats } from '@/types'
+import type { Container, ContainerStats, Image } from '@/types'
 import type { BackupEntry } from '@/api/files'
 import { getContainerActivity } from '@/api/activity'
 import { exportContainerAsTemplate } from '@/api/blueprints'
@@ -46,6 +48,9 @@ export function ContainerDetailPage() {
   const [startupCmd, setStartupCmd] = useState('')
   const [startupScript, setStartupScript] = useState('')
   const [restartPolicy, setRestartPolicy] = useState('')
+  const [containerImage, setContainerImage] = useState('')
+  const [diskLimit, setDiskLimit] = useState('')
+  const [availableImages, setAvailableImages] = useState<Image[]>([])
   const [savingStartup, setSavingStartup] = useState(false)
   const [showAddPort, setShowAddPort] = useState(false)
   const [newPortContainer, setNewPortContainer] = useState('')
@@ -65,6 +70,9 @@ export function ContainerDetailPage() {
       setStartupCmd(c.cmd || '')
       setStartupScript(c.startup_script || '')
       setRestartPolicy(c.restart || 'no')
+      setContainerImage(c.image || '')
+      setDiskLimit(c.disk ? c.disk.toString() : '')
+      listImages().then(setAvailableImages).catch(() => {})
     } catch {
       addToast('Container not found', 'error')
       navigate('/containers')
@@ -152,7 +160,8 @@ export function ContainerDetailPage() {
     if (!id) return
     setSavingStartup(true)
     try {
-      await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript, restart: restartPolicy })
+      const disk = diskLimit ? parseInt(diskLimit) : 0
+      await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript, restart: restartPolicy, image: containerImage, disk })
       addToast('Startup command saved', 'success')
     } catch (err: any) {
       addToast(err.message || 'Failed to save startup command', 'error')
@@ -260,7 +269,7 @@ export function ContainerDetailPage() {
                 <div className="space-y-3">
                   <InfoRow label="ID" value={container.id} />
                   <InfoRow label="Name" value={container.name || '-'} />
-                  <InfoRow label="Image" value={container.image} />
+                  <InfoRow label="Image" value={container.image || '-'} />
                   <InfoRow label="Status" value={container.status} />
                   <InfoRow label="Created" value={formatDate(container.created)} />
                 </div>
@@ -360,6 +369,48 @@ export function ContainerDetailPage() {
                 <pre className="px-3 py-2 rounded-lg bg-white/[0.03] text-xs font-mono text-[#8b949e] border border-white/[0.06]">
                   {container.image}
                 </pre>
+                <div className="flex gap-2 mt-2">
+                  <select
+                    value={containerImage}
+                    onChange={e => setContainerImage(e.target.value)}
+                    className="flex-1 px-2 py-1.5 rounded-lg bg-[#1c1f26] border border-white/[0.08] text-xs text-[#e6edf3] focus:outline-none focus:border-indigo-500/50"
+                  >
+                    <option value="">Select installed image...</option>
+                    {availableImages.map(img => {
+                      const label = img.tag ? `${img.name}:${img.tag}` : img.name
+                      return <option key={label} value={label}>{label}</option>
+                    })}
+                  </select>
+                  <Button onClick={handleSaveStartup} loading={savingStartup} size="sm">
+                    <Save size={12} /> Change
+                  </Button>
+                </div>
+                <p className="text-[10px] text-[#636d7d] mt-1">
+                  Changes will take effect on next container start
+                </p>
+                <div className="mt-3 pt-3 border-t border-white/[0.06]">
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      if (!containerImage || !confirm('Reinstall will stop the container, wipe its data, and restart with the new image. Continue?')) return
+                      setActionLoading(true)
+                      try {
+                        await reinstallContainer(id!, containerImage)
+                        addToast('Container reinstalled', 'success')
+                        fetchData()
+                      } catch (err: any) {
+                        addToast(err.message || 'Reinstall failed', 'error')
+                      } finally {
+                        setActionLoading(false)
+                      }
+                    }}
+                    loading={actionLoading}
+                  >
+                    <RotateCw size={12} /> Reinstall
+                  </Button>
+                  <span className="text-[10px] text-[#636d7d] ml-2">Stops, wipes data, and starts fresh with selected image</span>
+                </div>
               </div>
 
               <div>
@@ -375,6 +426,28 @@ export function ContainerDetailPage() {
                     <option value="on-failure">On Failure</option>
                     <option value="unless-stopped">Unless Stopped</option>
                   </select>
+                  <Button onClick={handleSaveStartup} loading={savingStartup} size="sm">
+                    <Save size={12} /> Save
+                  </Button>
+                </div>
+                <p className="text-[10px] text-[#636d7d] mt-1">
+                  Changes will take effect on next container start
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-wider text-[#636d7d] font-semibold mb-2">Disk Limit (bytes)</p>
+                <pre className="px-3 py-2 rounded-lg bg-white/[0.03] text-xs font-mono text-[#8b949e] border border-white/[0.06]">
+                  {container.disk ? container.disk.toLocaleString() + ' bytes' : 'No limit'}
+                </pre>
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={diskLimit}
+                    onChange={e => setDiskLimit(e.target.value)}
+                    placeholder="e.g. 1073741824 (1GB)"
+                    className="flex-1 px-3 py-2 rounded-lg bg-[#0d1117] border border-white/[0.08] text-xs text-[#e6edf3] font-mono focus:outline-none focus:border-indigo-500/50"
+                  />
                   <Button onClick={handleSaveStartup} loading={savingStartup} size="sm">
                     <Save size={12} /> Save
                   </Button>

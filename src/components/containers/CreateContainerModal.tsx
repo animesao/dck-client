@@ -60,6 +60,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
     restart: 'no',
     memory: '',
     cpus: '',
+    disk: '',
     network: 'bridge',
   })
   const [portStr, setPortStr] = useState('')
@@ -184,7 +185,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
     setShowAdvanced(false)
     setForm({
       image: '', name: '', command: '', startup_script: '', ports: [], volumes: [],
-      env: [], restart: 'no', memory: '', cpus: '', network: 'bridge',
+      env: [], restart: 'no', memory: '', cpus: '', disk: '', network: 'bridge',
     })
     setPortStr('')
     setEnvPairs([])
@@ -500,7 +501,7 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-[#e6edf3] mb-1">Restart</label>
               <select
@@ -525,6 +526,12 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               value={form.cpus || ''}
               onChange={e => setForm({ ...form, cpus: e.target.value })}
               placeholder={config?.cpus || '1'}
+            />
+            <Input
+              label="Disk (bytes)"
+              value={form.disk || ''}
+              onChange={e => setForm({ ...form, disk: e.target.value })}
+              placeholder="e.g. 1073741824 (1GB)"
             />
           </div>
 

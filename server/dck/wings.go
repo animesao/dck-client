@@ -148,7 +148,7 @@ func (c *Client) wingsGetContainer(id string) (*Container, error) {
 	}, nil
 }
 
-func (c *Client) wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript string) (string, error) {
+func (c *Client) wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript, disk string) (string, error) {
 	body := map[string]interface{}{
 		"image":   image,
 		"detach":  true,
@@ -262,11 +262,11 @@ func (c *Client) GetContainer(id string) (*Container, error) {
 	return c.localGetContainer(id)
 }
 
-func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript string) (string, error) {
+func (c *Client) CreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript, disk string) (string, error) {
 	if c.isWings() {
-		return c.wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript)
+		return c.wingsCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript, disk)
 	}
-	return c.localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript)
+	return c.localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript, disk)
 }
 
 func (c *Client) StartContainer(id string) error {

@@ -38,6 +38,7 @@ type ContainerResp struct {
 	Pid           int             `json:"pid,omitempty"`
 	Memory        string          `json:"memory,omitempty"`
 	CPUs          string          `json:"cpus,omitempty"`
+	Disk          int64           `json:"disk,omitempty"`
 	Network       string          `json:"network,omitempty"`
 	Restart       string          `json:"restart,omitempty"`
 	Cmd           string          `json:"cmd,omitempty"`
@@ -87,6 +88,7 @@ func containerToResp(c *dck.Container) ContainerResp {
 		Pid:     c.PID,
 		Memory:  memoryStr,
 		CPUs:    cpusStr,
+		Disk:    c.DiskLimit,
 		Network: c.NetworkMode,
 		Restart: c.Restart,
 		Cmd:     strings.Join(c.Cmd, " "),
@@ -166,6 +168,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		Network       string   `json:"network"`
 		Command       string   `json:"command"`
 		StartupScript string   `json:"startup_script"`
+		Disk          string   `json:"disk"`
 		UserID        string   `json:"user_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -231,7 +234,7 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 		return
 	}
 
-	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command, req.StartupScript)
+	id, err := s.dck.CreateContainer(req.Image, req.Name, strings.Join(ports, " "), strings.Join(req.Volumes, " "), strings.Join(req.Env, " "), req.Restart, req.Memory, req.CPUs, req.Network, req.Command, req.StartupScript, req.Disk)
 	if err != nil {
 		log.Printf("ERROR handleCreateContainer: %v", err)
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -733,6 +736,8 @@ func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Requ
 		Cmd           *string `json:"cmd,omitempty"`
 		StartupScript *string `json:"startup_script,omitempty"`
 		Restart       *string `json:"restart,omitempty"`
+		Image         *string `json:"image,omitempty"`
+		Disk          *int64  `json:"disk,omitempty"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
@@ -754,8 +759,40 @@ func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Requ
 			return
 		}
 	}
+	if req.Image != nil {
+		if err := s.dck.UpdateContainerImage(id, *req.Image); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if req.Disk != nil {
+		if err := s.dck.UpdateContainerDisk(id, *req.Disk); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleReinstallContainer(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
+	id := r.PathValue("id")
+	var req struct {
+		Image string `json:"image"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+	if req.Image == "" {
+		writeError(w, http.StatusBadRequest, "image is required")
+		return
+	}
+	if err := s.dck.ReinstallContainer(id, req.Image); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "Container reinstalled"})
 }
 
 func (s *Server) handleUpdateContainerOwner(w http.ResponseWriter, r *http.Request, claims *UserClaims) {

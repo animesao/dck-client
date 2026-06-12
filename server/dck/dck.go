@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -66,6 +67,7 @@ type Container struct {
 	StoppedByUser   bool               `json:"stopped_by_user,omitempty"`
 	MemoryLimit     int64              `json:"memory_limit,omitempty"`
 	CPUCount        float64            `json:"cpu_count,omitempty"`
+	DiskLimit       int64              `json:"disk_limit,omitempty"`
 	CgroupPath      string             `json:"cgroup_path,omitempty"`
 	WorkingDir      string             `json:"working_dir,omitempty"`
 	Healthcheck     *HealthcheckConfig `json:"healthcheck,omitempty"`
@@ -190,6 +192,71 @@ func (c *Client) UpdateContainerRestart(id, restart string) error {
 	return os.WriteFile(statePath, b, 0644)
 }
 
+func (c *Client) ReinstallContainer(id, image string) error {
+	// Stop container
+	if err := c.StopContainer(id); err != nil {
+		// Ignore if already stopped
+	}
+	// Update image in config
+	if err := c.UpdateContainerImage(id, image); err != nil {
+		return err
+	}
+	// Read container to check disk limit
+	statePath := filepath.Join(c.containersDir(), id+".json")
+	b, _ := os.ReadFile(statePath)
+	var ct Container
+	json.Unmarshal(b, &ct)
+	// Wipe overlay data
+	overlayDir := filepath.Join(c.DataDir, "overlay", id)
+	if ct.DiskLimit > 0 {
+		exec.Command("umount", filepath.Join(overlayDir, "upper")).Run()
+	}
+	os.RemoveAll(overlayDir)
+	return nil
+}
+
+func (c *Client) UpdateContainerDisk(id string, limit int64) error {
+	statePath := filepath.Join(c.containersDir(), id+".json")
+	b, err := os.ReadFile(statePath)
+	if err != nil {
+		return fmt.Errorf("container %s not found", id)
+	}
+	var ct Container
+	if err := json.Unmarshal(b, &ct); err != nil {
+		return err
+	}
+	ct.DiskLimit = limit
+	b, err = json.MarshalIndent(ct, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, b, 0644)
+}
+
+func (c *Client) UpdateContainerImage(id, image string) error {
+	statePath := filepath.Join(c.containersDir(), id+".json")
+	b, err := os.ReadFile(statePath)
+	if err != nil {
+		return fmt.Errorf("container %s not found", id)
+	}
+	var ct Container
+	if err := json.Unmarshal(b, &ct); err != nil {
+		return err
+	}
+	parts := strings.SplitN(image, ":", 2)
+	ct.ImageName = parts[0]
+	if len(parts) == 2 && parts[1] != "" {
+		ct.ImageTag = parts[1]
+	} else {
+		ct.ImageTag = "latest"
+	}
+	b, err = json.MarshalIndent(ct, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(statePath, b, 0644)
+}
+
 func (c *Client) UpdateContainerCmd(id, cmd string) error {
 	statePath := filepath.Join(c.containersDir(), id+".json")
 	b, err := os.ReadFile(statePath)
@@ -215,7 +282,7 @@ func (c *Client) UpdateContainerCmd(id, cmd string) error {
 	return nil
 }
 
-func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript string) (string, error) {
+func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart, memory, cpus, network, cmd, startupScript, disk string) (string, error) {
 	args := []string{"run", "-d"}
 	if name != "" {
 		args = append(args, "-n", name)
@@ -258,7 +325,24 @@ func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart,
 		return "", fmt.Errorf("empty output from dck run")
 	}
 	shortID := lines[len(lines)-1]
-	return c.resolveFullID(shortID)
+	fullID, err := c.resolveFullID(shortID)
+	if err != nil {
+		return "", err
+	}
+	// Save disk limit directly in container JSON
+	if disk != "" {
+		if d, err := strconv.ParseInt(disk, 10, 64); err == nil {
+			statePath := filepath.Join(c.containersDir(), fullID+".json")
+			b, _ := os.ReadFile(statePath)
+			var ct Container
+			if json.Unmarshal(b, &ct) == nil {
+				ct.DiskLimit = d
+				b, _ = json.MarshalIndent(ct, "", "  ")
+				os.WriteFile(statePath, b, 0644)
+			}
+		}
+	}
+	return fullID, nil
 }
 
 func (c *Client) resolveFullID(shortID string) (string, error) {

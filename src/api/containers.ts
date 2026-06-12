@@ -64,3 +64,7 @@ export async function removeContainerPort(id: string, hostPort: number): Promise
 export async function changeContainerOwner(id: string, userId: string): Promise<Container> {
   return api<Container>('PUT', `/containers/${id}/owner`, { user_id: userId })
 }
+
+export async function reinstallContainer(id: string, image: string): Promise<void> {
+  return api('POST', `/containers/${id}/reinstall`, { image })
+}

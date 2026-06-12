@@ -18,6 +18,7 @@ export interface Container {
   username?: string
   memory?: string
   cpus?: string
+  disk?: number
   cmd?: string
   entrypoint?: string
   restart?: string
@@ -59,6 +60,7 @@ export interface CreateContainerRequest {
   user_id?: string
   healthcheck_interval?: string
   healthcheck_retries?: number
+  disk?: string
 }
 
 export interface Image {
