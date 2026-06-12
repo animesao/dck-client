@@ -45,7 +45,7 @@ export function AdminDashboardPage() {
       container_limit: u.container_limit || 0,
       memory_limit: u.memory_limit || 0,
       cpu_limit: u.cpu_limit || 0,
-      disk_limit: u.disk_limit || 0,
+      disk_limit: u.disk_limit > 0 ? u.disk_limit / (1024 * 1024) : u.disk_limit,
       port_limit: u.port_limit || 0,
     })
   }
@@ -54,7 +54,11 @@ export function AdminDashboardPage() {
     if (!editUser) return
     setSavingLimits(true)
     try {
-      await updateUserLimits(editUser.id, editLimits)
+      const payload = {
+        ...editLimits,
+        disk_limit: editLimits.disk_limit > 0 ? editLimits.disk_limit * (1024 * 1024) : editLimits.disk_limit,
+      }
+      await updateUserLimits(editUser.id, payload)
       addToast('Limits updated', 'success')
       setEditUser(null)
       refreshStats()
@@ -247,7 +251,7 @@ export function AdminDashboardPage() {
                   {u.container_limit === -1 ? '∞' : u.container_limit}
                 </span>
                 <span className="text-xs text-[#636d7d] w-20 text-center">
-                  {u.disk_limit === -1 ? '∞' : u.disk_limit === 0 ? '0' : u.disk_limit > 0 ? formatBytes(u.disk_limit) : '∞'}
+                  {u.disk_limit === -1 ? '∞' : u.disk_limit === 0 ? '0' : `${u.disk_limit / (1024 * 1024)} MB`}
                 </span>
                 <span className="text-xs text-[#636d7d] w-24 text-right flex items-center justify-end gap-1">
                   <Clock size={11} />
@@ -287,7 +291,7 @@ export function AdminDashboardPage() {
             onChange={e => setEditLimits(l => ({ ...l, cpu_limit: parseFloat(e.target.value) || 0 }))}
           />
           <Input
-            label="Max Disk per Container (bytes, -1 = ∞, 0 = disabled)"
+            label="Max Disk per Container (MB, -1 = ∞, 0 = disabled)"
             type="number"
             min={-1}
             value={String(editLimits.disk_limit)}
