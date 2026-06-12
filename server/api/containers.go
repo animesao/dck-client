@@ -732,6 +732,7 @@ func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Requ
 	var req struct {
 		Cmd           *string `json:"cmd,omitempty"`
 		StartupScript *string `json:"startup_script,omitempty"`
+		Restart       *string `json:"restart,omitempty"`
 	}
 	json.NewDecoder(r.Body).Decode(&req)
 
@@ -743,6 +744,12 @@ func (s *Server) handleUpdateContainerConfig(w http.ResponseWriter, r *http.Requ
 	}
 	if req.StartupScript != nil {
 		if err := s.dck.UpdateContainerStartupScript(id, *req.StartupScript); err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+	if req.Restart != nil {
+		if err := s.dck.UpdateContainerRestart(id, *req.Restart); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
