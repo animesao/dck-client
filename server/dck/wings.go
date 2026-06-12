@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 )
 
@@ -149,7 +150,11 @@ func (c *Client) wingsCreateContainer(image, name, ports, volumes, env, restart,
 		body["name"] = name
 	}
 	if cpus != "" {
-		body["cpus"] = cpus
+		if v, err := strconv.ParseFloat(cpus, 64); err == nil {
+			body["cpus"] = v
+		} else {
+			body["cpus"] = cpus
+		}
 	}
 	if network != "" {
 		body["network"] = network
@@ -313,4 +318,14 @@ func (c *Client) RemoveImage(name string) error {
 		return c.wingsRemoveImage(name)
 	}
 	return c.localRemoveImage(name)
+}
+
+func (c *Client) ConsoleWebSocketURL(id string) string {
+	if !c.isWings() {
+		return ""
+	}
+	wsURL := c.wingsURL()
+	wsURL = strings.Replace(wsURL, "http://", "ws://", 1)
+	wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
+	return wsURL + "/api/containers/" + id + "/console"
 }

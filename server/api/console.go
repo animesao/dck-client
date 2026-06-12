@@ -29,6 +29,12 @@ func (s *Server) handleConsole(w http.ResponseWriter, r *http.Request, claims *U
 	}
 	defer conn.Close()
 
+	wsURL := s.dck.ConsoleWebSocketURL(id)
+	if wsURL != "" {
+		s.proxyConsoleViaWings(conn, wsURL)
+		return
+	}
+
 	socketPath := s.dck.ConsoleSocketPath(id)
 	if _, err := os.Stat(socketPath); os.IsNotExist(err) {
 		conn.WriteMessage(websocket.TextMessage, []byte("Container console not available. Make sure the container is running with console support.\r\n"))
@@ -36,7 +42,6 @@ func (s *Server) handleConsole(w http.ResponseWriter, r *http.Request, claims *U
 		return
 	}
 
-	// Connect to dck console Unix socket
 	var dconn net.Conn
 	for i := 0; i < 10; i++ {
 		dconn, err = net.DialTimeout("unix", socketPath, 2*time.Second)
@@ -51,10 +56,8 @@ func (s *Server) handleConsole(w http.ResponseWriter, r *http.Request, claims *U
 	}
 	defer dconn.Close()
 
-	// Bidirectional bridge
 	errCh := make(chan error, 2)
 
-	// WebSocket -> Unix socket
 	go func() {
 		for {
 			_, msg, err := conn.ReadMessage()
@@ -63,7 +66,6 @@ func (s *Server) handleConsole(w http.ResponseWriter, r *http.Request, claims *U
 				return
 			}
 
-			// Check for resize messages
 			if len(msg) > 0 && msg[0] == '{' {
 				var resize struct {
 					Type   string `json:"type"`
@@ -73,8 +75,6 @@ func (s *Server) handleConsole(w http.ResponseWriter, r *http.Request, claims *U
 					Height int    `json:"height"`
 				}
 				if err := json.Unmarshal(msg, &resize); err == nil && resize.Type == "resize" {
-					// Send resize to Unix socket (PTY resize)
-					// Format: <rows><cols><width><height> as 4 uint16 little-endian
 					if resize.Rows > 0 && resize.Cols > 0 {
 						buf := make([]byte, 8)
 						buf[0] = byte(resize.Rows)
@@ -95,7 +95,6 @@ func (s *Server) handleConsole(w http.ResponseWriter, r *http.Request, claims *U
 		}
 	}()
 
-	// Unix socket -> WebSocket
 	go func() {
 		buf := make([]byte, 4096)
 		for {
@@ -114,6 +113,49 @@ func (s *Server) handleConsole(w http.ResponseWriter, r *http.Request, claims *U
 		}
 	}()
 
-	// Wait for either side to close
+	<-errCh
+}
+
+func (s *Server) proxyConsoleViaWings(client *websocket.Conn, wsURL string) {
+	dialer := websocket.Dialer{
+		HandshakeTimeout: 5 * time.Second,
+	}
+	ws, _, err := dialer.Dial(wsURL, nil)
+	if err != nil {
+		client.WriteMessage(websocket.TextMessage, []byte("Failed to connect to container console via wings.\r\n"))
+		return
+	}
+	defer ws.Close()
+
+	errCh := make(chan error, 2)
+
+	go func() {
+		for {
+			_, msg, err := client.ReadMessage()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if err := ws.WriteMessage(websocket.TextMessage, msg); err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			_, msg, err := ws.ReadMessage()
+			if err != nil {
+				errCh <- err
+				return
+			}
+			if err := client.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+				errCh <- err
+				return
+			}
+		}
+	}()
+
 	<-errCh
 }

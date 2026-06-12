@@ -19,6 +19,7 @@ type ClientInterface interface {
 
 	BackupDir() string
 	ConsoleSocketPath(id string) string
+	ConsoleWebSocketURL(id string) string
 	ContainerStatePath(id string) string
 	ContainersDir() string
 	OverlayPath(id string) string
