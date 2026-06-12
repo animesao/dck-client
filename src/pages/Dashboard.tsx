@@ -99,7 +99,7 @@ export function DashboardPage() {
               },
             ].map(item => {
               const Icon = item.icon
-              const isUnlimited = item.limit === -1 || item.limit === 0
+              const isUnlimited = item.limit === -1
               const overLimit = item.limit > 0 && item.used > item.limit
               const pct = item.limit > 0 ? Math.min((item.used / item.limit) * 100, 100) : 0
               const usedDisplay = item.label === 'Disk' ? formatBytes(item.used) : (item.used + (item.suffix || ''))
