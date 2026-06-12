@@ -93,10 +93,19 @@ fi
 # Remove panel data (users, settings, SQLite db)
 for d in "/root/.dck-panel" "$HOME/.dck-panel"; do
   if [[ -d "$d" ]]; then
+    if [[ -f "$d/data.db" ]]; then
+      log "Removing SQLite database: $d/data.db"
+    fi
     rm -rf "$d"
     log "Panel data removed: $d"
   fi
 done
+
+# Remove admin credentials file
+if [[ -f "$PANEL_DIR/.env" ]]; then
+  rm -f "$PANEL_DIR/.env"
+  log "Admin credentials removed: $PANEL_DIR/.env"
+fi
 
 # Remove dck data directory (containers metadata, images layers, etc.)
 for d in "/root/.dck" "$HOME/.dck"; do
