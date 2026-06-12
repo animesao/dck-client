@@ -183,6 +183,9 @@ func (c *Client) wingsCreateContainer(image, name, ports, volumes, env, restart,
 	if startupScript != "" {
 		body["startup_script"] = startupScript
 	}
+	if disk != "" {
+		body["disk"] = disk
+	}
 
 	data, err := c.wingsRequest("POST", "/api/containers", body)
 	if err != nil {
