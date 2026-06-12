@@ -529,14 +529,12 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
               onChange={e => setForm({ ...form, cpus: e.target.value })}
               placeholder={config?.cpus || '1'}
             />
-            {adminMode && (
-              <Input
-                label="Disk"
-                value={form.disk || ''}
-                onChange={e => setForm({ ...form, disk: e.target.value })}
-                placeholder="e.g. 1G, 512M, 2T"
-              />
-            )}
+            <Input
+              label="Disk"
+              value={form.disk || ''}
+              onChange={e => setForm({ ...form, disk: e.target.value })}
+              placeholder="e.g. 1G, 512M, 2T"
+            />
           </div>
 
           <button
