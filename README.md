@@ -31,6 +31,50 @@
 - **JWT Auth** — Secure token-based authentication
 - **Dark Theme** — Premium glassmorphism UI with gradient accents
 
+## Примеры использования Startup Script
+
+### Minecraft Paper 1.21.4 (чистый Java)
+
+Создай скрипт через раздел **Startup** в панели управления контейнером:
+
+```bash
+#!/bin/sh
+set -e
+echo "eula=true" > /data/eula.txt
+if [ ! -f /data/server.jar ]; then
+  curl -fsSL -o /data/server.jar \
+    "https://api.papermc.io/v2/projects/paper/versions/1.21.4/builds/latest/downloads/paper-1.21.4-latest.jar"
+fi
+exec java -Xms512M -Xmx${DCK_MEMORY:-2G} -jar /data/server.jar nogui
+```
+
+Параметры контейнера:
+- **Image:** `eclipse-temurin:21-jdk`
+- **Ports:** `25565:25565`
+- **Volumes:** `/data`
+- **Memory:** `4G`
+- **CPUs:** `4`
+
+### Minecraft Paper 1.16.5
+
+Тот же скрипт, но `eclipse-temurin:16-jdk`.
+
+### Discord Bot (Python)
+
+```bash
+#!/bin/sh
+set -e
+cd /bot
+pip install -r requirements.txt -q 2>/dev/null
+exec python bot.py
+```
+
+- **Image:** `python:3.11-slim`
+- **Volumes:** `/bot`
+- **Env:** `BOT_TOKEN=your_token`
+
+---
+
 ## Architecture
 
 ```
