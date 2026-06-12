@@ -95,6 +95,7 @@ func (s *Server) handleDashboardStats(w http.ResponseWriter, r *http.Request, cl
 			"memory_limit":    user.MemoryLimit,
 			"cpu_used":        totalCPU,
 			"cpu_limit":       user.CPULimit,
+			"disk_limit":      user.DiskLimit,
 			"port_limit":      user.PortLimit,
 		}
 	}

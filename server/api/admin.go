@@ -145,13 +145,14 @@ func (s *Server) handleAdminUpdateUserLimits(w http.ResponseWriter, r *http.Requ
 		ContainerLimit int     `json:"container_limit"`
 		MemoryLimit    int64   `json:"memory_limit"`
 		CPULimit       float64 `json:"cpu_limit"`
+		DiskLimit      int64   `json:"disk_limit"`
 		PortLimit      int     `json:"port_limit"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "Invalid request body")
 		return
 	}
-	user := s.store.UpdateUserLimits(id, req.ContainerLimit, req.MemoryLimit, req.CPULimit, req.PortLimit)
+	user := s.store.UpdateUserLimits(id, req.ContainerLimit, req.MemoryLimit, req.CPULimit, req.DiskLimit, req.PortLimit)
 	if user == nil {
 		writeError(w, http.StatusNotFound, "User not found")
 		return

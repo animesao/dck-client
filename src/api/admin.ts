@@ -17,6 +17,6 @@ export async function deleteUser(id: string): Promise<void> {
   return api('DELETE', `/admin/users/${id}`)
 }
 
-export async function updateUserLimits(id: string, limits: { container_limit: number; memory_limit: number; cpu_limit: number; port_limit: number }): Promise<User> {
+export async function updateUserLimits(id: string, limits: { container_limit: number; memory_limit: number; cpu_limit: number; disk_limit: number; port_limit: number }): Promise<User> {
   return api<User>('PUT', `/admin/users/${id}/limits`, limits)
 }

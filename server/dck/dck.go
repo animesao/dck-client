@@ -208,7 +208,7 @@ func (c *Client) ReinstallContainer(id, image string) error {
 	// Wipe overlay data
 	overlayDir := filepath.Join(c.DataDir, "overlay", id)
 	if ct.DiskLimit > 0 {
-		exec.Command("umount", filepath.Join(overlayDir, "upper")).Run()
+		exec.Command("umount", filepath.Join(overlayDir, "data")).Run()
 	}
 	os.RemoveAll(overlayDir)
 	return nil

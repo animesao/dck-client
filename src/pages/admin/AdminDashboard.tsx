@@ -24,7 +24,7 @@ export function AdminDashboardPage() {
   const [allContainers, setAllContainers] = useState<ContainerType[]>([])
   const [loading, setLoading] = useState(true)
   const [editUser, setEditUser] = useState<UserStats | null>(null)
-  const [editLimits, setEditLimits] = useState({ container_limit: 0, memory_limit: 0, cpu_limit: 0, port_limit: 0 })
+  const [editLimits, setEditLimits] = useState({ container_limit: 0, memory_limit: 0, cpu_limit: 0, disk_limit: 0, port_limit: 0 })
   const [savingLimits, setSavingLimits] = useState(false)
 
   const refreshStats = () => {
@@ -45,6 +45,7 @@ export function AdminDashboardPage() {
       container_limit: u.container_limit || 0,
       memory_limit: u.memory_limit || 0,
       cpu_limit: u.cpu_limit || 0,
+      disk_limit: u.disk_limit || 0,
       port_limit: u.port_limit || 0,
     })
   }
@@ -227,7 +228,8 @@ export function AdminDashboardPage() {
               <span className="flex-1">Username</span>
               <span className="w-16 text-center">Role</span>
               <span className="w-16 text-center">Containers</span>
-              <span className="w-20 text-center">Limit</span>
+              <span className="w-20 text-center">Cont. Limit</span>
+              <span className="w-20 text-center">Disk Limit</span>
               <span className="w-24 text-right">Last Login</span>
               <span className="w-10" />
             </div>
@@ -243,6 +245,9 @@ export function AdminDashboardPage() {
                 <span className="text-xs text-[#e6edf3] w-16 text-center">{u.container_count}</span>
                 <span className={`text-xs w-20 text-center ${u.container_limit > 0 && u.container_count >= u.container_limit ? 'text-red-400' : 'text-[#636d7d]'}`}>
                   {u.container_limit === -1 ? '∞' : u.container_limit}
+                </span>
+                <span className="text-xs text-[#636d7d] w-20 text-center">
+                  {u.disk_limit === -1 ? '∞' : u.disk_limit === 0 ? '0' : u.disk_limit > 0 ? formatBytes(u.disk_limit) : '∞'}
                 </span>
                 <span className="text-xs text-[#636d7d] w-24 text-right flex items-center justify-end gap-1">
                   <Clock size={11} />
@@ -280,6 +285,13 @@ export function AdminDashboardPage() {
             step={0.1}
             value={String(editLimits.cpu_limit)}
             onChange={e => setEditLimits(l => ({ ...l, cpu_limit: parseFloat(e.target.value) || 0 }))}
+          />
+          <Input
+            label="Max Disk per Container (bytes, -1 = ∞, 0 = disabled)"
+            type="number"
+            min={-1}
+            value={String(editLimits.disk_limit)}
+            onChange={e => setEditLimits(l => ({ ...l, disk_limit: parseInt(e.target.value) || 0 }))}
           />
           <Input
             label="Max Ports per Container (-1 = ∞, 0 = disabled)"

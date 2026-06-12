@@ -98,6 +98,7 @@ export interface UserLimits {
   memory_limit: number
   cpu_used: number
   cpu_limit: number
+  disk_limit: number
   port_limit: number
 }
 
@@ -111,6 +112,7 @@ export interface UserStats {
   container_limit: number
   memory_limit: number
   cpu_limit: number
+  disk_limit: number
   port_limit: number
 }
 
@@ -218,6 +220,7 @@ export interface AppSettings {
   default_container_limit: number
   default_memory_limit: number
   default_cpu_limit: number
+  default_disk_limit: number
   default_port_limit: number
 }
 

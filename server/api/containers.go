@@ -218,6 +218,12 @@ func (s *Server) handleCreateContainer(w http.ResponseWriter, r *http.Request, c
 				writeError(w, http.StatusForbidden, fmt.Sprintf("Port limit exceeded (%d > %d)", len(req.Ports), user.PortLimit))
 				return
 			}
+			if user.DiskLimit >= 0 && req.Disk != "" {
+				if d, err := strconv.ParseInt(req.Disk, 10, 64); err == nil && d > user.DiskLimit {
+					writeError(w, http.StatusForbidden, fmt.Sprintf("Disk limit exceeded (%d bytes > %d bytes)", d, user.DiskLimit))
+					return
+				}
+			}
 		}
 	}
 

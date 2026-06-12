@@ -26,6 +26,7 @@ type User struct {
 	ContainerLimit int        `json:"container_limit"`
 	MemoryLimit    int64      `json:"memory_limit"`
 	CPULimit       float64    `json:"cpu_limit"`
+	DiskLimit      int64      `json:"disk_limit"`
 	PortLimit      int        `json:"port_limit"`
 }
 
@@ -44,6 +45,7 @@ type Settings struct {
 	DefaultContainerLimit  int     `json:"default_container_limit"`
 	DefaultMemoryLimit     int64   `json:"default_memory_limit"`
 	DefaultCPULimit        float64 `json:"default_cpu_limit"`
+	DefaultDiskLimit       int64   `json:"default_disk_limit"`
 	DefaultPortLimit       int     `json:"default_port_limit"`
 }
 
@@ -195,6 +197,7 @@ func (s *Store) migrate() error {
 	s.db.Exec("ALTER TABLE users ADD COLUMN memory_limit INTEGER DEFAULT 0") // in MB
 	s.db.Exec("ALTER TABLE users ADD COLUMN cpu_limit REAL DEFAULT 0")
 	s.db.Exec("ALTER TABLE users ADD COLUMN port_limit INTEGER DEFAULT 0")
+	s.db.Exec("ALTER TABLE users ADD COLUMN disk_limit INTEGER DEFAULT 0")
 
 	// Add granular permissions column
 	s.db.Exec("ALTER TABLE container_permissions ADD COLUMN permissions TEXT DEFAULT ''")
@@ -223,6 +226,7 @@ func (s *Store) migrate() error {
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_container_limit', '0')")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_memory_limit', '0')")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_cpu_limit', '0')")
+		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_disk_limit', '0')")
 		s.db.Exec("INSERT OR IGNORE INTO settings (key, value) VALUES ('default_port_limit', '0')")
 	}
 
@@ -241,7 +245,7 @@ func scanUser(scanner interface {
 }) (User, error) {
 	var u User
 	var createdAt, lastLogin string
-	err := scanner.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &createdAt, &lastLogin, &u.ContainerLimit, &u.MemoryLimit, &u.CPULimit, &u.PortLimit)
+	err := scanner.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &createdAt, &lastLogin, &u.ContainerLimit, &u.MemoryLimit, &u.CPULimit, &u.DiskLimit, &u.PortLimit)
 	if err != nil {
 		return u, err
 	}
@@ -256,7 +260,7 @@ func scanUser(scanner interface {
 }
 
 func (s *Store) userColumns() string {
-	return "id, username, password, role, created_at, COALESCE(last_login, ''), COALESCE(container_limit, 0), COALESCE(memory_limit, 0), COALESCE(cpu_limit, 0), COALESCE(port_limit, 0)"
+	return "id, username, password, role, created_at, COALESCE(last_login, ''), COALESCE(container_limit, 0), COALESCE(memory_limit, 0), COALESCE(cpu_limit, 0), COALESCE(disk_limit, 0), COALESCE(port_limit, 0)"
 }
 
 func (s *Store) ListUsers() []User {
@@ -296,8 +300,8 @@ func (s *Store) GetUserByUsername(username string) *User {
 	return &u
 }
 
-func (s *Store) UpdateUserLimits(id string, containerLimit int, memoryLimit int64, cpuLimit float64, portLimit int) *User {
-	s.db.Exec("UPDATE users SET container_limit = ?, memory_limit = ?, cpu_limit = ?, port_limit = ? WHERE id = ?", containerLimit, memoryLimit, cpuLimit, portLimit, id)
+func (s *Store) UpdateUserLimits(id string, containerLimit int, memoryLimit int64, cpuLimit float64, diskLimit int64, portLimit int) *User {
+	s.db.Exec("UPDATE users SET container_limit = ?, memory_limit = ?, cpu_limit = ?, disk_limit = ?, port_limit = ? WHERE id = ?", containerLimit, memoryLimit, cpuLimit, diskLimit, portLimit, id)
 	return s.GetUser(id)
 }
 
@@ -345,9 +349,9 @@ func (s *Store) CreateUser(username, password, role string) (*User, error) {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err = s.db.Exec(
-		"INSERT INTO users (id, username, password, role, created_at, container_limit, memory_limit, cpu_limit, port_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO users (id, username, password, role, created_at, container_limit, memory_limit, cpu_limit, disk_limit, port_limit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		id, username, string(hash), role, now,
-		settings.DefaultContainerLimit, settings.DefaultMemoryLimit, settings.DefaultCPULimit, settings.DefaultPortLimit,
+		settings.DefaultContainerLimit, settings.DefaultMemoryLimit, settings.DefaultCPULimit, settings.DefaultDiskLimit, settings.DefaultPortLimit,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
@@ -433,6 +437,9 @@ func (s *Store) GetSettings() Settings {
 			settings.DefaultCPULimit, _ = strconv.ParseFloat(value, 64)
 		case "default_port_limit":
 			settings.DefaultPortLimit, _ = strconv.Atoi(value)
+		case "default_disk_limit":
+			v, _ := strconv.ParseInt(value, 10, 64)
+			settings.DefaultDiskLimit = v
 		}
 	}
 	return settings

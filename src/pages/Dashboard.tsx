@@ -3,15 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { getDashboardStats } from '@/api/dashboard'
 import { useSSE } from '@/hooks/useSSE'
 import { useAuth } from '@/hooks/useAuth'
-import { Card, CardContent } from '@/components/ui/Card'
-import { ProgressBar } from '@/components/ui/ProgressBar'
+import { Card } from '@/components/ui/Card'
 import { PageLoading } from '@/components/ui/Spinner'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
-import { formatBytes } from '@/utils'
 import type { DashboardStats } from '@/types'
 import {
-  Activity, HardDrive, Container, ExternalLink,
-  Globe, Box, Shield, Infinity, Cpu,
+  HardDrive, Container, ExternalLink,
+  Globe, Shield, Infinity, Cpu, Database,
 } from 'lucide-react'
 
 export function DashboardPage() {
@@ -35,113 +33,12 @@ export function DashboardPage() {
 
   if (loading) return <PageLoading />
 
-  const total = stats?.containers?.total ?? 0
-  const running = stats?.containers?.running ?? 0
-  const stopped = stats?.containers?.stopped ?? 0
-
   return (
     <div className="space-y-6 page-enter">
       <div>
         <h1 className="text-2xl font-bold text-[#e6edf3] tracking-tight">Dashboard</h1>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10">
-                <Container size={22} className="text-indigo-400" />
-              </div>
-              <div>
-                <p className="stat-value text-indigo-400">{total}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Total Containers</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-        <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center border border-emerald-500/10">
-                <Activity size={22} className="text-emerald-400" />
-              </div>
-              <div>
-                <p className="stat-value text-emerald-400">{running}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Running</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-        <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500/20 to-red-600/10 flex items-center justify-center border border-red-500/10">
-                <Box size={22} className="text-red-400" />
-              </div>
-              <div>
-                <p className="stat-value text-red-400">{stopped}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Stopped</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-        <Card className="card-gradient">
-          <div className="p-5">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center border border-amber-500/10">
-                <Globe size={22} className="text-amber-400" />
-              </div>
-              <div>
-                <p className="stat-value text-amber-400">{stats?.images ?? '-'}</p>
-                <p className="text-xs text-[#636d7d] font-medium">Images</p>
-              </div>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* System Resources */}
-      <Card>
-        <div className="p-5">
-          <h3 className="text-sm font-semibold text-[#e6edf3] mb-4">System Resources</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <Cpu size={14} className="text-indigo-400" />
-                  <span className="text-[#636d7d]">CPU</span>
-                </div>
-                <span className="text-[#e6edf3] font-medium">{stats?.cpu_percent?.toFixed(1) ?? '0'}%</span>
-              </div>
-              <ProgressBar value={stats?.cpu_percent ?? 0} max={100} size="sm" />
-              {stats?.system && (
-                <p className="text-[10px] text-[#636d7d]">{stats.system.cpu_model} ({stats.system.cpu_cores} cores)</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <HardDrive size={14} className="text-emerald-400" />
-                  <span className="text-[#636d7d]">Memory</span>
-                </div>
-                <span className="text-[#e6edf3] font-medium">{formatBytes(stats?.memory_used ?? 0)} / {formatBytes(stats?.memory_total ?? 0)}</span>
-              </div>
-              <ProgressBar value={stats?.memory_used ?? 0} max={stats?.memory_total ?? 1} size="sm" />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1.5">
-                  <Globe size={14} className="text-amber-400" />
-                  <span className="text-[#636d7d]">Disk</span>
-                </div>
-                <span className="text-[#e6edf3] font-medium">{formatBytes(stats?.disk_used ?? 0)} / {formatBytes(stats?.disk_total ?? 0)}</span>
-              </div>
-              <ProgressBar value={stats?.disk_used ?? 0} max={stats?.disk_total ?? 1} size="sm" />
-            </div>
-          </div>
-        </div>
-      </Card>
 
       {/* My Limits */}
       {stats?.user_limits && (
@@ -179,6 +76,17 @@ export function DashboardPage() {
                 color: 'amber',
                 gradient: 'from-amber-500/20 to-amber-600/10',
                 border: 'border-amber-500/10',
+              },
+              {
+                label: 'Disk',
+                used: 0,
+                limit: stats.user_limits.disk_limit,
+                icon: Database,
+                color: 'purple',
+                gradient: 'from-purple-500/20 to-purple-600/10',
+                border: 'border-purple-500/10',
+                suffix: 'B',
+                usedLabel: '—',
               },
               {
                 label: 'Ports',
