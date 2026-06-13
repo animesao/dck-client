@@ -212,7 +212,7 @@ func (s *Server) handleUpdateSettings(w http.ResponseWriter, r *http.Request, cl
 
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"version":             "2.3.0",
+		"version":             "2.4.0",
 		"latest":              "2.3.0",
 		"changelog":           "",
 		"update_available":    false,
