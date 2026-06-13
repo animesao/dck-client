@@ -308,22 +308,25 @@ func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart,
 	}
 	// Always mount /home/container and /data to the same named volume.
 	// Use a unique UUID so each container gets its own isolated volume.
+	// dck's -v flag is a single comma-separated string, so combine all volumes.
 	volBytes := make([]byte, 8)
 	rand.Read(volBytes)
 	volName := hex.EncodeToString(volBytes)
+	var volArgs []string
 	hasHomeVolume := false
 	for _, v := range strings.Fields(volumes) {
 		parts := strings.SplitN(v, ":", 2)
 		if len(parts) == 2 && parts[1] == "/home/container" {
 			hasHomeVolume = true
 		}
-	}
-	if volumes != "" {
-		args = append(args, "-v", strings.Join(strings.Fields(volumes), ","))
+		volArgs = append(volArgs, v)
 	}
 	if !hasHomeVolume {
-		args = append(args, "-v", "data_"+volName+":/home/container")
-		args = append(args, "-v", "data_"+volName+":/data")
+		volArgs = append(volArgs, "data_"+volName+":/home/container")
+		volArgs = append(volArgs, "data_"+volName+":/data")
+	}
+	if len(volArgs) > 0 {
+		args = append(args, "-v", strings.Join(volArgs, ","))
 	}
 	args = append(args, "--workdir", "/home/container")
 	args = append(args, "-e", "DATA_DIR=/home/container")
