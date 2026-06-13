@@ -283,6 +283,20 @@ func containerDataRoot(dckClient dck.ClientInterface, containerID string) (strin
 		return "", fmt.Errorf("container %s not found", containerID)
 	}
 
+	// If container has named volumes, use the host volume path directly
+	for _, vol := range c.Volumes {
+		if !strings.Contains(vol.Source, "/") && !strings.Contains(vol.Source, "\\") {
+			volPath := filepath.Join(dckClient.VolumesDir(), vol.Source)
+			if info, err := os.Stat(volPath); err == nil && info.IsDir() {
+				abs, _ := filepath.Abs(volPath)
+				if abs == "/" {
+					return "", fmt.Errorf("container %s filesystem would resolve to host root", containerID)
+				}
+				return abs, nil
+			}
+		}
+	}
+
 	dataDir := c.WorkingDir
 	if dataDir == "" {
 		dataDir = dckClient.ReadImageWorkingDir(c.ImageName, c.ImageTag)
