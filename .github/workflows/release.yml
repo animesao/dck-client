@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.18'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '>=20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Read version
+        run: echo "VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')" >> $GITHUB_ENV
+
+      - name: Build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build server for linux/amd64
+        run: |
+          cp -r dist server/dist
+          cd server
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../dck-panel-linux-amd64 -ldflags="-s -w" .
+          rm -rf dist
+
+      - name: Build server for linux/arm64
+        run: |
+          cp -r dist server/dist
+          cd server
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o ../dck-panel-linux-arm64 -ldflags="-s -w" .
+          rm -rf dist
+
+      - name: Create release and upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create ${{ github.ref_name }} --title "${{ github.ref_name }}" --generate-notes 2>/dev/null || true
+          gh release upload ${{ github.ref_name }} dck-panel-linux-amd64 --clobber
+          gh release upload ${{ github.ref_name }} dck-panel-linux-arm64 --clobber
