@@ -14,6 +14,7 @@ import (
 
 type containerRoot struct {
 	path      string // absolute path on host filesystem
+	targetDir string // container data dir (e.g. /home/container)
 	hasVolume bool   // true when path is a named volume (data dir IS the root)
 }
 
@@ -22,6 +23,8 @@ func (s *Server) getContainerRoot(id string) (*containerRoot, error) {
 	if err != nil {
 		return nil, fmt.Errorf("container %s not found", id)
 	}
+
+	targetDir := s.getContainerDataDir(c)
 
 	// If container has named volumes, read from the host volume path directly.
 	// This works like Pterodactyl: files are visible even when container is stopped,
@@ -34,12 +37,11 @@ func (s *Server) getContainerRoot(id string) (*containerRoot, error) {
 				if abs == "/" {
 					return nil, fmt.Errorf("container %s filesystem would resolve to host root", id)
 				}
-				return &containerRoot{path: abs, hasVolume: true}, nil
+				return &containerRoot{path: abs, targetDir: targetDir, hasVolume: true}, nil
 			}
 		}
 	}
 
-	targetDir := s.getContainerDataDir(c)
 	overlayBase := filepath.Dir(s.dck.OverlayPath(id))
 
 	// When disk limit is set, the writable layer lives inside the data mount
@@ -62,7 +64,7 @@ func (s *Server) getContainerRoot(id string) (*containerRoot, error) {
 			}
 			targetPath := filepath.Join(abs, targetDir)
 			os.MkdirAll(targetPath, 0755)
-			return &containerRoot{path: targetPath}, nil
+			return &containerRoot{path: targetPath, targetDir: targetDir}, nil
 		}
 	}
 
@@ -75,7 +77,7 @@ func (s *Server) getContainerRoot(id string) (*containerRoot, error) {
 		}
 		targetPath := filepath.Join(abs, targetDir)
 		os.MkdirAll(targetPath, 0755)
-		return &containerRoot{path: targetPath}, nil
+		return &containerRoot{path: targetPath, targetDir: targetDir}, nil
 	}
 
 	return nil, fmt.Errorf("container %s filesystem not available", id)
@@ -99,16 +101,13 @@ func safePath(cr *containerRoot, requested string) (string, error) {
 	}
 	clean = strings.TrimPrefix(clean, "/")
 
-	// When using a volume, the volume root IS the container's data dir.
-	// The frontend sends paths like /home/container which don't exist
-	// relative to the volume root — strip the leading component.
+	// When using a volume, strip the container data dir prefix if present.
+	// The volume root IS the data dir, so /home/container → volume root,
+	// /home/container/world → volume root + /world
 	if cr.hasVolume {
-		parts := strings.SplitN(clean, "/", 2)
-		if len(parts) == 2 {
-			clean = parts[1]
-		} else {
-			clean = ""
-		}
+		prefix := strings.TrimPrefix(cr.targetDir, "/")
+		clean = strings.TrimPrefix(clean, prefix)
+		clean = strings.TrimPrefix(clean, "/")
 		if clean == "" {
 			return cr.path, nil
 		}
