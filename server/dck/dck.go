@@ -1,6 +1,8 @@
 package dck
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -304,12 +306,11 @@ func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart,
 	if ports != "" {
 		args = append(args, "-p", strings.Join(strings.Fields(ports), ","))
 	}
-	// Always mount /home/container and /data to the same named volume
-	volName := name
-	if volName == "" {
-		volName = strings.ReplaceAll(image, "/", "_")
-		volName = strings.ReplaceAll(volName, ":", "_")
-	}
+	// Always mount /home/container and /data to the same named volume.
+	// Use a unique UUID so each container gets its own isolated volume.
+	volBytes := make([]byte, 8)
+	rand.Read(volBytes)
+	volName := hex.EncodeToString(volBytes)
 	hasHomeVolume := false
 	for _, v := range strings.Fields(volumes) {
 		parts := strings.SplitN(v, ":", 2)
