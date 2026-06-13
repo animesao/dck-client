@@ -1,6 +1,9 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,12 +22,21 @@ type Server struct {
 }
 
 func NewServer(store *db.Store, dckClient dck.ClientInterface, dckHome, serveDir string) *Server {
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		buf := make([]byte, 32)
+		if _, err := rand.Read(buf); err != nil {
+			log.Fatalf("Failed to generate JWT secret: %v", err)
+		}
+		jwtSecret = hex.EncodeToString(buf)
+		log.Println("[WARN] JWT_SECRET not set. Using auto-generated in-memory secret. Set JWT_SECRET env var for persistence.")
+	}
 	return &Server{
-		store:    store,
-		dck:      dckClient,
-		dckHome:  dckHome,
-		serveDir: serveDir,
-		jwtSecret: "dck-panel-secret-change-in-production",
+		store:     store,
+		dck:       dckClient,
+		dckHome:   dckHome,
+		serveDir:  serveDir,
+		jwtSecret: jwtSecret,
 	}
 }
 

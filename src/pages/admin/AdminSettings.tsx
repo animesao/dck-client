@@ -42,7 +42,7 @@ export function AdminSettingsPage() {
       await updateSettings(settings)
       addToast('Settings saved', 'success')
       loadSettingsStore()
-    } catch (err: any) { addToast(err.message, 'error') }
+    } catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setSaving(false) }
   }
 

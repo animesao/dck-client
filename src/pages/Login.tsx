@@ -42,8 +42,8 @@ export function LoginPage() {
       setAuth(res.token, res.user)
       addToast('Welcome back!', 'success')
       navigate('/dashboard')
-    } catch (err: any) {
-      setError(err.message || 'Login failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }

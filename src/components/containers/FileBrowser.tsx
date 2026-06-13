@@ -94,8 +94,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
       const entries = await listFiles(containerId, path)
       setFiles(entries)
       setCurrentPath(path)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to load files', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setLoading(false)
     }
@@ -160,8 +160,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
       await deleteFile(containerId, filePath)
       addToast('Deleted', 'success')
       loadFiles(currentPath)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to delete', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
     setOperating(null)
   }
@@ -176,8 +176,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
       setRenamingFile(null)
       setRenameName('')
       loadFiles(currentPath)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to rename', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -190,8 +190,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
       setShowNewFile(false)
       setNewFileName('')
       loadFiles(currentPath)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to create file', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -204,8 +204,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
       setShowNewDir(false)
       setNewDirName('')
       loadFiles(currentPath)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to create directory', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -214,8 +214,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
       const content = await readFile(containerId, filePath)
       setEditingFile(filePath)
       setEditContent(content)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to read file', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -225,8 +225,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
       await writeFile(containerId, editingFile, editContent)
       addToast('File saved', 'success')
       setEditingFile(null)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to save file', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -465,8 +465,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
               const info = await getContainerSFTP(containerId)
               setSftpInfo(info)
               setShowSftpInfo(true)
-            } catch (err: any) {
-              addToast(err.message || 'Failed to get SFTP info', 'error')
+            } catch (err: unknown) {
+              addToast(err instanceof Error ? err.message : String(err), 'error')
             }
           }}
           className="flex items-center gap-1.5 text-[10px] text-[#636d7d] hover:text-indigo-400 transition-colors"
@@ -572,8 +572,8 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
                       const { password } = await regenerateSFTPPassword(containerId)
                       setSftpInfo(prev => prev ? { ...prev, password } : prev)
                       addToast('SFTP password reset', 'success')
-                    } catch (err: any) {
-                      addToast(err.message || 'Failed to reset password', 'error')
+                    } catch (err: unknown) {
+                      addToast(err instanceof Error ? err.message : String(err), 'error')
                     } finally {
                       setResettingSftp(false)
                     }

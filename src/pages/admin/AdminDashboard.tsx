@@ -57,8 +57,8 @@ export function AdminDashboardPage() {
       setNodeName('')
       setNodeUrl('')
       fetchNodes()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to register node', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setRegisteringNode(false)
     }
@@ -69,8 +69,8 @@ export function AdminDashboardPage() {
       await removeNode(id)
       addToast('Node removed', 'success')
       fetchNodes()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to remove node', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 

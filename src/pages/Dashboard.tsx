@@ -4,7 +4,7 @@ import { getDashboardStats } from '@/api/dashboard'
 import { useSSE } from '@/hooks/useSSE'
 import { useAuth } from '@/hooks/useAuth'
 import { Card } from '@/components/ui/Card'
-import { PageLoading } from '@/components/ui/Spinner'
+import { CardSkeleton } from '@/components/ui/Skeleton'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
 import type { DashboardStats } from '@/types'
 import { formatBytes } from '@/utils'
@@ -32,7 +32,12 @@ export function DashboardPage() {
     }
   }, isAuthenticated)
 
-  if (loading) return <PageLoading />
+  if (loading) return (
+    <div className="space-y-6 page-enter">
+      <SkeletonTitle />
+      <CardSkeleton count={4} />
+    </div>
+  )
 
   return (
     <div className="space-y-6 page-enter">
@@ -188,6 +193,15 @@ export function DashboardPage() {
           </div>
         )}
       </Card>
+    </div>
+  )
+}
+
+function SkeletonTitle() {
+  return (
+    <div>
+      <div className="h-8 w-48 bg-white/[0.06] rounded animate-pulse mb-1" />
+      <div className="h-4 w-32 bg-white/[0.06] rounded animate-pulse" />
     </div>
   )
 }

@@ -49,8 +49,8 @@ export function RegisterPage() {
       setAuth(res.token, res.user)
       addToast('Account created successfully!', 'success')
       navigate('/dashboard')
-    } catch (err: any) {
-      setError(err.message || 'Registration failed')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : String(err))
     } finally {
       setLoading(false)
     }

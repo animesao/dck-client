@@ -6,6 +6,7 @@ import { useUIStore } from '@/store/uiStore'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { Spinner, PageLoading } from '@/components/ui/Spinner'
 import type { Container } from '@/types'
 import type { BackupEntry } from '@/api/files'
@@ -21,6 +22,7 @@ export function BackupsPage() {
   const [creating, setCreating] = useState(false)
   const [restoreTarget, setRestoreTarget] = useState<BackupEntry | null>(null)
   const [restoring, setRestoring] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const loadData = async () => {
     if (!id) return
@@ -31,8 +33,9 @@ export function BackupsPage() {
       ])
       setContainer(c)
       setBackups(b)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to load data', 'error')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message || 'Failed to load data', 'error')
     } finally {
       setLoading(false)
     }
@@ -47,8 +50,9 @@ export function BackupsPage() {
       const backup = await createBackup(id)
       setBackups(prev => [backup, ...prev])
       addToast('Backup created', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Backup failed', 'error')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message || 'Backup failed', 'error')
     } finally {
       setCreating(false)
     }
@@ -61,22 +65,29 @@ export function BackupsPage() {
       await restoreBackup(id, restoreTarget.name)
       addToast('Backup restored', 'success')
       setRestoreTarget(null)
-    } catch (err: any) {
-      addToast(err.message || 'Restore failed', 'error')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message || 'Restore failed', 'error')
     } finally {
       setRestoring(false)
     }
   }
 
   const handleDelete = async (name: string) => {
-    if (!id || !confirm('Delete backup ' + name + '?')) return
+    setConfirmDelete(name)
+  }
+
+  const execDelete = async () => {
+    if (!id || !confirmDelete) return
     try {
-      await deleteBackup(id, name)
-      setBackups(prev => prev.filter(b => b.name !== name))
+      await deleteBackup(id, confirmDelete)
+      setBackups(prev => prev.filter(b => b.name !== confirmDelete))
       addToast('Backup deleted', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Delete failed', 'error')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message || 'Delete failed', 'error')
     }
+    setConfirmDelete(null)
   }
 
   if (loading) return <PageLoading />
@@ -142,6 +153,15 @@ export function BackupsPage() {
           )}
         </div>
       </Card>
+
+      <ConfirmDialog
+        open={!!confirmDelete}
+        onConfirm={execDelete}
+        onCancel={() => setConfirmDelete(null)}
+        title="Delete Backup"
+        message={`Delete backup "${confirmDelete}"? This action cannot be undone.`}
+        confirmLabel="Delete"
+      />
 
       {/* Restore confirmation modal */}
       <Modal

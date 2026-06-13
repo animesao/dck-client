@@ -27,12 +27,12 @@ export function ProjectsPage() {
 
   const handleDeploy = async (dir: string) => {
     try { await deployProject(dir); addToast('Project deployed!', 'success'); fetchProjects() }
-    catch (err: any) { addToast(err.message || 'Deploy failed', 'error') }
+    catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
   }
 
   const handleDelete = async (dir: string) => {
     try { await deleteProject(dir); addToast('Project deleted', 'success'); fetchProjects() }
-    catch (err: any) { addToast(err.message || 'Delete failed', 'error') }
+    catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
   }
 
   if (loading) return <PageLoading />

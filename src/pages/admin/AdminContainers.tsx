@@ -53,8 +53,8 @@ export function AdminContainersPage() {
       else if (action === 'restart') { await restartContainer(id); addToast('Container restarted', 'success') }
       else if (action === 'delete') { await removeContainer(id, true); addToast('Container removed', 'success') }
       fetchData()
-    } catch (err: any) {
-      addToast(err.message || 'Action failed', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setActionLoading(null)
     }
@@ -69,8 +69,8 @@ export function AdminContainersPage() {
       setChangeOwnerOpen(false)
       setChangeOwnerContainer(null)
       fetchData()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to change owner', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setChangeOwnerLoading(false)
     }

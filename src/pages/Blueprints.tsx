@@ -136,8 +136,8 @@ export function BlueprintsPage() {
       setImportOpen(false)
       setImportData('')
       load()
-    } catch (err: any) {
-      addToast(err.message || 'Import failed', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -145,7 +145,7 @@ export function BlueprintsPage() {
 
   const handleDeleteTemplate = async (id: string) => {
     try { await deleteTemplate(id); load(); addToast('Template deleted', 'success') }
-    catch (err: any) { addToast(err.message || 'Delete failed', 'error') }
+    catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     setDeleteTpl(null)
   }
 
@@ -158,8 +158,8 @@ export function BlueprintsPage() {
       setNewCategoryOpen(false)
       setNewCategoryName('')
       load()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to create category', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -172,8 +172,8 @@ export function BlueprintsPage() {
       addToast('Category deleted', 'success')
       if (activeCategory === categoryToDelete) setActiveCategory('all')
       load()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to delete category', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
     setCategoryToDelete(null)
   }
@@ -218,9 +218,8 @@ export function BlueprintsPage() {
       setDeployVolumes([])
       setDeployVolSrc([])
       setDeployEnv([])
-    } catch (err: any) {
-      console.error('Deploy error:', err)
-      addToast(err.message || 'Failed to deploy', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setSubmitting(false)
     }
@@ -350,9 +349,8 @@ export function BlueprintsPage() {
                         cpus: tpl.cpus || undefined,
                       })
                       addToast('Container created from template!', 'success')
-                    } catch (err: any) {
-                      console.error('Deploy error:', err)
-                      addToast(err.message || 'Failed to deploy', 'error')
+                    } catch (err: unknown) {
+                      addToast(err instanceof Error ? err.message : String(err), 'error')
                     }
                   }}>
                     <Rocket size={14} /> Deploy

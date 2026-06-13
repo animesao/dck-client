@@ -106,8 +106,8 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
       setSelectedTag(tag)
       setForm(f => ({ ...f, image: config.image + ':' + tag }))
       addToast(`Pulled ${config.image}:${tag}`, 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed to pull image', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setPullingTag('')
     }
@@ -180,8 +180,8 @@ export function CreateContainerModal({ open, onClose, onSuccess, adminMode, user
       onSuccess()
       onClose()
       resetForm()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to create container', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setLoading(false)
     }

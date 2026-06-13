@@ -82,7 +82,7 @@ export function AdminUsersPage() {
       addToast('Limits updated', 'success')
       setEditUser(null)
       fetchUsers()
-    } catch (err: any) { addToast(err.message, 'error') }
+    } catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setSavingLimits(false) }
   }
 
@@ -94,7 +94,7 @@ export function AdminUsersPage() {
       addToast('Password changed', 'success')
       setPasswordModal(null)
       setNewPassword('')
-    } catch (err: any) { addToast(err.message, 'error') }
+    } catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setSavingPassword(false) }
   }
 
@@ -107,7 +107,7 @@ export function AdminUsersPage() {
       setEmailModal(null)
       setNewEmail('')
       fetchUsers()
-    } catch (err: any) { addToast(err.message, 'error') }
+    } catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setSavingEmail(false) }
   }
 
@@ -181,7 +181,7 @@ export function AdminUsersPage() {
                       value={u.role}
                       onChange={async (e) => {
                         try { await updateUser(u.id, { role: e.target.value }); addToast('Role updated', 'success'); fetchUsers() }
-                        catch (err: any) { addToast(err.message, 'error') }
+                        catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
                       }}
                     >
                       {roles.map(r => (
@@ -212,7 +212,7 @@ export function AdminUsersPage() {
                     <button onClick={async () => {
                       if (confirm(`Delete user "${u.username}"?`)) {
                         try { await deleteUser(u.id); addToast('User deleted', 'success'); fetchUsers() }
-                        catch (err: any) { addToast(err.message, 'error') }
+                        catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
                       }
                     }} className="p-1.5 rounded hover:bg-white/10 text-red-400 hover:text-red-300" title="Delete user">
                       <Trash2 size={13} />
@@ -318,7 +318,7 @@ function CreateUserModal({ open, onClose, onSuccess }: { open: boolean; onClose:
     e.preventDefault()
     setLoading(true)
     try { await createUser(username, password, role, email); addToast('User created', 'success'); onSuccess(); onClose(); setUsername(''); setPassword(''); setEmail(''); setRole('user') }
-    catch (err: any) { addToast(err.message, 'error') }
+    catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setLoading(false) }
   }
 

@@ -7,7 +7,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { getPublicSettings } from '@/api/settings'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
-import { PageLoading, Spinner } from '@/components/ui/Spinner'
+import { Spinner } from '@/components/ui/Spinner'
+import { TableSkeleton } from '@/components/ui/Skeleton'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Pagination } from '@/components/ui/Pagination'
 import { ContainerStatusBadge } from '@/components/containers/ContainerStatusBadge'
 import { CreateContainerModal } from '@/components/containers/CreateContainerModal'
 import { formatRelativeTime, truncate } from '@/utils'
@@ -35,12 +38,18 @@ export function ContainersPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
   const [canCreate, setCanCreate] = useState(true)
+  const [confirmAction, setConfirmAction] = useState<{ id: string; action: 'stop' | 'delete' } | null>(null)
+  const [page, setPage] = useState(1)
+  const pageSize = 20
 
   const fetchContainers = async () => {
     try {
       const data = await listContainers(showAll)
       setContainers(data)
-    } catch {} finally {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message, 'error')
+    } finally {
       setLoading(false)
     }
   }
@@ -62,6 +71,14 @@ export function ContainersPage() {
   })
 
   const handleAction = async (id: string, action: 'start' | 'stop' | 'restart' | 'delete') => {
+    if (action === 'stop' || action === 'delete') {
+      setConfirmAction({ id, action })
+      return
+    }
+    await execAction(id, action)
+  }
+
+  const execAction = async (id: string, action: 'start' | 'stop' | 'restart' | 'delete') => {
     setActionLoading(id)
     try {
       if (action === 'start') { await startContainer(id); addToast('Container started', 'success') }
@@ -69,11 +86,18 @@ export function ContainersPage() {
       else if (action === 'restart') { await restartContainer(id); addToast('Container restarted', 'success') }
       else if (action === 'delete') { await removeContainer(id, true); addToast('Container removed', 'success') }
       fetchContainers()
-    } catch (err: any) {
-      addToast(err.message || `Failed to ${action}`, 'error')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message || `Failed to ${action}`, 'error')
     } finally {
       setActionLoading(null)
     }
+  }
+
+  const handleConfirmAction = () => {
+    if (!confirmAction) return
+    execAction(confirmAction.id, confirmAction.action)
+    setConfirmAction(null)
   }
 
   const filtered = containers.filter(c =>
@@ -82,7 +106,12 @@ export function ContainersPage() {
     c.image?.toLowerCase().includes(search.toLowerCase())
   )
 
-  if (loading) return <PageLoading />
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  useEffect(() => { setPage(1) }, [search])
+
+  if (loading) return <TableSkeleton rows={6} cols={4} />
 
   return (
     <div className="space-y-5 page-enter">
@@ -155,7 +184,7 @@ export function ContainersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {filtered.map(c => (
+                  {paginated.map(c => (
                     <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-4 py-3.5">
                         <ContainerStatusBadge status={c.status} />
@@ -204,7 +233,7 @@ export function ContainersPage() {
 
               {/* Mobile cards */}
               <div className="divide-y divide-white/[0.04] md:hidden">
-                {filtered.map(c => (
+                {paginated.map(c => (
                   <div key={c.id} className="px-4 py-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2" onClick={() => navigate(`/containers/${c.id}`)}>
@@ -246,6 +275,29 @@ export function ContainersPage() {
           )}
         </div>
       </Card>
+
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!confirmAction}
+        onConfirm={handleConfirmAction}
+        onCancel={() => setConfirmAction(null)}
+        title={confirmAction?.action === 'delete' ? 'Delete Container' : 'Stop Container'}
+        message={
+          confirmAction?.action === 'delete'
+            ? 'This will permanently remove the container and all its data. This action cannot be undone.'
+            : 'This will stop the running container. Any unsaved data may be lost.'
+        }
+        confirmLabel={confirmAction?.action === 'delete' ? 'Delete' : 'Stop'}
+      />
 
       <CreateContainerModal open={createOpen} onClose={() => setCreateOpen(false)} onSuccess={fetchContainers} />
     </div>

@@ -100,7 +100,7 @@ export function ContainerDetailPage() {
       else if (action === 'restart') { await restartContainer(id); addToast('Container restarted', 'success') }
       else if (action === 'delete') { await removeContainer(id, true); addToast('Container removed', 'success'); navigate('/containers'); return }
       fetchData()
-    } catch (err: any) { addToast(err.message || 'Action failed', 'error') }
+    } catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setActionLoading(false) }
   }
 
@@ -110,8 +110,8 @@ export function ContainerDetailPage() {
       await removeContainerPort(id, hostPort)
       addToast('Port removed', 'success')
       fetchData()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to remove port', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -129,8 +129,8 @@ export function ContainerDetailPage() {
       setNewPortContainer('')
       setNewPortHost('')
       fetchData()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to add port', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setAddingPort(false)
     }
@@ -139,19 +139,19 @@ export function ContainerDetailPage() {
   const loadLogs = async () => {
     if (!id) return
     try { const res = await getContainerLogs(id); setLogs(res.logs || 'No logs') }
-    catch (err: any) { setLogs(`Error: ${err.message}`) }
+    catch (err: unknown) { setLogs(`Error: ${err instanceof Error ? err.message : String(err)}`) }
   }
 
   const loadState = async () => {
     if (!id) return
     try { const res = await getContainerState(id); setState(JSON.stringify(res.state || res, null, 2)) }
-    catch (err: any) { setState(`Error: ${err.message}`) }
+    catch (err: unknown) { setState(`Error: ${err instanceof Error ? err.message : String(err)}`) }
   }
 
   const handleExec = async () => {
     if (!id || !execCmd) return
     try { const res = await execContainer(id, execCmd); setExecOutput(res.output || `Exit code: ${res.exit_code}`) }
-    catch (err: any) { setExecOutput(`Error: ${err.message}`) }
+    catch (err: unknown) { setExecOutput(`Error: ${err instanceof Error ? err.message : String(err)}`) }
   }
 
   const handleSaveStartup = async () => {
@@ -160,8 +160,8 @@ export function ContainerDetailPage() {
     try {
       await updateContainerConfig(id, { cmd: startupCmd, startup_script: startupScript, restart: restartPolicy, image: containerImage })
       addToast('Startup command saved', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed to save startup command', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
     setSavingStartup(false)
   }
@@ -177,8 +177,8 @@ export function ContainerDetailPage() {
       a.click()
       URL.revokeObjectURL(url)
       addToast('Template exported', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed to export template', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -400,8 +400,8 @@ export function ContainerDetailPage() {
                         await reinstallContainer(id!, containerImage)
                         addToast('Container reinstalled', 'success')
                         fetchData()
-                      } catch (err: any) {
-                        addToast(err.message || 'Reinstall failed', 'error')
+                      } catch (err: unknown) {
+                        addToast(err instanceof Error ? err.message : String(err), 'error')
                       } finally {
                         setActionLoading(false)
                       }
@@ -582,8 +582,8 @@ function ContainerBackupsTab({ containerId }: { containerId: string }) {
       const b = await createBackup(containerId)
       setBackups(prev => [b, ...prev])
       addToast('Backup created', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
     setCreating(false)
   }
@@ -595,8 +595,8 @@ function ContainerBackupsTab({ containerId }: { containerId: string }) {
       await restoreBackup(containerId, restoreTarget)
       addToast('Backup restored', 'success')
       setRestoreTarget(null)
-    } catch (err: any) {
-      addToast(err.message || 'Restore failed', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
     setRestoring(false)
   }
@@ -607,8 +607,8 @@ function ContainerBackupsTab({ containerId }: { containerId: string }) {
       await deleteBackup(containerId, name)
       setBackups(prev => prev.filter(b => b.name !== name))
       addToast('Deleted', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -828,8 +828,8 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
     try {
       const data = await listCollaborators(containerId)
       setPerms(data || [])
-    } catch (err: any) {
-      addToast(err.message || 'Failed to load collaborators', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setLoading(false)
     }
@@ -869,8 +869,8 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
       setShowAdder(false)
       addToast('Collaborator added', 'success')
       load()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to add collaborator', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setAdding(false)
     }
@@ -881,8 +881,8 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
       await removeCollaborator(containerId, userId)
       addToast('Collaborator removed', 'success')
       load()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to remove collaborator', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -894,8 +894,8 @@ function ContainerCollaboratorsTab({ containerId }: { containerId: string }) {
       cancelEditing()
       addToast('Permissions updated', 'success')
       load()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to update permissions', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 
@@ -1083,8 +1083,8 @@ function ContainerSFTPTab({ containerId }: { containerId: string }) {
     try {
       const info = await getContainerSFTP(containerId)
       setSftpInfo(info)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to load SFTP info', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setLoading(false)
     }
@@ -1098,8 +1098,8 @@ function ContainerSFTPTab({ containerId }: { containerId: string }) {
       const { password } = await regenerateSFTPPassword(containerId)
       setSftpInfo(prev => prev ? { ...prev, password } : prev)
       addToast('SFTP password reset', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed to reset password', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setResetting(false)
     }
@@ -1181,8 +1181,8 @@ function ContainerActivityTab({ containerId }: { containerId: string }) {
     try {
       const data = await getContainerActivity(containerId, 100)
       setLogs(data || [])
-    } catch (err: any) {
-      addToast(err.message || 'Failed to load activity', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setLoading(false)
     }

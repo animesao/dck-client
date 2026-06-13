@@ -56,7 +56,7 @@ export function SettingsPage() {
     try {
       await updateProfile({ email: emailValue })
       addToast('Email updated', 'success')
-    } catch (err: any) { addToast(err.message || 'Failed to update email', 'error') }
+    } catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setEmailLoading(false) }
   }
 
@@ -68,8 +68,8 @@ export function SettingsPage() {
       setOldPwd('')
       setNewPwd('')
       addToast('Password changed', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed to change password', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setPwdLoading(false)
     }
@@ -82,8 +82,8 @@ export function SettingsPage() {
       setTwoFASecret(res.secret)
       setTwoFAURL(res.url)
       setShowSetup(true)
-    } catch (err: any) {
-      addToast(err.message || 'Failed to setup 2FA', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setTwoFALoading(false)
     }
@@ -98,8 +98,8 @@ export function SettingsPage() {
       setShowSetup(false)
       setTwoFACode('')
       addToast('2FA enabled', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Invalid code', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     } finally {
       setTwoFALoading(false)
     }
@@ -111,8 +111,8 @@ export function SettingsPage() {
       setTwoFAEnabled(false)
       setTwoFASecret('')
       addToast('2FA disabled', 'success')
-    } catch (err: any) {
-      addToast(err.message || 'Failed to disable 2FA', 'error')
+    } catch (err: unknown) {
+      addToast(err instanceof Error ? err.message : String(err), 'error')
     }
   }
 

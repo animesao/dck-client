@@ -25,20 +25,20 @@ export function ConfigPage() {
   const handleSave = async () => {
     setSaving(true)
     try { await saveConfig(content); addToast('Config saved!', 'success'); setModified(false) }
-    catch (err: any) { addToast(err.message || 'Save failed', 'error') }
+    catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setSaving(false) }
   }
 
   const handleDeploy = async () => {
     setDeploying(true)
     try { await deployConfig(); addToast('Config deployed!', 'success') }
-    catch (err: any) { addToast(err.message || 'Deploy failed', 'error') }
+    catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setDeploying(false) }
   }
 
   const handleDown = async () => {
     try { await downConfig(); addToast('Services stopped', 'success') }
-    catch (err: any) { addToast(err.message || 'Down failed', 'error') }
+    catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
   }
 
   if (loading) return <PageLoading />

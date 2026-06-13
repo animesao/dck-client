@@ -69,7 +69,7 @@ export function AdminRolesPage() {
                       onClick={async () => {
                         if (confirm(`Delete role "${r.name}"? Users with this role will be reassigned to "user".`)) {
                           try { await deleteRole(r.name); addToast('Role deleted', 'success'); fetchRoles() }
-                          catch (err: any) { addToast(err.message, 'error') }
+                          catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
                         }
                       }}
                       className="p-1.5 rounded hover:bg-white/10 text-red-400 hover:text-red-300"
@@ -108,7 +108,7 @@ function CreateRoleModal({ open, onClose, onSuccess }: { open: boolean; onClose:
       setName('')
       setColor('#6366f1')
       setIsAdmin(false)
-    } catch (err: any) { addToast(err.message, 'error') }
+    } catch (err: unknown) { addToast(err instanceof Error ? err.message : String(err), 'error') }
     finally { setLoading(false) }
   }
 

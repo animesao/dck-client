@@ -4,7 +4,9 @@ import { useUIStore } from '@/store/uiStore'
 import { Card, CardContent } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { PageLoading } from '@/components/ui/Spinner'
+import { TableSkeleton } from '@/components/ui/Skeleton'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
+import { Pagination } from '@/components/ui/Pagination'
 import { formatRelativeTime } from '@/utils'
 import type { Image } from '@/types'
 import { Trash2, Download, HardDrive, RefreshCw, Search } from 'lucide-react'
@@ -16,6 +18,9 @@ export function ImagesPage() {
   const [pullName, setPullName] = useState('')
   const [pulling, setPulling] = useState(false)
   const [search, setSearch] = useState('')
+  const [confirmRemove, setConfirmRemove] = useState<{ name: string; tag: string } | null>(null)
+  const [page, setPage] = useState(1)
+  const pageSize = 20
 
   const fetchImages = async () => {
     try {
@@ -34,26 +39,39 @@ export function ImagesPage() {
       addToast(`Image "${pullName.trim()}" pulled successfully`, 'success')
       setPullName('')
       fetchImages()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to pull image', 'error')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message || 'Failed to pull image', 'error')
     } finally { setPulling(false) }
   }
 
   const handleRemove = async (name: string, tag: string) => {
+    setConfirmRemove({ name, tag })
+  }
+
+  const execRemove = async () => {
+    if (!confirmRemove) return
     try {
-      await removeImage(name, tag)
+      await removeImage(confirmRemove.name, confirmRemove.tag)
       addToast('Image removed', 'success')
       fetchImages()
-    } catch (err: any) {
-      addToast(err.message || 'Failed to remove image', 'error')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      addToast(message || 'Failed to remove image', 'error')
     }
+    setConfirmRemove(null)
   }
 
   const filtered = images.filter(i =>
     !search || i.name.toLowerCase().includes(search.toLowerCase()) || i.tag.toLowerCase().includes(search.toLowerCase())
   )
 
-  if (loading) return <PageLoading />
+  const totalPages = Math.ceil(filtered.length / pageSize)
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  useEffect(() => { setPage(1) }, [search])
+
+  if (loading) return <TableSkeleton rows={5} cols={4} />
 
   return (
     <div className="space-y-5 page-enter">
@@ -112,7 +130,7 @@ export function ImagesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
-                  {filtered.map(img => (
+                  {paginated.map(img => (
                     <tr key={`${img.name}:${img.tag}`} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
@@ -147,7 +165,7 @@ export function ImagesPage() {
 
               {/* Mobile cards */}
               <div className="divide-y divide-white/[0.04] md:hidden">
-                {filtered.map(img => (
+                {paginated.map(img => (
                   <div key={`${img.name}:${img.tag}`} className="px-4 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500/20 to-indigo-600/10 flex items-center justify-center border border-indigo-500/10 shrink-0">
@@ -170,6 +188,25 @@ export function ImagesPage() {
           )}
         </div>
       </Card>
+
+      {filtered.length > 0 && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!confirmRemove}
+        onConfirm={execRemove}
+        onCancel={() => setConfirmRemove(null)}
+        title="Remove Image"
+        message={`Are you sure you want to remove "${confirmRemove?.name}:${confirmRemove?.tag}"? This cannot be undone.`}
+        confirmLabel="Remove"
+      />
     </div>
   )
 }
