@@ -64,10 +64,12 @@ function fileIcon(name: string, isDir: boolean) {
   }
 }
 
+const FS_ROOT = '/home/container'
+
 export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
   const addToast = useUIStore(s => s.addToast)
   const [files, setFiles] = useState<FileEntry[]>([])
-  const [currentPath, setCurrentPath] = useState('/')
+  const [currentPath, setCurrentPath] = useState(FS_ROOT)
   const [loading, setLoading] = useState(true)
   const [operating, setOperating] = useState<string | null>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
@@ -101,7 +103,7 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
     }
   }, [containerId, addToast])
 
-  useEffect(() => { loadFiles('/') }, [])
+  useEffect(() => { loadFiles(FS_ROOT) }, [])
 
   const filtered = search
     ? files.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
@@ -184,7 +186,7 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
   const handleCreateFile = async () => {
     if (!newFileName) return
     try {
-      const fp = currentPath === '/' ? '/' + newFileName : currentPath + '/' + newFileName
+      const fp = currentPath.endsWith('/') ? currentPath + newFileName : currentPath + '/' + newFileName
       await writeFile(containerId, fp, '')
       addToast('File created', 'success')
       setShowNewFile(false)
@@ -198,7 +200,7 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
   const handleCreateDir = async () => {
     if (!newDirName) return
     try {
-      const dp = currentPath === '/' ? '/' + newDirName : currentPath + '/' + newDirName
+      const dp = currentPath.endsWith('/') ? currentPath + newDirName : currentPath + '/' + newDirName
       await mkdir(containerId, dp)
       addToast('Directory created', 'success')
       setShowNewDir(false)
@@ -230,10 +232,10 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
     }
   }
 
-  const breadcrumbs = currentPath.split('/').filter(Boolean)
+  const breadcrumbs = currentPath.replace(FS_ROOT, '').split('/').filter(Boolean)
   const parentPath = breadcrumbs.length > 0
-    ? '/' + breadcrumbs.slice(0, -1).join('/')
-    : '/'
+    ? FS_ROOT + '/' + breadcrumbs.slice(0, -1).join('/')
+    : FS_ROOT
 
   const enterDir = (p: string) => { setLoading(true); loadFiles(p) }
 
@@ -304,12 +306,12 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
 
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1 text-xs mb-3 text-[#636d7d] overflow-x-auto scrollbar-none">
-        <button onClick={() => enterDir('/')} className="hover:text-[#e6edf3] transition-colors p-1 shrink-0">
+        <button onClick={() => enterDir(FS_ROOT)} className="hover:text-[#e6edf3] transition-colors p-1 shrink-0">
           <Home size={14} />
         </button>
-        {currentPath !== '/' && <ChevronRight size={10} className="shrink-0" />}
+        {currentPath !== FS_ROOT && <ChevronRight size={10} className="shrink-0" />}
         {breadcrumbs.map((crumb, i) => {
-          const p = '/' + breadcrumbs.slice(0, i + 1).join('/')
+          const p = FS_ROOT + '/' + breadcrumbs.slice(0, i + 1).join('/')
           const isLast = i === breadcrumbs.length - 1
           return (
             <span key={i} className="flex items-center gap-1 min-w-0">
@@ -339,7 +341,7 @@ export function FileBrowser({ containerId, fullPage }: FileBrowserProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.03]">
-              {currentPath !== '/' && (
+              {currentPath !== FS_ROOT && (
                 <tr className="hover:bg-white/[0.02] cursor-pointer transition-colors" onClick={() => enterDir(parentPath)}>
                   <td className="px-4 py-2.5" colSpan={4}>
                     <div className="flex items-center gap-3">
