@@ -392,12 +392,23 @@ func (c *Client) localRestartContainer(id string) error {
 }
 
 func (c *Client) localRemoveContainer(id string, force bool) error {
+	// Read container volumes before removal (state file deleted by dck rm)
+	ct, err := c.GetContainer(id)
+	if err == nil && ct != nil {
+		for _, vol := range ct.Volumes {
+			if !strings.Contains(vol.Source, "/") && !strings.Contains(vol.Source, "\\") {
+				volPath := filepath.Join(c.VolumesDir(), vol.Source)
+				os.RemoveAll(volPath)
+			}
+		}
+	}
+
 	args := []string{"rm"}
 	if force {
 		args = append(args, "-f")
 	}
 	args = append(args, id)
-	_, err := c.run(args...)
+	_, err = c.run(args...)
 	return err
 }
 
