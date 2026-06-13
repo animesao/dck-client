@@ -304,9 +304,29 @@ func (c *Client) localCreateContainer(image, name, ports, volumes, env, restart,
 	if ports != "" {
 		args = append(args, "-p", strings.Join(strings.Fields(ports), ","))
 	}
+	// Always mount /home/container and /data to the same named volume
+	volName := name
+	if volName == "" {
+		volName = strings.ReplaceAll(image, "/", "_")
+		volName = strings.ReplaceAll(volName, ":", "_")
+	}
+	hasHomeVolume := false
+	for _, v := range strings.Fields(volumes) {
+		parts := strings.SplitN(v, ":", 2)
+		if len(parts) == 2 && parts[1] == "/home/container" {
+			hasHomeVolume = true
+		}
+	}
 	if volumes != "" {
 		args = append(args, "-v", strings.Join(strings.Fields(volumes), ","))
 	}
+	if !hasHomeVolume {
+		args = append(args, "-v", "data_"+volName+":/home/container")
+		args = append(args, "-v", "data_"+volName+":/data")
+	}
+	args = append(args, "--workdir", "/home/container")
+	args = append(args, "-e", "DATA_DIR=/home/container")
+	args = append(args, "-e", "DATA_PATH=/home/container")
 	for _, e := range strings.Fields(env) {
 		args = append(args, "-e", e)
 	}
