@@ -44,7 +44,7 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, claim
 func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
 
-	overlayPath, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Container filesystem not available")
 		return
@@ -56,7 +56,7 @@ func (s *Server) handleCreateBackup(w http.ResponseWriter, r *http.Request, clai
 	backupName := fmt.Sprintf("backup-%s-%s", id[:12], time.Now().Format("20060102-150405"))
 	backupFile := filepath.Join(backupDir, backupName+".zip")
 
-	if err := zipDir(overlayPath, backupFile); err != nil {
+	if err := zipDir(cr.path, backupFile); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Backup failed: %s", err))
 		return
 	}
@@ -146,18 +146,18 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, cla
 		return
 	}
 
-	overlayPath, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Container filesystem not available")
 		return
 	}
 
-	entries, _ := os.ReadDir(overlayPath)
+	entries, _ := os.ReadDir(cr.path)
 	for _, e := range entries {
-		os.RemoveAll(filepath.Join(overlayPath, e.Name()))
+		os.RemoveAll(filepath.Join(cr.path, e.Name()))
 	}
 
-	if err := unzipFile(backupFile, overlayPath); err != nil {
+	if err := unzipFile(backupFile, cr.path); err != nil {
 		writeError(w, http.StatusInternalServerError, fmt.Sprintf("Restore failed: %s", err))
 		return
 	}

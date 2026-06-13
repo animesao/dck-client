@@ -12,31 +12,34 @@ import (
 	"dck-panel/dck"
 )
 
-func (s *Server) getContainerRoot(id string) (string, error) {
+type containerRoot struct {
+	path      string // absolute path on host filesystem
+	hasVolume bool   // true when path is a named volume (data dir IS the root)
+}
+
+func (s *Server) getContainerRoot(id string) (*containerRoot, error) {
 	c, err := s.dck.GetContainer(id)
 	if err != nil {
-		return "", fmt.Errorf("container %s not found", id)
+		return nil, fmt.Errorf("container %s not found", id)
 	}
 
-	targetDir := s.getContainerDataDir(c)
-
-	// If container has a named volume mounted to the target dir, use it directly
-	// (works even when container is stopped — like Pterodactyl)
-	if len(c.Volumes) > 0 {
-		for _, vol := range c.Volumes {
-			if vol.Target == targetDir && !strings.Contains(vol.Source, "/") && !strings.Contains(vol.Source, "\\") {
-				volPath := filepath.Join(s.dck.VolumesDir(), vol.Source)
-				if info, err := os.Stat(volPath); err == nil && info.IsDir() {
-					abs, _ := filepath.Abs(volPath)
-					if abs == "/" {
-						return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
-					}
-					return abs, nil
+	// If container has named volumes, read from the host volume path directly.
+	// This works like Pterodactyl: files are visible even when container is stopped,
+	// and shows actual volume content (not overlay) when running.
+	for _, vol := range c.Volumes {
+		if !strings.Contains(vol.Source, "/") && !strings.Contains(vol.Source, "\\") {
+			volPath := filepath.Join(s.dck.VolumesDir(), vol.Source)
+			if info, err := os.Stat(volPath); err == nil && info.IsDir() {
+				abs, _ := filepath.Abs(volPath)
+				if abs == "/" {
+					return nil, fmt.Errorf("container %s filesystem would resolve to host root", id)
 				}
+				return &containerRoot{path: abs, hasVolume: true}, nil
 			}
 		}
 	}
 
+	targetDir := s.getContainerDataDir(c)
 	overlayBase := filepath.Dir(s.dck.OverlayPath(id))
 
 	// When disk limit is set, the writable layer lives inside the data mount
@@ -55,11 +58,11 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		if err == nil && info.IsDir() {
 			abs, _ := filepath.Abs(root)
 			if abs == "/" {
-				return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
+				return nil, fmt.Errorf("container %s filesystem would resolve to host root", id)
 			}
-			targetPath := filepath.Join(root, targetDir)
+			targetPath := filepath.Join(abs, targetDir)
 			os.MkdirAll(targetPath, 0755)
-			return targetPath, nil
+			return &containerRoot{path: targetPath}, nil
 		}
 	}
 
@@ -68,14 +71,14 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 	if err == nil && info.IsDir() {
 		abs, _ := filepath.Abs(upperDir)
 		if abs == "/" {
-			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
+			return nil, fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
-		targetPath := filepath.Join(upperDir, targetDir)
+		targetPath := filepath.Join(abs, targetDir)
 		os.MkdirAll(targetPath, 0755)
-		return targetPath, nil
+		return &containerRoot{path: targetPath}, nil
 	}
 
-	return "", fmt.Errorf("container %s filesystem not available", id)
+	return nil, fmt.Errorf("container %s filesystem not available", id)
 }
 
 func (s *Server) getContainerDataDir(c *dck.Container) string {
@@ -89,18 +92,34 @@ func (s *Server) getContainerDataDir(c *dck.Container) string {
 	return "/home/container"
 }
 
-func safePath(root, requested string) (string, error) {
+func safePath(cr *containerRoot, requested string) (string, error) {
 	clean := filepath.Clean(requested)
 	if clean == "." || clean == "/" {
-		return root, nil
+		return cr.path, nil
 	}
 	clean = strings.TrimPrefix(clean, "/")
-	full := filepath.Join(root, clean)
+
+	// When using a volume, the volume root IS the container's data dir.
+	// The frontend sends paths like /home/container which don't exist
+	// relative to the volume root — strip the leading component.
+	if cr.hasVolume {
+		parts := strings.SplitN(clean, "/", 2)
+		if len(parts) == 2 {
+			clean = parts[1]
+		} else {
+			clean = ""
+		}
+		if clean == "" {
+			return cr.path, nil
+		}
+	}
+
+	full := filepath.Join(cr.path, clean)
 	abs, err := filepath.Abs(full)
 	if err != nil {
 		return "", err
 	}
-	rootAbs, err := filepath.Abs(root)
+	rootAbs, err := filepath.Abs(cr.path)
 	if err != nil {
 		return "", err
 	}
@@ -126,7 +145,7 @@ type FileEntry struct {
 
 func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	root, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -137,7 +156,7 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request, claims 
 		dirPath = "/"
 	}
 
-	fullPath, err := safePath(root, dirPath)
+	fullPath, err := safePath(cr, dirPath)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -172,7 +191,7 @@ func (s *Server) handleListFiles(w http.ResponseWriter, r *http.Request, claims 
 
 func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	root, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -184,7 +203,7 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request, claims *
 		return
 	}
 
-	fullPath, err := safePath(root, filePath)
+	fullPath, err := safePath(cr, filePath)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -215,7 +234,7 @@ func (s *Server) handleReadFile(w http.ResponseWriter, r *http.Request, claims *
 
 func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	root, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -230,7 +249,7 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request, claims 
 		return
 	}
 
-	fullPath, err := safePath(root, req.Path)
+	fullPath, err := safePath(cr, req.Path)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -251,7 +270,7 @@ func (s *Server) handleWriteFile(w http.ResponseWriter, r *http.Request, claims 
 
 func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	root, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -270,7 +289,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request, claims
 		destDir = "/"
 	}
 
-	dirPath, err := safePath(root, destDir)
+	dirPath, err := safePath(cr, destDir)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -303,7 +322,7 @@ func (s *Server) handleUploadFile(w http.ResponseWriter, r *http.Request, claims
 
 func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	root, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -315,7 +334,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request, claims
 		return
 	}
 
-	fullPath, err := safePath(root, filePath)
+	fullPath, err := safePath(cr, filePath)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -333,7 +352,7 @@ func (s *Server) handleDeleteFile(w http.ResponseWriter, r *http.Request, claims
 
 func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	root, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -347,7 +366,7 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request, claims *Use
 		return
 	}
 
-	fullPath, err := safePath(root, req.Path)
+	fullPath, err := safePath(cr, req.Path)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -365,7 +384,7 @@ func (s *Server) handleMkdir(w http.ResponseWriter, r *http.Request, claims *Use
 
 func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request, claims *UserClaims) {
 	id := r.PathValue("id")
-	root, err := s.getContainerRoot(id)
+	cr, err := s.getContainerRoot(id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -380,13 +399,13 @@ func (s *Server) handleRenameFile(w http.ResponseWriter, r *http.Request, claims
 		return
 	}
 
-	oldFull, err := safePath(root, req.OldPath)
+	oldFull, err := safePath(cr, req.OldPath)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	newFull, err := safePath(root, req.NewPath)
+	newFull, err := safePath(cr, req.NewPath)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
