@@ -18,6 +18,25 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		return "", fmt.Errorf("container %s not found", id)
 	}
 
+	targetDir := s.getContainerDataDir(c)
+
+	// If container has a named volume mounted to the target dir, use it directly
+	// (works even when container is stopped — like Pterodactyl)
+	if len(c.Volumes) > 0 {
+		for _, vol := range c.Volumes {
+			if vol.Target == targetDir && !strings.Contains(vol.Source, "/") && !strings.Contains(vol.Source, "\\") {
+				volPath := filepath.Join(s.dck.VolumesDir(), vol.Source)
+				if info, err := os.Stat(volPath); err == nil && info.IsDir() {
+					abs, _ := filepath.Abs(volPath)
+					if abs == "/" {
+						return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
+					}
+					return abs, nil
+				}
+			}
+		}
+	}
+
 	overlayBase := filepath.Dir(s.dck.OverlayPath(id))
 
 	// When disk limit is set, the writable layer lives inside the data mount
@@ -38,10 +57,9 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 			if abs == "/" {
 				return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 			}
-			dataDir := s.getContainerDataDir(c)
-			dataPath := filepath.Join(root, dataDir)
-			os.MkdirAll(dataPath, 0755)
-			return dataPath, nil
+			targetPath := filepath.Join(root, targetDir)
+			os.MkdirAll(targetPath, 0755)
+			return targetPath, nil
 		}
 	}
 
@@ -52,10 +70,9 @@ func (s *Server) getContainerRoot(id string) (string, error) {
 		if abs == "/" {
 			return "", fmt.Errorf("container %s filesystem would resolve to host root", id)
 		}
-		dataDir := s.getContainerDataDir(c)
-		dataPath := filepath.Join(upperDir, dataDir)
-		os.MkdirAll(dataPath, 0755)
-		return dataPath, nil
+		targetPath := filepath.Join(upperDir, targetDir)
+		os.MkdirAll(targetPath, 0755)
+		return targetPath, nil
 	}
 
 	return "", fmt.Errorf("container %s filesystem not available", id)

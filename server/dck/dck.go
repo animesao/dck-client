@@ -501,6 +501,10 @@ func (c *Client) BackupDir() string {
 	return filepath.Join(c.DataDir, "backups")
 }
 
+func (c *Client) VolumesDir() string {
+	return filepath.Join(c.DataDir, "volumes")
+}
+
 type ImageConfig struct {
 	Config struct {
 		WorkingDir string `json:"WorkingDir"`

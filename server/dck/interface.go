@@ -30,5 +30,6 @@ type ClientInterface interface {
 	OverlayPath(id string) string
 	OverlayDiffPath(id string) string
 	LogPath(id string) string
+	VolumesDir() string
 	ReadImageWorkingDir(imageName, imageTag string) string
 }
